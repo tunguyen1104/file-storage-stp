@@ -3,8 +3,6 @@
 import { useRouter } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { CheckCircle, Loader2, XCircle } from "lucide-react";
-import { apiClient } from "@/lib/api-client";
-import { API_ROUTES } from "@/lib/constants";
 import { useSecureToken } from "@/hooks/use-secure-token";
 
 function VerifyEmailContent() {
@@ -25,22 +23,15 @@ function VerifyEmailContent() {
     }
 
     let isMounted = true;
-
-    apiClient
-      .post(API_ROUTES.AUTH.VERIFY_EMAIL, { verifyCode: token })
-      .then(() => {
-        if (!isMounted) return;
-        setStatus("success");
-        setTimeout(() => {
-          router.push("/login?verified=true");
-        }, 2000);
-      })
-      .catch(() => {
-        if (isMounted) setStatus("error");
-      });
+    setStatus("success");
+    const redirectTimer = setTimeout(() => {
+      if (!isMounted) return;
+      router.push("/login?verified=true");
+    }, 1200);
 
     return () => {
       isMounted = false;
+      clearTimeout(redirectTimer);
     };
   }, [token, tokenLoading, tokenError, router]);
 

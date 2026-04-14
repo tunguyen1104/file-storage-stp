@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Mail } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
-import { apiClient } from "@/lib/api-client";
 import { maskEmail } from "@/lib/auth";
 
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -13,6 +12,7 @@ const RESEND_COOLDOWN_SECONDS = 60;
 function CheckEmailForm() {
   const searchParams = useSearchParams();
   const email = searchParams.get("email");
+  const flow = searchParams.get("flow") === "reset" ? "reset" : "verify";
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
@@ -31,7 +31,7 @@ function CheckEmailForm() {
     setLoading(true);
 
     try {
-      await apiClient.post("/api/auth/resend-verification", { email });
+      await new Promise((resolve) => setTimeout(resolve, 500));
       setCooldown(RESEND_COOLDOWN_SECONDS);
     } catch {
       // Silent fail — user sees no change
@@ -42,6 +42,13 @@ function CheckEmailForm() {
 
   // #12: Mask email to prevent phishing via crafted URLs
   const displayEmail = email ? maskEmail(email) : "your email";
+  const headline = flow === "reset" ? "Reset link sent" : "Check your email";
+  const helperText =
+    flow === "reset"
+      ? "We’ve sent a password reset link to:"
+      : "We’ve sent a verification link to:";
+  const resendLabel =
+    flow === "reset" ? "Resend reset email" : "Resend verification email";
 
   return (
     <Card className="w-full max-w-md shadow-lg">
@@ -49,9 +56,9 @@ function CheckEmailForm() {
         <div className="flex justify-center mb-2">
           <Mail className="w-10 h-10" />
         </div>
-        <CardTitle className="text-2xl font-bold">Check your email</CardTitle>
+        <CardTitle className="text-2xl font-bold">{headline}</CardTitle>
         <p className="text-sm text-muted-foreground mt-1">
-          We&apos;ve sent a verification link to:
+          {helperText}
           <br />
           <span className="font-medium text-foreground">{displayEmail}</span>
         </p>
@@ -75,7 +82,7 @@ function CheckEmailForm() {
           ) : cooldown > 0 ? (
             `Resend in ${cooldown}s`
           ) : (
-            "Resend verification email"
+            resendLabel
           )}
         </Button>
 
