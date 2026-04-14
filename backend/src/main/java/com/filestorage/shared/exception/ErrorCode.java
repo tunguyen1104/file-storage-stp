@@ -17,6 +17,8 @@ public enum ErrorCode {
     PASSWORD_MISMATCH(1005, "Passwords do not match", HttpStatus.BAD_REQUEST),
     WRONG_PASSWORD(1006, "Current password is incorrect", HttpStatus.BAD_REQUEST),
     ROLE_NOT_FOUND(1007, "Role not found", HttpStatus.INTERNAL_SERVER_ERROR),
+    TOKEN_GENERATION_FAILED(1008, "Failed to generate access token", HttpStatus.INTERNAL_SERVER_ERROR),
+    TOKEN_PARSE_FAILED(1009, "Failed to parse token", HttpStatus.INTERNAL_SERVER_ERROR),
     INTERNAL_SERVER_ERROR(9999, "errors.server-error", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final int code;
