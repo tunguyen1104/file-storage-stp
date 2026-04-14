@@ -5,5 +5,5 @@ app:
   security:
     jwt:
       accessTokenExpirationMs: ${JWT_ACCESS_TOKEN_EXPIRATION:3600}
-      refreshTokenExpirationMs: ${JWT_REFRESH_TOKEN_EXPIRATION:604800000}
+      refreshTokenExpirationMs: ${JWT_REFRESH_TOKEN_EXPIRATION:604800}
     securedCookie: false  # true in production (requires HTTPS)
