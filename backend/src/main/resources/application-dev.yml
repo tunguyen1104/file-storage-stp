@@ -1,9 +1,56 @@
-jwt:
-  secret: ${JWT_SECRET_KEY}
+spring:
+  security:
+    filter:
+      dispatcher-types: request
+
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:file-storage}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      idle-timeout: 300000
+      connection-timeout: 20000
+      validation-timeout: 5000
+      leak-detection-threshold: 60000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT}
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASSWORD}
 
 app:
   security:
     jwt:
+      secret: ${JWT_SECRET_KEY}
       accessTokenExpirationMs: ${JWT_ACCESS_TOKEN_EXPIRATION:3600}
       refreshTokenExpirationMs: ${JWT_REFRESH_TOKEN_EXPIRATION:604800}
     securedCookie: false  # true in production (requires HTTPS)
+    resetTokenExpirationMs: ${RESET_TOKEN_EXPIRATION:3600000}         # 1 hour
+    emailVerificationExpirationMs: ${VERIFY_TOKEN_EXPIRATION:86400000} # 24 hours
+  frontend:
+    base-url: ${FRONTEND_URL:http://localhost:3000}
+
+server:
+  port: 8081
