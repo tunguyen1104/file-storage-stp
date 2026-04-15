@@ -11,5 +11,7 @@ import java.util.UUID;
 public interface RoleJpaRepository extends JpaRepository<Role, UUID> {
 
     boolean existsByCode(RoleCode code);
+
+    java.util.Optional<Role> findByCode(RoleCode code);
 }
 
