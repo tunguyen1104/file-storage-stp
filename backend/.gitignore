@@ -31,3 +31,6 @@ keys/
 
 ### VS Code ###
 .vscode/
+
+redis_data/
+postgres_data/
