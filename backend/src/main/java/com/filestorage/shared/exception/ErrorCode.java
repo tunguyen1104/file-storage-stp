@@ -20,6 +20,9 @@ public enum ErrorCode {
     TOKEN_GENERATION_FAILED(1008, "Failed to generate access token", HttpStatus.INTERNAL_SERVER_ERROR),
     TOKEN_PARSE_FAILED(1009, "Failed to parse token", HttpStatus.INTERNAL_SERVER_ERROR),
     ACCOUNT_DISABLED(1010, "error.account-disabled", HttpStatus.FORBIDDEN),
+    RESET_TOKEN_INVALID(1011, "error.reset-token-invalid", HttpStatus.BAD_REQUEST),
+    VERIFY_TOKEN_INVALID(1012, "error.verify-token-invalid", HttpStatus.BAD_REQUEST),
+    ACCOUNT_ALREADY_VERIFIED(1013, "error.account-already-verified", HttpStatus.BAD_REQUEST),
     INTERNAL_SERVER_ERROR(9999, "errors.server-error", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final int code;
