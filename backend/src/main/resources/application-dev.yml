@@ -51,6 +51,9 @@ app:
     emailVerificationExpirationMs: ${VERIFY_TOKEN_EXPIRATION:86400000} # 24 hours
   frontend:
     base-url: ${FRONTEND_URL:http://localhost:3000}
-
+  seed:
+    super-admin:
+      email: ${SUPER_ADMIN_EMAIL}
+      password: ${SUPER_ADMIN_PASSWORD}
 server:
   port: 8081
