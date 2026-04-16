@@ -2,12 +2,10 @@ package com.filestorage.adapter.in.rest.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.filestorage.adapter.in.rest.advice.GlobalExceptionHandler;
+import com.filestorage.adapter.in.rest.dto.response.PageResponse;
 import com.filestorage.adapter.in.rest.dto.response.RoleSummaryResponse;
 import com.filestorage.adapter.in.rest.dto.response.UserCreatedResponse;
 import com.filestorage.adapter.in.rest.dto.response.UserDetailResponse;
-import com.filestorage.adapter.in.rest.dto.response.UserListItemResponse;
-import com.filestorage.adapter.in.rest.dto.response.UserListResponse;
-import com.filestorage.adapter.in.rest.dto.response.UserPaginationResponse;
 import com.filestorage.adapter.in.rest.dto.response.UserStorageResponse;
 import com.filestorage.adapter.in.rest.mapper.UserRestMapper;
 import com.filestorage.adapter.in.rest.security.SecurityUser;
@@ -175,28 +173,34 @@ class UserControllerTest {
     @Test
     void listUsers_returns200() throws Exception {
         var pageView = new UserPageView(List.of(sampleUserView(UUID.randomUUID())), 1, 20, 1L, 1);
-        var listResponse = new UserListResponse(
-                List.of(new UserListItemResponse(
+        var pageResponse = PageResponse.<UserDetailResponse>builder()
+                .data(List.of(new UserDetailResponse(
                         UUID.randomUUID(),
                         "a@example.com",
                         "User A",
                         new RoleSummaryResponse(UUID.randomUUID(), RoleCode.MEMBER, "Member"),
+                        actorTenantId,
                         true,
                         100L,
                         20L,
                         Instant.now(),
+                        Instant.now(),
+                        Instant.now(),
                         Instant.now()
-                )),
-                new UserPaginationResponse(1, 20, 1L, 1)
-        );
+                )))
+                .currentPage(1)
+                .pageSize(20)
+                .totalElements(1)
+                .totalPages(1)
+                .build();
 
         when(listUsersUseCase.execute(any())).thenReturn(pageView);
-        when(userRestMapper.toUserListResponse(pageView)).thenReturn(listResponse);
+        when(userRestMapper.toPageResponse(pageView)).thenReturn(pageResponse);
 
         mockMvc.perform(get("/api/v1/users"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.pagination.total").value(1));
+                .andExpect(jsonPath("$.data.totalElements").value(1));
     }
 
     @Test

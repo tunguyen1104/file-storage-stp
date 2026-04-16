@@ -1,11 +1,9 @@
 package com.filestorage.adapter.in.rest.mapper;
 
+import com.filestorage.adapter.in.rest.dto.response.PageResponse;
 import com.filestorage.adapter.in.rest.dto.response.RoleSummaryResponse;
 import com.filestorage.adapter.in.rest.dto.response.UserCreatedResponse;
 import com.filestorage.adapter.in.rest.dto.response.UserDetailResponse;
-import com.filestorage.adapter.in.rest.dto.response.UserListItemResponse;
-import com.filestorage.adapter.in.rest.dto.response.UserListResponse;
-import com.filestorage.adapter.in.rest.dto.response.UserPaginationResponse;
 import com.filestorage.adapter.in.rest.dto.response.UserStorageResponse;
 import com.filestorage.domain.model.user.UserPageView;
 import com.filestorage.domain.model.user.UserRoleView;
@@ -37,16 +35,17 @@ public interface UserRestMapper {
 
     UserDetailResponse toUserDetailResponse(UserView view);
 
-    UserListItemResponse toUserListItemResponse(UserView view);
-
     UserStorageResponse toUserStorageResponse(UserStorageView view);
 
     RoleSummaryResponse toRoleSummaryResponse(UserRoleView view);
 
-    default UserListResponse toUserListResponse(UserPageView pageView) {
-        return new UserListResponse(
-                pageView.data().stream().map(this::toUserListItemResponse).toList(),
-                new UserPaginationResponse(pageView.page(), pageView.limit(), pageView.total(), pageView.totalPages())
-        );
+    default PageResponse<UserDetailResponse> toPageResponse(UserPageView pageView) {
+        return PageResponse.<UserDetailResponse>builder()
+                .data(pageView.data().stream().map(this::toUserDetailResponse).toList())
+                .currentPage(pageView.page())
+                .pageSize(pageView.limit())
+                .totalElements(pageView.total())
+                .totalPages(pageView.totalPages())
+                .build();
     }
 }

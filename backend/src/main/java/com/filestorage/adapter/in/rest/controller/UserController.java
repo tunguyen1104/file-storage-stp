@@ -85,7 +85,7 @@ public class UserController {
                 limit
         ));
 
-        return ResponseEntity.ok(ApiResponse.buildSuccess(userRestMapper.toUserListResponse(result)));
+        return ResponseEntity.ok(ApiResponse.buildSuccess(userRestMapper.toPageResponse(result)));
     }
 
     @GetMapping("/{userId}")
@@ -173,4 +173,3 @@ public class UserController {
         }
     }
 }
-
