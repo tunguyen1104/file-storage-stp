@@ -44,8 +44,8 @@ app:
   security:
     jwt:
       secret: ${JWT_SECRET_KEY}
-      accessTokenExpirationMs: ${JWT_ACCESS_TOKEN_EXPIRATION:3600}
-      refreshTokenExpirationMs: ${JWT_REFRESH_TOKEN_EXPIRATION:604800}
+      accessTokenExpirationMs: ${JWT_ACCESS_TOKEN_EXPIRATION:3600000}
+      refreshTokenExpirationMs: ${JWT_REFRESH_TOKEN_EXPIRATION:604800000}
     securedCookie: false  # true in production (requires HTTPS)
     resetTokenExpirationMs: ${RESET_TOKEN_EXPIRATION:3600000}         # 1 hour
     emailVerificationExpirationMs: ${VERIFY_TOKEN_EXPIRATION:86400000} # 24 hours
