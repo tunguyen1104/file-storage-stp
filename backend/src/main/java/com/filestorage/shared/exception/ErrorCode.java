@@ -30,6 +30,8 @@ public enum ErrorCode {
     INVALID_CURRENT_PASSWORD(1016, "error.invalid-current-password", HttpStatus.UNAUTHORIZED),
     ROLE_ESCALATION_FORBIDDEN(1017, "error.role-escalation-forbidden", HttpStatus.FORBIDDEN),
     SELF_DEACTIVATION_FORBIDDEN(1018, "error.self-deactivation-forbidden", HttpStatus.FORBIDDEN),
+    SLUG_ALREADY_EXISTS(1019, "error.slug-already-exists", HttpStatus.CONFLICT),
+    SYSTEM_TENANT_CANNOT_BE_DELETED(1020, "error.system-tenant-cannot-be-deleted", HttpStatus.CONFLICT),
     INTERNAL_SERVER_ERROR(9999, "errors.server-error", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final int code;
