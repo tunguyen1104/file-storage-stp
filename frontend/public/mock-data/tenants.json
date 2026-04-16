@@ -1,0 +1,23 @@
+[
+  { "id": "t-001", "name": "Acme Corp", "domain": "acme.com", "status": "Active", "createdDate": "2026-03-08" },
+  { "id": "t-002", "name": "Northwind", "domain": "northwind.io", "status": "Active", "createdDate": "2026-02-15" },
+  { "id": "t-003", "name": "Globex", "domain": "globex.vn", "status": "Pending", "createdDate": "2026-01-29" },
+  { "id": "t-004", "name": "Innotech", "domain": "innotech.ai", "status": "Active", "createdDate": "2025-12-21" },
+  { "id": "t-005", "name": "BlueOcean", "domain": "blueocean.app", "status": "Suspended", "createdDate": "2025-11-11" },
+  { "id": "t-006", "name": "Orbit Labs", "domain": "orbitlabs.dev", "status": "Active", "createdDate": "2025-10-04" },
+  { "id": "t-007", "name": "Skyline Group", "domain": "skyline.group", "status": "Active", "createdDate": "2025-09-16" },
+  { "id": "t-008", "name": "Aster Tech", "domain": "aster.tech", "status": "Pending", "createdDate": "2025-08-27" },
+  { "id": "t-009", "name": "Nova Retail", "domain": "novaretail.com", "status": "Active", "createdDate": "2025-08-14" },
+  { "id": "t-010", "name": "Cobalt Systems", "domain": "cobalt.systems", "status": "Active", "createdDate": "2025-07-02" },
+  { "id": "t-011", "name": "Zenith Bank", "domain": "zenithbank.vn", "status": "Active", "createdDate": "2025-06-19" },
+  { "id": "t-012", "name": "Pioneer Health", "domain": "pioneerhealth.org", "status": "Suspended", "createdDate": "2025-05-30" },
+  { "id": "t-013", "name": "Vertex Manufacturing", "domain": "vertexmfg.com", "status": "Active", "createdDate": "2025-05-09" },
+  { "id": "t-014", "name": "Helios Media", "domain": "helios.media", "status": "Pending", "createdDate": "2025-04-18" },
+  { "id": "t-015", "name": "Eon Logistics", "domain": "eonlogistics.co", "status": "Active", "createdDate": "2025-03-26" },
+  { "id": "t-016", "name": "BrightCore", "domain": "brightcore.ai", "status": "Active", "createdDate": "2025-03-05" },
+  { "id": "t-017", "name": "Atlas Travel", "domain": "atlastravel.com", "status": "Active", "createdDate": "2025-02-12" },
+  { "id": "t-018", "name": "Quantum Ed", "domain": "quantumedu.org", "status": "Pending", "createdDate": "2025-01-25" },
+  { "id": "t-019", "name": "Summit Realty", "domain": "summitrealty.vn", "status": "Active", "createdDate": "2024-12-14" },
+  { "id": "t-020", "name": "Nimbus Energy", "domain": "nimbusenergy.com", "status": "Active", "createdDate": "2024-11-29" },
+  { "id": "t-021", "name": "Forge Studio", "domain": "forgestudio.io", "status": "Suspended", "createdDate": "2024-11-09" }
+]
