@@ -19,6 +19,9 @@ const PUBLIC_ROUTES = [
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const MOCK_AUTH_MODE =
+  process.env.NODE_ENV !== "production" &&
+  process.env.NEXT_PUBLIC_MOCK_AUTH !== "false";
 
 // Fail-fast in production if JWT_SECRET is not configured
 if (IS_PRODUCTION && !JWT_SECRET) {
@@ -37,7 +40,7 @@ const ROLE_ROUTE_MAP: Record<string, string[]> = {
     "/users",
     "/unauthorized",
   ],
-  TENANT_ADMIN: [
+  ADMIN_TENANT: [
     "/files",
     "/upload",
     "/search",
@@ -45,8 +48,7 @@ const ROLE_ROUTE_MAP: Record<string, string[]> = {
     "/users",
     "/unauthorized",
   ],
-  EDITOR: ["/files", "/upload", "/search", "/unauthorized"],
-  VIEWER: ["/files", "/search", "/unauthorized"],
+  USER: ["/files", "/search", "/unauthorized"],
 };
 
 /**
@@ -61,6 +63,13 @@ function redirectToLogin(request: NextRequest): NextResponse {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (MOCK_AUTH_MODE) {
+    if (pathname === "/") {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+    return NextResponse.next();
+  }
 
   // Allow root path to redirect
   if (pathname === "/") {

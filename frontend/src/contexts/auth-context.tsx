@@ -1,19 +1,12 @@
 "use client";
 
-import React, {
-  createContext,
-  useCallback,
-  useEffect,
-  useMemo,
-} from "react";
-import useSWR from "swr";
-import { usePathname, useRouter } from "next/navigation";
-import { apiClient } from "@/lib/api-client";
-import { API_ROUTES } from "@/lib/constants";
+import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Role } from "@/lib/constants";
 
 export interface AuthUser {
   id: string;
+  name: string;
   email: string;
   fullName: string;
   role: Role;
@@ -25,88 +18,83 @@ interface AuthContextState {
   user: AuthUser | null;
   isLoading: boolean;
   isValidating: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<AuthUser>;
   logOut: () => Promise<void>;
-  mutateUser: () => Promise<unknown>;
+  mutateUser: () => Promise<AuthUser | null>;
 }
 
-const meFetcher = async (url: string): Promise<AuthUser | null> => {
-  try {
-    const res = await apiClient.get(url);
-    return res.data.data ?? null;
-  } catch {
-    return null;
-  }
-};
+const MOCK_AUTH_STORAGE_KEY = "mock-auth-user";
+
+function resolveRoleByEmail(email: string): Role {
+  const normalizedEmail = email.toLowerCase();
+  if (normalizedEmail.includes("super")) return "SUPER_ADMIN";
+  if (normalizedEmail.includes("admin")) return "ADMIN_TENANT";
+  return "USER";
+}
 
 export const AuthContext = createContext<AuthContextState | undefined>(
   undefined
 );
 
-// Synced with PUBLIC_ROUTES in middleware.ts (#17)
-const AUTH_PAGES = ["/login", "/forgot-password", "/verify", "/check-email", "/reset-password"];
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
   const router = useRouter();
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const shouldFetchUser = useMemo(() => {
-    if (AUTH_PAGES.some((route) => pathname.startsWith(route))) return false;
-    return true;
-  }, [pathname]);
-
-  const { data, isLoading, isValidating, mutate } = useSWR<AuthUser | null>(
-    shouldFetchUser ? API_ROUTES.AUTH.ME : null,
-    meFetcher,
-    {
-      revalidateOnFocus: false,
-      shouldRetryOnError: false,
-      keepPreviousData: true,
+  useEffect(() => {
+    try {
+      const storedUser = window.localStorage.getItem(MOCK_AUTH_STORAGE_KEY);
+      if (storedUser) {
+        setUser(JSON.parse(storedUser) as AuthUser);
+      }
+    } catch {
+      window.localStorage.removeItem(MOCK_AUTH_STORAGE_KEY);
+      setUser(null);
+    } finally {
+      setIsLoading(false);
     }
-  );
+  }, []);
 
   const signIn = useCallback(
     async (email: string, password: string) => {
-      await apiClient.post(API_ROUTES.AUTH.LOGIN, {
+      await Promise.resolve(password);
+      const role = resolveRoleByEmail(email);
+      const fakeUser: AuthUser = {
+        id: "1",
+        name: "John Doe",
         email,
-        password,
-      });
-      // Backend sets httpOnly cookies via Set-Cookie header (forwarded by BFF)
-      // No token in response body — browser stores cookies automatically
-      await mutate();
-      router.push("/files");
+        fullName: "John Doe",
+        role,
+        tenantId: role === "SUPER_ADMIN" ? "platform" : "tenant-001",
+      };
+
+      setUser(fakeUser);
+      window.localStorage.setItem(MOCK_AUTH_STORAGE_KEY, JSON.stringify(fakeUser));
+      return fakeUser;
     },
-    [mutate, router]
+    []
   );
 
   const logOut = useCallback(async () => {
-    try {
-      await apiClient.post(API_ROUTES.AUTH.LOGOUT);
-    } catch {
-      // Swallow — BFF clears httpOnly cookies server-side regardless
-    } finally {
-      await mutate(null, false);
-      router.push("/login");
-    }
-  }, [mutate, router]);
+    setUser(null);
+    window.localStorage.removeItem(MOCK_AUTH_STORAGE_KEY);
+    router.push("/login");
+  }, [router]);
 
-  // Handle forced logout from interceptor
-  useEffect(() => {
-    const handleGlobalLogout = () => void logOut();
-    window.addEventListener("auth:logout", handleGlobalLogout);
-    return () => window.removeEventListener("auth:logout", handleGlobalLogout);
-  }, [logOut]);
+  const mutateUser = useCallback(async () => {
+    return user;
+  }, [user]);
 
   const contextValue = useMemo(
     () => ({
-      user: data ?? null,
+      user,
       isLoading,
-      isValidating,
+      isValidating: false,
       signIn,
       logOut,
-      mutateUser: async () => mutate(),
+      mutateUser,
     }),
-    [data, isLoading, isValidating, signIn, logOut, mutate]
+    [user, isLoading, signIn, logOut, mutateUser]
   );
 
   return (
