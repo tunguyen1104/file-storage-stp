@@ -51,6 +51,8 @@ app:
     emailVerificationExpirationMs: ${VERIFY_TOKEN_EXPIRATION:86400000} # 24 hours
   frontend:
     base-url: ${FRONTEND_URL:http://localhost:3000}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
   seed:
     super-admin:
       email: ${SUPER_ADMIN_EMAIL}

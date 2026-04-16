@@ -168,6 +168,9 @@ public class RefreshTokenService {
     }
 
     private UUID parseTokenStringToUUID(String tokenStr) {
+        if (tokenStr == null || tokenStr.isBlank()) {
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+        }
         try {
             return UUID.fromString(tokenStr);
         } catch (IllegalArgumentException e) {

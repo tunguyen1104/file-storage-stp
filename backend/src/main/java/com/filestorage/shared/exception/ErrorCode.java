@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
     INVALID_PAYLOAD(1, "errors.invalid-payload", HttpStatus.BAD_REQUEST),
     ACCESS_DENIED(2, "errors.access-denied", HttpStatus.UNAUTHORIZED),
+    FORBIDDEN(3, "errors.forbidden", HttpStatus.FORBIDDEN),
     INVALID_CREDENTIALS(1000, "error.invalid-credential", HttpStatus.UNAUTHORIZED),
     EMAIL_ALREADY_INUSE(1001, "Email already used", HttpStatus.BAD_REQUEST),
     TOKEN_EXPIRED(1002, "Token expired", HttpStatus.UNAUTHORIZED),

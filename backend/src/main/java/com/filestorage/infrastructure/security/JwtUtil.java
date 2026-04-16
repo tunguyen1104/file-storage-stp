@@ -123,6 +123,20 @@ public class JwtUtil {
     }
 
     /**
+     * Verify only the JWT signature (does NOT check expiration).
+     * Use this when you want to accept expired-but-valid-signature tokens (e.g. blacklisting on logout).
+     */
+    public boolean hasValidSignature(String token) {
+        try {
+            SignedJWT signedJWT = SignedJWT.parse(token);
+            JWSVerifier verifier = new MACVerifier(key());
+            return signedJWT.verify(verifier);
+        } catch (ParseException | JOSEException e) {
+            return false;
+        }
+    }
+
+    /**
      * Return seconds remaining before token expires. Returns 0 if already expired.
      */
     public long getRemainingTtlSeconds(String token) {
