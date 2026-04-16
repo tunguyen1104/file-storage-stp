@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Configuration;
  * <p>
  * Exchange: {@code email.exchange} (topic)<br>
  * Queue:    {@code email.queue}<br>
- * Routing keys: {@code email.reset-password}, {@code email.verify-email}
+ * Routing keys: {@code email.reset-password}, {@code email.verify-email}, {@code email.initial-password}
  */
 @Configuration
 public class RabbitMQConfig {
@@ -23,6 +23,7 @@ public class RabbitMQConfig {
     public static final String EMAIL_QUEUE               = "email.queue";
     public static final String EMAIL_ROUTING_KEY_RESET   = "email.reset-password";
     public static final String EMAIL_ROUTING_KEY_VERIFY  = "email.verify-email";
+    public static final String EMAIL_ROUTING_KEY_INITIAL = "email.initial-password";
 
     @Bean
     public TopicExchange emailExchange() {
@@ -44,6 +45,11 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(emailQueue).to(emailExchange).with(EMAIL_ROUTING_KEY_VERIFY);
     }
 
+    @Bean
+    public Binding initialPasswordBinding(Queue emailQueue, TopicExchange emailExchange) {
+        return BindingBuilder.bind(emailQueue).to(emailExchange).with(EMAIL_ROUTING_KEY_INITIAL);
+    }
+
     /**
      * Serialize RabbitMQ messages as JSON (consumed by email micro-service).
      */
@@ -52,6 +58,3 @@ public class RabbitMQConfig {
         return new JacksonJsonMessageConverter();
     }
 }
-
-
-

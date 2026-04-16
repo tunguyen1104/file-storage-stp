@@ -18,7 +18,8 @@ public record EmailEvent(
 
     public enum EmailType {
         RESET_PASSWORD,
-        VERIFY_EMAIL
+        VERIFY_EMAIL,
+        INITIAL_PASSWORD
     }
 
     public static EmailEvent resetPassword(String to, Map<String, String> payload) {
@@ -28,5 +29,8 @@ public record EmailEvent(
     public static EmailEvent verifyEmail(String to, Map<String, String> payload) {
         return new EmailEvent(EmailType.VERIFY_EMAIL, to, payload, Instant.now());
     }
-}
 
+    public static EmailEvent initialPassword(String to, Map<String, String> payload) {
+        return new EmailEvent(EmailType.INITIAL_PASSWORD, to, payload, Instant.now());
+    }
+}

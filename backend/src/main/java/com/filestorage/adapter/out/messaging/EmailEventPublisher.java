@@ -27,6 +27,10 @@ public class EmailEventPublisher {
         publish(RabbitMQConfig.EMAIL_ROUTING_KEY_VERIFY, event);
     }
 
+    public void publishInitialPassword(EmailEvent event) {
+        publish(RabbitMQConfig.EMAIL_ROUTING_KEY_INITIAL, event);
+    }
+
     private void publish(String routingKey, EmailEvent event) {
         try {
             rabbitTemplate.convertAndSend(
@@ -44,4 +48,3 @@ public class EmailEventPublisher {
         }
     }
 }
-

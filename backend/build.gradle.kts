@@ -20,7 +20,7 @@ repositories {
 
 // ─── Dependency Versions ──────────────────────────────────────────────────────
 val nimbusJoseJwtVersion          = "10.2"
-val springdocVersion              = "2.3.0"
+val springdocVersion              = "3.0.0"
 val mapstructVersion              = "1.5.5.Final"
 val lombokMapstructBindingVersion = "0.2.0"
 val archunitVersion               = "1.3.0"
