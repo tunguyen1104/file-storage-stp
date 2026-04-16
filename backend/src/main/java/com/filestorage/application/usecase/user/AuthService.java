@@ -69,6 +69,9 @@ public class AuthService {
     }
 
     public TokenResponse processRefresh(String refreshTokenString) {
+        if (refreshTokenString == null || refreshTokenString.isBlank()) {
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+        }
         User tokenOwner = refreshTokenService.verify(refreshTokenString);
 
         // Build SecurityUser from entity for JWT generation

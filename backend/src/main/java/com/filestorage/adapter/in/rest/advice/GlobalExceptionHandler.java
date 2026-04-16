@@ -10,6 +10,8 @@ import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -50,6 +52,22 @@ public class GlobalExceptionHandler {
         String message = resolveMessage(ErrorCode.INVALID_PAYLOAD);
         return ResponseEntity.status(ErrorCode.INVALID_PAYLOAD.getHttpStatus())
                 .body(ErrorResponse.buildError(message, ErrorCode.INVALID_PAYLOAD.getCode()));
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ErrorResponse<Object>> handleAuthenticationException(AuthenticationException ex) {
+        log.debug("AuthenticationException: {}", ex.getMessage());
+        String message = resolveMessage(ErrorCode.ACCESS_DENIED);
+        return ResponseEntity.status(ErrorCode.ACCESS_DENIED.getHttpStatus())
+                .body(ErrorResponse.buildError(message, ErrorCode.ACCESS_DENIED.getCode()));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse<Object>> handleAccessDeniedException(AccessDeniedException ex) {
+        log.debug("AccessDeniedException: {}", ex.getMessage());
+        String message = resolveMessage(ErrorCode.FORBIDDEN);
+        return ResponseEntity.status(ErrorCode.FORBIDDEN.getHttpStatus())
+                .body(ErrorResponse.buildError(message, ErrorCode.FORBIDDEN.getCode()));
     }
 
     @ExceptionHandler(Exception.class)

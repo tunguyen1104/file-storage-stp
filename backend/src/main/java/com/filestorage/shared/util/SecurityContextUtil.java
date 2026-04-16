@@ -38,7 +38,11 @@ public final class SecurityContextUtil {
         String userId = getCurrentUser()
                 .map(SecurityUser::getUserId)
                 .orElseThrow(() -> new AppException(ErrorCode.ACCESS_DENIED));
-        return UUID.fromString(userId);
+        try {
+            return UUID.fromString(userId);
+        } catch (IllegalArgumentException e) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
     }
 }
 

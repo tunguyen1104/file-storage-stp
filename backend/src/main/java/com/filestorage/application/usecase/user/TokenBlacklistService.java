@@ -3,6 +3,7 @@ package com.filestorage.application.usecase.user;
 import com.filestorage.infrastructure.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -26,11 +27,22 @@ public class TokenBlacklistService {
     private final StringRedisTemplate redisTemplate;
     private final JwtUtil jwtUtil;
 
+    @Value("${app.security.jwt.accessTokenExpirationMs}")
+    private long accessTokenExpirationMs;
+
     public void blacklist(String accessToken) {
         if (accessToken == null || accessToken.isBlank()) return;
         try {
+            // Reject tokens with invalid signatures to prevent DoS via crafted JWTs
+            if (!jwtUtil.hasValidSignature(accessToken)) {
+                log.warn("Refused to blacklist token with invalid signature");
+                return;
+            }
             String jti = jwtUtil.getJtiFromToken(accessToken);
-            long ttlSeconds = jwtUtil.getRemainingTtlSeconds(accessToken);
+            long remainingSeconds = jwtUtil.getRemainingTtlSeconds(accessToken);
+            // Cap TTL to the configured max lifetime to prevent inflated Redis entries
+            long maxTtlSeconds = accessTokenExpirationMs / 1000;
+            long ttlSeconds = Math.min(remainingSeconds, maxTtlSeconds);
             if (ttlSeconds <= 0) {
                 log.debug("Access token already expired, skipping blacklist");
                 return;
