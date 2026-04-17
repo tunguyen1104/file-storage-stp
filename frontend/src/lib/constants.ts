@@ -1,7 +1,7 @@
 export const ROLES = {
   SUPER_ADMIN: "SUPER_ADMIN",
-  ADMIN_TENANT: "ADMIN_TENANT",
-  USER: "USER",
+  TENANT_ADMIN: "TENANT_ADMIN",
+  MEMBER: "MEMBER",
 } as const;
 
 export type Role = (typeof ROLES)[keyof typeof ROLES];
@@ -19,22 +19,25 @@ export const CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB
 export const MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024; // 10 GB
 export const RESUMABLE_THRESHOLD = 100 * 1024 * 1024; // 100 MB — use chunked above this
 
+const API_PREFIX = "/api/v1";
+
 export const API_ROUTES = {
   AUTH: {
-    LOGIN: "/api/auth/login",
-    LOGOUT: "/api/auth/logout",
-    REFRESH: "/api/auth/refresh",
-    ME: "/api/auth/me",
-    VERIFY_EMAIL: "/api/auth/verify-email",
-    FORGOT_PASSWORD: "/api/auth/forgot-password",
-    RESET_PASSWORD: "/api/auth/reset-password",
-    CHANGE_PASSWORD: "/api/auth/change-password",
+    LOGIN: `${API_PREFIX}/auth/signin`,
+    LOGOUT: `${API_PREFIX}/auth/logout`,
+    REFRESH: `${API_PREFIX}/auth/refresh`,
+    ME: `${API_PREFIX}/auth/me`,
+    VERIFY_EMAIL: `${API_PREFIX}/auth/verify-email`,
+    FORGOT_PASSWORD: `${API_PREFIX}/auth/forgot-password`,
+    VERIFY_RESET_TOKEN: `${API_PREFIX}/auth/verify-reset-token`,
+    RESET_PASSWORD: `${API_PREFIX}/auth/reset-password`,
+    CHANGE_PASSWORD: `${API_PREFIX}/auth/change-password`,
   },
-  FILES: "/api/files",
-  TENANTS: "/api/tenants",
-  USERS: "/api/users",
-  AUDIT_LOGS: "/api/audit-logs",
-  SEARCH: "/api/search",
+  FILES: `${API_PREFIX}/files`,
+  TENANTS: `${API_PREFIX}/tenants`,
+  USERS: `${API_PREFIX}/users`,
+  AUDIT_LOGS: `${API_PREFIX}/audit-logs`,
+  SEARCH: `${API_PREFIX}/search`,
 } as const;
 
 export const DEFAULT_PAGE_SIZE = 20;

@@ -7,25 +7,34 @@ import {
   CSRF_HEADER_NAME,
 } from "@/lib/csrf";
 
-const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8080";
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8081";
+
+/**
+ * Cookie name mapping: backend uses hyphens, browser uses camelCase.
+ * The BFF proxy translates between them.
+ */
+const COOKIE_MAP = {
+  "access-token": "accessToken",
+  "refresh-token": "refreshToken",
+} as const;
+
+const BROWSER_COOKIE_NAMES = new Set(Object.values(COOKIE_MAP));
 
 /**
  * Whitelist of allowed API path prefixes.
- * Prevents SSRF by blocking requests to internal backend endpoints
- * (e.g. Spring Boot Actuator, admin APIs) that are not meant to be public.
+ * Prevents SSRF by blocking requests to internal backend endpoints.
  */
 const ALLOWED_PREFIXES = [
-  "/api/auth/",
-  "/api/files",
-  "/api/users",
-  "/api/tenants",
-  "/api/audit-logs",
-  "/api/search",
+  "/api/v1/auth/",
+  "/api/v1/files",
+  "/api/v1/users",
+  "/api/v1/tenants",
+  "/api/v1/audit-logs",
+  "/api/v1/search",
 ];
 
 /**
- * Headers that should NOT be forwarded from the backend response
- * because they are managed by the transport layer or Next.js itself.
+ * Headers that should NOT be forwarded from the backend response.
  */
 const SKIP_RESPONSE_HEADERS = new Set([
   "transfer-encoding",
@@ -38,7 +47,6 @@ const MAX_LOGOUT_RETRIES = 2;
 
 /**
  * Ensure CSRF token cookie exists. If not, generate and set one.
- * Returns the token value for validation.
  */
 async function ensureCsrfToken(
   response: NextResponse
@@ -49,11 +57,11 @@ async function ensureCsrfToken(
   if (!csrfToken) {
     csrfToken = generateCsrfToken();
     response.cookies.set(CSRF_COOKIE_NAME, csrfToken, {
-      httpOnly: false, // Must be readable by JS to send in header
+      httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
       path: "/",
-      maxAge: 60 * 60 * 24, // 24 hours
+      maxAge: 60 * 60 * 24,
     });
   }
 
@@ -61,14 +69,46 @@ async function ensureCsrfToken(
 }
 
 /**
+ * Parse a Set-Cookie header string and remap backend cookie names
+ * (access-token, refresh-token) to camelCase (accessToken, refreshToken).
+ */
+function remapSetCookieHeader(setCookie: string): string {
+  for (const [backendName, browserName] of Object.entries(COOKIE_MAP)) {
+    // Match cookie name at start of Set-Cookie value: "access-token=..."
+    if (setCookie.startsWith(`${backendName}=`)) {
+      return `${browserName}=${setCookie.slice(backendName.length + 1)}`;
+    }
+  }
+  return setCookie;
+}
+
+function clearAuthCookies(response: NextResponse) {
+  for (const name of BROWSER_COOKIE_NAMES) {
+    response.cookies.set(name, "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 0,
+      path: "/",
+    });
+  }
+}
+
+/**
+ * Unauthenticated auth endpoints that skip CSRF validation.
+ * CSRF protection is only meaningful for authenticated sessions;
+ * these endpoints have no session cookie to forge against.
+ */
+const CSRF_EXEMPT_PATHS = new Set([
+  "/api/v1/auth/signin",
+  "/api/v1/auth/forgot-password",
+  "/api/v1/auth/verify-reset-token",
+  "/api/v1/auth/reset-password",
+  "/api/v1/auth/verify-email",
+]);
+
+/**
  * Proxy an incoming Next.js request to the real backend service.
- *
- * Security features:
- * - SSRF protection via path whitelist
- * - CSRF protection via double-submit cookie pattern
- * - Safe URL construction via URL constructor
- * - Sanitized error logging (no token/URL leaks)
- * - Logout retry with guaranteed cookie clearing
  */
 export async function proxyToBackend(
   req: NextRequest
@@ -79,7 +119,7 @@ export async function proxyToBackend(
   // ── SSRF protection: only allow known API prefixes ─────
   if (!ALLOWED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return NextResponse.json(
-      { status: "ERROR", message: "Forbidden" },
+      { success: false, errors: "Forbidden" },
       { status: 403 }
     );
   }
@@ -87,22 +127,26 @@ export async function proxyToBackend(
   const cookieStore = await cookies();
 
   // ── CSRF protection for state-changing requests ─────────
-  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+  if (
+    ["POST", "PUT", "PATCH", "DELETE"].includes(req.method) &&
+    !CSRF_EXEMPT_PATHS.has(pathname)
+  ) {
     const csrfCookie = cookieStore.get(CSRF_COOKIE_NAME)?.value;
     const csrfHeader = req.headers.get(CSRF_HEADER_NAME);
 
     if (!validateCsrfToken(csrfCookie, csrfHeader)) {
       return NextResponse.json(
-        { status: "ERROR", message: "Invalid CSRF token" },
+        { success: false, errors: "Invalid CSRF token" },
         { status: 403 }
       );
     }
   }
 
+  // Read browser cookies (camelCase names) and send to backend as hyphenated
   const accessToken = cookieStore.get("accessToken")?.value;
   const refreshToken = cookieStore.get("refreshToken")?.value;
 
-  // ── Build backend URL safely (prevents path traversal) ─
+  // ── Build backend URL safely ───────────────────────────
   const url = new URL(pathname, BACKEND_URL);
   url.search = search;
   const backendUrl = url.toString();
@@ -110,7 +154,6 @@ export async function proxyToBackend(
   // ── Build request headers ────────────────────────────────
   const headers = new Headers();
 
-  // Forward Content-Type only when a body is expected (#18)
   const contentType = req.headers.get("content-type");
   if (contentType) {
     headers.set("Content-Type", contentType);
@@ -118,21 +161,15 @@ export async function proxyToBackend(
     headers.set("Content-Type", "application/json");
   }
 
-  // Forward Accept header
   const accept = req.headers.get("accept");
   if (accept) {
     headers.set("Accept", accept);
   }
 
-  // Attach token as Authorization header
-  if (accessToken) {
-    headers.set("Authorization", `Bearer ${accessToken}`);
-  }
-
-  // Forward cookies to backend (needed for refresh-token rotation)
+  // Forward cookies to backend using backend's expected hyphenated names
   const cookieParts: string[] = [];
-  if (accessToken) cookieParts.push(`accessToken=${accessToken}`);
-  if (refreshToken) cookieParts.push(`refreshToken=${refreshToken}`);
+  if (accessToken) cookieParts.push(`access-token=${accessToken}`);
+  if (refreshToken) cookieParts.push(`refresh-token=${refreshToken}`);
   if (cookieParts.length > 0) {
     headers.set("Cookie", cookieParts.join("; "));
   }
@@ -144,7 +181,6 @@ export async function proxyToBackend(
     redirect: "manual",
   };
 
-  // Forward body for non-GET/HEAD requests
   if (!["GET", "HEAD"].includes(req.method)) {
     const body = await req.arrayBuffer();
     if (body.byteLength > 0) {
@@ -155,11 +191,8 @@ export async function proxyToBackend(
   // ── Execute request ──────────────────────────────────────
   try {
     const backendRes = await fetch(backendUrl, init);
-
-    // Read response body as ArrayBuffer (works for JSON + binary)
     const responseBody = await backendRes.arrayBuffer();
 
-    // Build Next.js response
     const response = new NextResponse(responseBody, {
       status: backendRes.status,
       statusText: backendRes.statusText,
@@ -172,37 +205,24 @@ export async function proxyToBackend(
       }
     });
 
-    // Forward Set-Cookie headers (handles multiple cookies correctly)
+    // Forward Set-Cookie headers, remapping backend cookie names to browser names
     const setCookies = backendRes.headers.getSetCookie();
     for (const cookie of setCookies) {
-      response.headers.append("Set-Cookie", cookie);
+      response.headers.append("Set-Cookie", remapSetCookieHeader(cookie));
     }
 
-    // Ensure CSRF token cookie is set for subsequent requests
+    // Ensure CSRF token cookie is set
     await ensureCsrfToken(response);
 
-    // Special handling: always clear cookies on logout
-    if (pathname === "/api/auth/logout") {
-      response.cookies.set("accessToken", "", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 0,
-        path: "/",
-      });
-      response.cookies.set("refreshToken", "", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 0,
-        path: "/",
-      });
+    // Always clear cookies on logout
+    if (pathname === "/api/v1/auth/logout") {
+      clearAuthCookies(response);
     }
 
     return response;
   } catch (error) {
-    // ── Logout: retry backend call to invalidate refresh token (#4)
-    if (pathname === "/api/auth/logout") {
+    // ── Logout: retry backend call to invalidate refresh token
+    if (pathname === "/api/v1/auth/logout") {
       for (let attempt = 1; attempt <= MAX_LOGOUT_RETRIES; attempt++) {
         try {
           await fetch(backendUrl, {
@@ -218,35 +238,20 @@ export async function proxyToBackend(
         }
       }
 
-      // Always clear cookies even if all retries fail
       const logoutRes = NextResponse.json(
-        { status: "SUCCESS", message: "Logged out" },
+        { success: true, message: "Logged out" },
         { status: 200 }
       );
-      logoutRes.cookies.set("accessToken", "", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 0,
-        path: "/",
-      });
-      logoutRes.cookies.set("refreshToken", "", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 0,
-        path: "/",
-      });
+      clearAuthCookies(logoutRes);
       return logoutRes;
     }
 
-    // Sanitized logging — never log tokens or internal URLs (#13)
     console.error(
       "[BFF Proxy] Backend request failed:",
       error instanceof Error ? error.message : "Unknown error"
     );
     return NextResponse.json(
-      { status: "ERROR", message: "Service unavailable" },
+      { success: false, errors: "Service unavailable" },
       { status: 502 }
     );
   }

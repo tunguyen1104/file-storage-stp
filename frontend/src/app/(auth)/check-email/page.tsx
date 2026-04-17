@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Mail } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { maskEmail } from "@/lib/auth";
+import { forgotPassword } from "@/lib/api/auth";
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
@@ -31,7 +32,7 @@ function CheckEmailForm() {
     setLoading(true);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await forgotPassword(email);
       setCooldown(RESEND_COOLDOWN_SECONDS);
     } catch {
       // Silent fail — user sees no change

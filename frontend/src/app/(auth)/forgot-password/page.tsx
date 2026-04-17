@@ -11,6 +11,7 @@ import {
   forgotPasswordSchema,
   type ForgotPasswordInput,
 } from "@/lib/schemas/user.schema";
+import { forgotPassword } from "@/lib/api/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,7 +36,8 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (data: ForgotPasswordInput) => {
     setError(null);
     try {
-      await Promise.resolve(data.email);
+      await forgotPassword(data.email);
+      // Always redirect to check-email regardless of whether email exists (anti-enumeration)
       router.push(
         `/check-email?flow=reset&email=${encodeURIComponent(data.email)}`
       );

@@ -9,6 +9,8 @@ import { Loader2, AlertCircle, Building2 } from "lucide-react";
 
 import { loginSchema, type LoginInput } from "@/lib/schemas/user.schema";
 import { useAuth } from "@/hooks/use-auth";
+import type { ApiResponse } from "@/types/api.types";
+import axios from "axios";
 import { PasswordInput } from "@/components/auth/password-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +38,7 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   
   const verified = searchParams.get("verified") === "true";
+  const resetSuccess = searchParams.get("reset") === "success";
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -50,13 +53,38 @@ function LoginForm() {
         router.push("/tenants");
         return;
       }
-      if (user.role === "ADMIN_TENANT") {
+      if (user.role === "TENANT_ADMIN") {
         router.push("/users");
         return;
       }
       router.push("/files");
-    } catch (err: any) {
-      setError(err?.message || "Invalid email or password. Please try again.");
+    } catch (err: unknown) {
+      // Try to extract backend validation errors and map to form fields
+      if (axios.isAxiosError(err)) {
+        const body = err.response?.data as ApiResponse | undefined;
+        if (body && !body.success) {
+          if (typeof body.errors === "object" && body.errors !== null) {
+            // Field-level validation errors
+            for (const [field, messages] of Object.entries(body.errors)) {
+              if (field === "email" || field === "password") {
+                form.setError(field, {
+                  message: Array.isArray(messages) ? messages[0] : messages,
+                });
+              }
+            }
+            return;
+          }
+          if (typeof body.errors === "string") {
+            setError(body.errors);
+            return;
+          }
+        }
+      }
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Invalid email or password. Please try again."
+      );
     }
   };
 
@@ -79,6 +107,14 @@ function LoginForm() {
           <Alert className="bg-green-50 text-green-700 border-green-200 mt-4 text-left">
             <AlertDescription>
               Email verified successfully! You can now sign in.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {resetSuccess && (
+          <Alert className="bg-green-50 text-green-700 border-green-200 mt-4 text-left">
+            <AlertDescription>
+              Password has been reset successfully. Please log in.
             </AlertDescription>
           </Alert>
         )}

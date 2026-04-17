@@ -1,48 +1,85 @@
 import { apiClient } from "@/lib/api-client";
 import { API_ROUTES } from "@/lib/constants";
+import type { ApiResponse } from "@/types/api.types";
 import type { AuthUser } from "@/contexts/auth-context";
+import type { SignInRequest, ResetPasswordRequest } from "@/types/auth/auth";
 
-/**
- * NOTE: login() and logout() have been removed (#16).
- * These should ONLY be called via useAuth().signIn / useAuth().logOut
- * to ensure proper SWR cache mutation and routing.
- */
+export async function signIn(
+  email: string,
+  password: string
+): Promise<ApiResponse<string>> {
+  const response = await apiClient.post<ApiResponse<string>>(
+    API_ROUTES.AUTH.LOGIN,
+    { email, password } satisfies SignInRequest
+  );
+  return response.data;
+}
+
+export async function refreshToken(): Promise<ApiResponse> {
+  const response = await apiClient.post<ApiResponse>(
+    API_ROUTES.AUTH.REFRESH
+  );
+  return response.data;
+}
+
+export async function logOut(): Promise<ApiResponse> {
+  const response = await apiClient.post<ApiResponse>(
+    API_ROUTES.AUTH.LOGOUT
+  );
+  return response.data;
+}
 
 export async function getMe(): Promise<AuthUser> {
-  const response = await apiClient.get(API_ROUTES.AUTH.ME);
+  const response = await apiClient.get<ApiResponse<AuthUser>>(
+    API_ROUTES.AUTH.ME
+  );
+  if (!response.data.success || !response.data.data) {
+    throw new Error(
+      typeof response.data.errors === "string"
+        ? response.data.errors
+        : "Failed to fetch user profile"
+    );
+  }
   return response.data.data;
 }
 
-export async function verifyEmail(verifyCode: string) {
-  // #5: Send token in body, not as query param (prevents log/Referer leaks)
-  const response = await apiClient.post(API_ROUTES.AUTH.VERIFY_EMAIL, {
-    verifyCode,
-  });
+export async function forgotPassword(
+  email: string
+): Promise<ApiResponse> {
+  const response = await apiClient.post<ApiResponse>(
+    API_ROUTES.AUTH.FORGOT_PASSWORD,
+    { email }
+  );
   return response.data;
 }
 
-export async function forgotPassword(email: string) {
-  const response = await apiClient.post(API_ROUTES.AUTH.FORGOT_PASSWORD, {
-    email,
-  });
+export async function verifyResetToken(
+  token: string
+): Promise<ApiResponse> {
+  const response = await apiClient.post<ApiResponse>(
+    API_ROUTES.AUTH.VERIFY_RESET_TOKEN,
+    null,
+    { params: { token } }
+  );
   return response.data;
 }
 
-export async function resetPassword(token: string, newPassword: string) {
-  const response = await apiClient.post(API_ROUTES.AUTH.RESET_PASSWORD, {
-    token,
-    newPassword,
-  });
+export async function resetPassword(
+  token: string,
+  newPassword: string,
+  confirmPassword: string
+): Promise<ApiResponse> {
+  const response = await apiClient.post<ApiResponse>(
+    API_ROUTES.AUTH.RESET_PASSWORD,
+    { token, newPassword, confirmPassword } satisfies ResetPasswordRequest
+  );
   return response.data;
 }
 
-export async function changePassword(
-  currentPassword: string,
-  newPassword: string
-) {
-  const response = await apiClient.post(API_ROUTES.AUTH.CHANGE_PASSWORD, {
-    currentPassword,
-    newPassword,
-  });
+export async function verifyEmail(token: string): Promise<ApiResponse> {
+  const response = await apiClient.get<ApiResponse>(
+    API_ROUTES.AUTH.VERIFY_EMAIL,
+    { params: { token } }
+  );
   return response.data;
 }

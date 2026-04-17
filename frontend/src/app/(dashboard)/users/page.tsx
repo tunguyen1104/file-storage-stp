@@ -22,14 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-type TenantUser = {
-  id: string;
-  name: string;
-  email: string;
-  role: "ADMIN_TENANT" | "USER";
-  lastLogin: string;
-};
+import { TenantUser } from "@/types/response";
 
 const PAGE_SIZE = 12;
 const PAGINATION_THRESHOLD = 12;
@@ -106,7 +99,7 @@ export default function UsersPage() {
                 </TableCell>
                 <TableCell>{member.email}</TableCell>
                 <TableCell>
-                  <Badge variant={member.role === "ADMIN_TENANT" ? "default" : "secondary"}>
+                  <Badge variant={member.role === "TENANT_ADMIN" ? "default" : "secondary"}>
                     {member.role}
                   </Badge>
                 </TableCell>
