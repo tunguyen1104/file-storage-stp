@@ -18,14 +18,14 @@ import { useAuth } from "@/hooks/use-auth";
 
 const DEFAULT_ROUTE_BY_ROLE = {
   SUPER_ADMIN: "/tenants",
-  ADMIN_TENANT: "/users",
-  USER: "/files",
+  TENANT_ADMIN: "/users",
+  MEMBER: "/files",
 } as const;
 
 const ALLOWED_ROUTES_BY_ROLE: Record<string, string[]> = {
   SUPER_ADMIN: ["/tenants", "/users", "/files", "/search"],
-  ADMIN_TENANT: ["/users", "/files", "/search"],
-  USER: ["/files", "/search"],
+  TENANT_ADMIN: ["/users", "/files", "/search"],
+  MEMBER: ["/files", "/search"],
 };
 
 function toTitle(value: string) {

@@ -1,43 +1,50 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { CheckCircle, Loader2, XCircle } from "lucide-react";
-import { useSecureToken } from "@/hooks/use-secure-token";
+import { verifyEmail } from "@/lib/api/auth";
 
 function VerifyEmailContent() {
   const router = useRouter();
-  const { token, isLoading: tokenLoading, error: tokenError } = useSecureToken({
-    type: "verify",
-  });
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
   const [status, setStatus] = useState<"loading" | "success" | "error">(
     "loading"
   );
 
   useEffect(() => {
-    if (tokenLoading) return;
-
-    if (tokenError || !token) {
+    if (!token) {
       setStatus("error");
       return;
     }
 
     let isMounted = true;
-    setStatus("success");
-    const redirectTimer = setTimeout(() => {
-      if (!isMounted) return;
-      router.push("/login?verified=true");
-    }, 1200);
+
+    verifyEmail(token)
+      .then((res) => {
+        if (!isMounted) return;
+        if (res.success) {
+          setStatus("success");
+          setTimeout(() => {
+            if (isMounted) router.push("/login?verified=true");
+          }, 1200);
+        } else {
+          setStatus("error");
+        }
+      })
+      .catch(() => {
+        if (isMounted) setStatus("error");
+      });
 
     return () => {
       isMounted = false;
-      clearTimeout(redirectTimer);
     };
-  }, [token, tokenLoading, tokenError, router]);
+  }, [token, router]);
 
   return (
     <div className="flex flex-col items-center">
-      {(status === "loading" || tokenLoading) && (
+      {status === "loading" && (
         <>
           <Loader2 className="h-10 w-10 animate-spin" />
           <p className="mt-4 font-medium">Verifying your email...</p>
@@ -51,7 +58,7 @@ function VerifyEmailContent() {
         </>
       )}
 
-      {status === "error" && !tokenLoading && (
+      {status === "error" && (
         <>
           <XCircle className="h-10 w-10 text-red-500" />
           <p className="mt-4 font-medium">Invalid or expired link.</p>

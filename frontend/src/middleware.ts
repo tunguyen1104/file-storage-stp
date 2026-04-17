@@ -40,7 +40,7 @@ const ROLE_ROUTE_MAP: Record<string, string[]> = {
     "/users",
     "/unauthorized",
   ],
-  ADMIN_TENANT: [
+  TENANT_ADMIN: [
     "/files",
     "/upload",
     "/search",
@@ -48,7 +48,7 @@ const ROLE_ROUTE_MAP: Record<string, string[]> = {
     "/users",
     "/unauthorized",
   ],
-  USER: ["/files", "/search", "/unauthorized"],
+  MEMBER: ["/files", "/search", "/unauthorized"],
 };
 
 /**

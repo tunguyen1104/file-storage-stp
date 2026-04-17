@@ -26,12 +26,12 @@ const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/files", label: "Files", icon: FolderOpen },
     { href: "/search", label: "Search", icon: Search },
   ],
-  ADMIN_TENANT: [
+  TENANT_ADMIN: [
     { href: "/users", label: "Users", icon: Users },
     { href: "/files", label: "Files", icon: FolderOpen },
     { href: "/search", label: "Search", icon: Search },
   ],
-  USER: [
+  MEMBER: [
     { href: "/files", label: "Files", icon: FolderOpen },
     { href: "/search", label: "Search", icon: Search },
   ],

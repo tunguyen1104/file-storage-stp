@@ -8,15 +8,15 @@ import { ApiError } from "@/types/api.types";
  */
 export async function swrFetcher<T>(url: string): Promise<T> {
   const response = await apiClient.get<ApiResponse<T>>(url);
+  const body = response.data;
 
-  if (response.data.status === "ERROR") {
-    throw new ApiError(
-      response.data.message ?? "API Logic Error",
-      response.status,
-      response.data.errorCode,
-      response.data.errors
-    );
+  if (!body.success) {
+    const message =
+      typeof body.errors === "string"
+        ? body.errors
+        : body.message ?? "Request failed";
+    throw new ApiError(message, response.status, body.code, body.errors);
   }
 
-  return response.data.data as T;
+  return body.data as T;
 }

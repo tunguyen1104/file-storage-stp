@@ -1,43 +1,34 @@
-export interface ApiResponse<T> {
+export interface ApiResponse<T = undefined> {
+  success: boolean;
   data?: T;
   message?: string;
-  errorCode?: number;
-  errors?: Record<string, string>;
-  status: "SUCCESS" | "ERROR";
+  errors?: string | Record<string, string[]>;
+  code?: number;
 }
 
-export interface PaginatedResponse<T> {
-  content: T[];
-  totalElements: number;
-  totalPages: number;
-  pageNumber: number;
-  pageSize: number;
-  first: boolean;
-  last: boolean;
-  empty: boolean;
-}
-
-export interface PaginationParams {
-  page?: number;
-  size?: number;
-  sort?: string;
+export type PageResponse<T> = {
+  data: T[],
+  pageSize: number,
+  totalPages: number,
+  totalElements: number,
+  currentPage: number,
 }
 
 export class ApiError extends Error {
   readonly status: number;
-  readonly errorCode?: number;
-  readonly errors?: Record<string, string>;
+  readonly code?: number;
+  readonly errors?: string | Record<string, string[]>;
 
   constructor(
     message: string,
     status: number,
-    errorCode?: number,
-    errors?: Record<string, string>
+    code?: number,
+    errors?: string | Record<string, string[]>
   ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
-    this.errorCode = errorCode;
+    this.code = code;
     this.errors = errors;
   }
 }

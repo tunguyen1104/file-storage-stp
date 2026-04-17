@@ -4,10 +4,12 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from "axios";
 import { getCsrfToken, CSRF_HEADER_NAME } from "./csrf";
+import type { ApiResponse } from "@/types/api.types";
+
+// ─── Error code constants ──────────────────────────────────────
+const ERROR_CODE_TOKEN_EXPIRED = 1002;
 
 // ─── Promise-based Refresh Lock ─────────────────────────────────
-// Instead of a boolean flag + array, we use a single promise that
-// all concurrent requests can await. This eliminates race conditions.
 let refreshPromise: Promise<void> | null = null;
 
 // ─── Axios Instance ──────────────────────────────────────────
@@ -18,9 +20,6 @@ export const apiClient: AxiosInstance = axios.create({
 
 // ─── Request Interceptor ────────────────────────────────────
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  // Token is sent via httpOnly cookie automatically (withCredentials: true).
-  // BFF Route Handler extracts token and forwards to backend.
-
   // Attach CSRF token to state-changing requests
   const method = config.method?.toUpperCase();
   if (method && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
@@ -36,18 +35,24 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 // ─── Response Interceptor ───────────────────────────────────
 apiClient.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError) => {
+  async (error: AxiosError<ApiResponse>) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
     };
 
     // Never intercept the refresh request itself to avoid infinite loops
-    if (originalRequest.url?.includes("/api/auth/refresh")) {
+    if (originalRequest.url?.includes("/api/v1/auth/refresh")) {
       return Promise.reject(error);
     }
 
-    // Only handle 401s that haven't been retried
-    if (error.response?.status !== 401 || originalRequest._retry) {
+    // Check if this is a token-expired error (code=1002)
+    const responseData = error.response?.data;
+    const isTokenExpired =
+      error.response?.status === 401 &&
+      responseData?.code === ERROR_CODE_TOKEN_EXPIRED;
+
+    // Only attempt refresh for token expiry, not other 401s
+    if (!isTokenExpired || originalRequest._retry) {
       return Promise.reject(error);
     }
 
@@ -66,13 +71,12 @@ apiClient.interceptors.response.use(
     // Start a new refresh and store the promise
     refreshPromise = (async () => {
       try {
-        await axios.post("/api/auth/refresh", {}, { withCredentials: true });
+        await axios.post("/api/v1/auth/refresh", {}, { withCredentials: true });
       } catch (refreshError) {
-        // Only force logout on 401 (invalid refresh token), not on 5xx
+        // Force logout on any refresh failure
         if (
           typeof window !== "undefined" &&
-          axios.isAxiosError(refreshError) &&
-          refreshError.response?.status === 401
+          axios.isAxiosError(refreshError)
         ) {
           window.dispatchEvent(new Event("auth:logout"));
         }

@@ -1,16 +1,19 @@
 "use client";
 
-import { useState, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
+import axios from "axios";
 
 import {
   resetPasswordSchema,
   type ResetPasswordInput,
 } from "@/lib/schemas/user.schema";
+import { resetPassword, verifyResetToken } from "@/lib/api/auth";
+import type { ApiResponse } from "@/types/api.types";
 import { PasswordInput } from "@/components/auth/password-input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,22 +28,96 @@ import {
 
 function ResetPasswordForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
   const [error, setError] = useState<string | null>(null);
+  const [tokenValid, setTokenValid] = useState<boolean | null>(null);
 
   const form = useForm<ResetPasswordInput>({
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: { password: "", confirmPassword: "" },
   });
 
+  // Verify the reset token on mount
+  useEffect(() => {
+    if (!token) {
+      setTokenValid(false);
+      return;
+    }
+
+    let cancelled = false;
+    verifyResetToken(token)
+      .then((res) => {
+        if (!cancelled) setTokenValid(res.success);
+      })
+      .catch(() => {
+        if (!cancelled) setTokenValid(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
   const onSubmit = async (data: ResetPasswordInput) => {
+    if (!token) return;
     setError(null);
     try {
-      await Promise.resolve(data.password);
-      router.push("/login?reset=success");
-    } catch {
+      const result = await resetPassword(token, data.password, data.confirmPassword);
+      if (result.success) {
+        router.push("/login?reset=success");
+        return;
+      }
+      setError(typeof result.errors === "string" ? result.errors : "Failed to reset password.");
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        const body = err.response?.data as ApiResponse | undefined;
+        if (body && !body.success) {
+          // Map field validation errors
+          if (typeof body.errors === "object" && body.errors !== null) {
+            for (const [field, messages] of Object.entries(body.errors)) {
+              if (field === "password" || field === "newPassword") {
+                form.setError("password", {
+                  message: Array.isArray(messages) ? messages[0] : String(messages),
+                });
+              } else if (field === "confirmPassword") {
+                form.setError("confirmPassword", {
+                  message: Array.isArray(messages) ? messages[0] : String(messages),
+                });
+              }
+            }
+            return;
+          }
+          if (typeof body.errors === "string") {
+            setError(body.errors);
+            return;
+          }
+        }
+      }
       setError("Failed to reset password. The link may have expired.");
     }
   };
+
+  if (tokenValid === null) {
+    return (
+      <div className="flex justify-center">
+        <Loader2 className="w-10 h-10 animate-spin" />
+      </div>
+    );
+  }
+
+  if (tokenValid === false) {
+    return (
+      <Card className="w-full max-w-md shadow-lg">
+        <CardContent className="pt-6 text-center space-y-4">
+          <p className="font-medium">Invalid or expired reset link.</p>
+          <Link href="/forgot-password" className="text-sm text-muted-foreground hover:underline">
+            Request a new reset link
+          </Link>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full max-w-md shadow-lg">
