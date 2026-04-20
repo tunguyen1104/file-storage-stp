@@ -540,13 +540,13 @@ sequenceDiagram
     participant Redis
     participant PostgreSQL
 
-    Client->>AuthController: POST /api/v1/auth/signin<br/>{email, password}
+    Client->>AuthController: POST /api/v1/auth/signin {email, password}
     AuthController->>AuthService: processSignIn(request)
     AuthService->>AuthManager: authenticate(email, rawPassword)
     AuthManager->>UDS: loadUserByUsername(email)
     UDS->>PostgreSQL: findByEmailWithRoleAndTenant(email)
     PostgreSQL-->>UDS: User entity
-    UDS-->>AuthManager: SecurityUser (với passwordHash)
+    UDS-->>AuthManager: SecurityUser (with passwordHash)
     AuthManager->>AuthManager: BCrypt.matches(rawPassword, hash)
     alt Credentials invalid
         AuthManager-->>AuthService: throw AuthenticationException
@@ -561,7 +561,9 @@ sequenceDiagram
     RefreshTokenService->>Redis: SET rt:{uuid} → userId (TTL)
     RefreshTokenService-->>AuthService: refreshToken UUID
     AuthService-->>AuthController: TokenResponse(accessToken, refreshToken)
-    AuthController->>Client: 200 OK<br/>Set-Cookie: access-token=JWT; HttpOnly; SameSite=Strict<br/>Set-Cookie: refresh-token=UUID; HttpOnly; SameSite=Strict
+    AuthController-->>Client: 200 OK
+    Note over AuthController,Client: Set-Cookie: access-token=JWT, HttpOnly, SameSite=Strict
+    Note over AuthController,Client: Set-Cookie: refresh-token=UUID, HttpOnly, SameSite=Strict
 ```
 
 ---
@@ -675,7 +677,9 @@ sequenceDiagram
     Blacklist->>Blacklist: parse JTI + calculate remaining TTL
     Blacklist->>Redis: SET blacklisted_at:{jti} = "1" (TTL = remaining)
     AuthService->>AuthService: SecurityContextHolder.clearContext()
-    AuthController->>Client: 200 OK<br/>Set-Cookie: access-token=; MaxAge=0<br/>Set-Cookie: refresh-token=; MaxAge=0
+    AuthController->>Client: 200 OK
+    Note over Client: Set-Cookie: access-token=, MaxAge=0
+    Note over Client: Set-Cookie: refresh-token=, MaxAge=0
     Note over Client: Browser xoá cả 2 cookie
 ```
 
