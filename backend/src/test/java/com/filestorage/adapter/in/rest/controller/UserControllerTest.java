@@ -19,6 +19,7 @@ import com.filestorage.domain.port.in.user.CreateUserUseCase;
 import com.filestorage.domain.port.in.user.DeactivateUserUseCase;
 import com.filestorage.domain.port.in.user.GetUserStorageUseCase;
 import com.filestorage.domain.port.in.user.GetUserUseCase;
+import com.filestorage.domain.port.in.user.ListTenantUsersUseCase;
 import com.filestorage.domain.port.in.user.ListUsersUseCase;
 import com.filestorage.domain.port.in.user.UpdateUserUseCase;
 import com.filestorage.shared.exception.AppException;
@@ -74,6 +75,8 @@ class UserControllerTest {
     @Mock
     private ChangeUserPasswordUseCase changeUserPasswordUseCase;
     @Mock
+    private ListTenantUsersUseCase listTenantUsersUseCase;
+    @Mock
     private UserRestMapper userRestMapper;
 
     private UUID actorUserId;
@@ -104,6 +107,7 @@ class UserControllerTest {
                 updateUserUseCase,
                 deactivateUserUseCase,
                 changeUserPasswordUseCase,
+                listTenantUsersUseCase,
                 userRestMapper
         );
 
@@ -180,9 +184,11 @@ class UserControllerTest {
                         "User A",
                         new RoleSummaryResponse(UUID.randomUUID(), RoleCode.MEMBER, "Member"),
                         actorTenantId,
+                        "Tenant A",
                         true,
                         100L,
                         20L,
+                        "creator@example.com",
                         Instant.now(),
                         Instant.now(),
                         Instant.now(),
@@ -200,7 +206,9 @@ class UserControllerTest {
         mockMvc.perform(get("/api/v1/users"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.totalElements").value(1));
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.data[0].tenantName").value("Tenant A"))
+                .andExpect(jsonPath("$.data.data[0].createdBy").value("creator@example.com"));
     }
 
     @Test
@@ -223,9 +231,11 @@ class UserControllerTest {
                 "User",
                 new RoleSummaryResponse(UUID.randomUUID(), RoleCode.MEMBER, "Member"),
                 actorTenantId,
+                "Tenant A",
                 true,
                 100L,
                 10L,
+                "creator@example.com",
                 Instant.now(),
                 Instant.now(),
                 Instant.now(),
@@ -238,7 +248,9 @@ class UserControllerTest {
         mockMvc.perform(get("/api/v1/users/{userId}", userId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.id").value(userId.toString()));
+                .andExpect(jsonPath("$.data.id").value(userId.toString()))
+                .andExpect(jsonPath("$.data.tenantName").value("Tenant A"))
+                .andExpect(jsonPath("$.data.createdBy").value("creator@example.com"));
     }
 
     @Test
@@ -262,9 +274,11 @@ class UserControllerTest {
                 "Updated User",
                 new RoleSummaryResponse(UUID.randomUUID(), RoleCode.MEMBER, "Member"),
                 actorTenantId,
+                "Tenant A",
                 true,
                 200L,
                 20L,
+                "creator@example.com",
                 Instant.now(),
                 Instant.now(),
                 Instant.now(),
@@ -310,9 +324,11 @@ class UserControllerTest {
                 "User",
                 new RoleSummaryResponse(UUID.randomUUID(), RoleCode.MEMBER, "Member"),
                 actorTenantId,
+                "Tenant A",
                 false,
                 100L,
                 20L,
+                "creator@example.com",
                 Instant.now(),
                 Instant.now(),
                 Instant.now(),
@@ -407,6 +423,43 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.code").value(ErrorCode.ACCESS_DENIED.getCode()));
     }
 
+    @Test
+    void listTenantUsers_returns200() throws Exception {
+        var pageView = new UserPageView(List.of(sampleUserView(UUID.randomUUID())), 1, 20, 1L, 1);
+        var pageResponse = PageResponse.<UserDetailResponse>builder()
+                .data(List.of(new UserDetailResponse(
+                        UUID.randomUUID(),
+                        "a@example.com",
+                        "User A",
+                        new RoleSummaryResponse(UUID.randomUUID(), RoleCode.MEMBER, "Member"),
+                        actorTenantId,
+                        "Tenant A",
+                        true,
+                        100L,
+                        20L,
+                        "creator@example.com",
+                        Instant.now(),
+                        Instant.now(),
+                        Instant.now(),
+                        Instant.now()
+                )))
+                .currentPage(1)
+                .pageSize(20)
+                .totalElements(1)
+                .totalPages(1)
+                .build();
+
+        when(listTenantUsersUseCase.execute(any())).thenReturn(pageView);
+        when(userRestMapper.toPageResponse(pageView)).thenReturn(pageResponse);
+
+        mockMvc.perform(get("/api/v1/users/tenant"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.data[0].tenantName").value("Tenant A"))
+                .andExpect(jsonPath("$.data.data[0].createdBy").value("creator@example.com"));
+    }
+
     private UserView sampleUserView(UUID id) {
         return new UserView(
                 id,
@@ -414,10 +467,12 @@ class UserControllerTest {
                 "User",
                 new UserRoleView(UUID.randomUUID(), RoleCode.MEMBER, "Member"),
                 actorTenantId,
+                "Tenant A",
                 true,
                 100L,
                 10L,
                 actorUserId,
+                "creator@example.com",
                 Instant.now(),
                 Instant.now(),
                 Instant.now(),
