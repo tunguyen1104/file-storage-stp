@@ -16,8 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.domain.Sort;
 
 import java.util.List;
 import java.util.UUID;
@@ -25,6 +24,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -52,21 +52,31 @@ class ListUsersServiceTest {
     }
 
     @Test
-    void tenantAdminSeesOwnTenantRegardlessOfTenantFilter() {
-        UUID actorTenantId = UUID.randomUUID();
-        User user = createUser(UUID.randomUUID(), actorTenantId, RoleCode.MEMBER);
+    void tenantAdminCannotListUsers() {
+        var query = new ListUsersUseCase.ListUsersQuery(
+                UUID.randomUUID(), UUID.randomUUID(), RoleCode.TENANT_ADMIN,
+                null, null, null, null, 1, 20
+        );
 
-        when(userRepository.findAll(any(Specification.class), any(Pageable.class)))
+        assertThrows(AppException.class, () -> listUsersService.execute(query));
+    }
+
+    @Test
+    void superAdminCanListUsers() {
+        UUID targetTenantId = UUID.randomUUID();
+        User user = createUser(UUID.randomUUID(), targetTenantId, RoleCode.MEMBER);
+
+        when(userRepository.findAll(any(), eq(PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt")))))
                 .thenReturn(new PageImpl<>(List.of(user), PageRequest.of(0, 20), 1));
 
         var query = new ListUsersUseCase.ListUsersQuery(
-                UUID.randomUUID(), actorTenantId, RoleCode.TENANT_ADMIN,
-                UUID.randomUUID(), true, null, "u@", 1, 20
+                UUID.randomUUID(), UUID.randomUUID(), RoleCode.SUPER_ADMIN,
+                targetTenantId, true, null, "u@", 1, 20
         );
 
         var result = listUsersService.execute(query);
         assertEquals(1, result.data().size());
-        assertEquals(actorTenantId, result.data().get(0).tenantId());
+        assertEquals(targetTenantId, result.data().get(0).tenantId());
     }
 
     private User createUser(UUID userId, UUID tenantId, RoleCode roleCode) {

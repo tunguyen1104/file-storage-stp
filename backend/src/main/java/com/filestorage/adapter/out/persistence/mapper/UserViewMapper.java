@@ -14,10 +14,12 @@ public interface UserViewMapper {
 
     @Mapping(target = "role", expression = "java(toRoleView(user.getRole()))")
     @Mapping(target = "tenantId", expression = "java(user.getTenant().getId())")
+    @Mapping(target = "tenantName", expression = "java(user.getTenant().getName())")
     @Mapping(target = "isActive", expression = "java(user.isActive())")
     @Mapping(target = "storageQuotaBytes", expression = "java(zeroIfNull(user.getStorageQuotaBytes()))")
     @Mapping(target = "storageUsedBytes", expression = "java(zeroIfNull(user.getStorageUsedBytes()))")
     @Mapping(target = "createdBy", expression = "java(user.getCreatedBy() == null ? null : user.getCreatedBy().getId())")
+    @Mapping(target = "createdByEmail", expression = "java(user.getCreatedBy() == null ? null : user.getCreatedBy().getEmail())")
     UserView toUserView(User user);
 
     @Mapping(target = "userId", expression = "java(user.getId())")

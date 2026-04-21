@@ -11,6 +11,7 @@ import com.filestorage.domain.model.user.UserStorageView;
 import com.filestorage.domain.model.user.UserView;
 import com.filestorage.infrastructure.config.GlobalMapperConfig;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = GlobalMapperConfig.class)
 public interface UserRestMapper {
@@ -33,6 +34,7 @@ public interface UserRestMapper {
         );
     }
 
+    @Mapping(target = "createdBy", source = "createdByEmail")
     UserDetailResponse toUserDetailResponse(UserView view);
 
     UserStorageResponse toUserStorageResponse(UserStorageView view);

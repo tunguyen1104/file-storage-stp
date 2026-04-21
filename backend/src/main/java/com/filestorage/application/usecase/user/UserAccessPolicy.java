@@ -13,7 +13,13 @@ final class UserAccessPolicy {
     }
 
     static void requireCanList(RoleCode actorRole) {
-        if (actorRole == RoleCode.MEMBER) {
+        if (actorRole != RoleCode.SUPER_ADMIN) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+    }
+
+    static void requireCanListTenantUsers(RoleCode actorRole) {
+        if (actorRole != RoleCode.SUPER_ADMIN && actorRole != RoleCode.TENANT_ADMIN) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
     }

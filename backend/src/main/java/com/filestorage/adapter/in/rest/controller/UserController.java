@@ -12,6 +12,7 @@ import com.filestorage.domain.port.in.user.CreateUserUseCase;
 import com.filestorage.domain.port.in.user.DeactivateUserUseCase;
 import com.filestorage.domain.port.in.user.GetUserStorageUseCase;
 import com.filestorage.domain.port.in.user.GetUserUseCase;
+import com.filestorage.domain.port.in.user.ListTenantUsersUseCase;
 import com.filestorage.domain.port.in.user.ListUsersUseCase;
 import com.filestorage.domain.port.in.user.UpdateUserUseCase;
 import com.filestorage.shared.exception.AppException;
@@ -44,6 +45,7 @@ public class UserController {
     private final UpdateUserUseCase updateUserUseCase;
     private final DeactivateUserUseCase deactivateUserUseCase;
     private final ChangeUserPasswordUseCase changeUserPasswordUseCase;
+    private final ListTenantUsersUseCase listTenantUsersUseCase;
     private final UserRestMapper userRestMapper;
 
     @PostMapping
@@ -78,6 +80,29 @@ public class UserController {
                 UUID.fromString(actor.getTenantId()),
                 parseRole(actor.getRole()),
                 tenantId,
+                isActive,
+                roleId,
+                search,
+                page,
+                limit
+        ));
+
+        return ResponseEntity.ok(ApiResponse.buildSuccess(userRestMapper.toPageResponse(result)));
+    }
+
+    @GetMapping("/tenant")
+    public ResponseEntity<ApiResponse<?>> listTenantUsers(
+            @RequestParam(required = false) Boolean isActive,
+            @RequestParam(required = false) UUID roleId,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int limit
+    ) {
+        SecurityUser actor = currentUserOrThrow();
+        var result = listTenantUsersUseCase.execute(new ListTenantUsersUseCase.ListTenantUsersQuery(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
                 isActive,
                 roleId,
                 search,
