@@ -4,7 +4,7 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from "axios";
 import { getCsrfToken, CSRF_HEADER_NAME } from "./csrf";
-import type { ApiResponse } from "@/types/api.types";
+import { toAppError, type ApiErrorResponse } from "@/lib/api/core/api-error";
 
 // ─── Error code constants ──────────────────────────────────────
 const ERROR_CODE_TOKEN_EXPIRED = 1002;
@@ -35,14 +35,14 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 // ─── Response Interceptor ───────────────────────────────────
 apiClient.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError<ApiResponse>) => {
+  async (error: AxiosError<ApiErrorResponse>) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
     };
 
     // Never intercept the refresh request itself to avoid infinite loops
     if (originalRequest.url?.includes("/api/v1/auth/refresh")) {
-      return Promise.reject(error);
+      return Promise.reject(toAppError(error));
     }
 
     // Check if this is a token-expired error (code=1002)
@@ -53,7 +53,7 @@ apiClient.interceptors.response.use(
 
     // Only attempt refresh for token expiry, not other 401s
     if (!isTokenExpired || originalRequest._retry) {
-      return Promise.reject(error);
+      return Promise.reject(toAppError(error));
     }
 
     originalRequest._retry = true;
@@ -64,7 +64,7 @@ apiClient.interceptors.response.use(
         await refreshPromise;
         return apiClient(originalRequest);
       } catch {
-        return Promise.reject(error);
+        return Promise.reject(toAppError(error));
       }
     }
 
@@ -88,7 +88,7 @@ apiClient.interceptors.response.use(
       await refreshPromise;
       return apiClient(originalRequest);
     } catch (refreshError) {
-      return Promise.reject(refreshError);
+      return Promise.reject(toAppError(refreshError));
     } finally {
       refreshPromise = null;
     }

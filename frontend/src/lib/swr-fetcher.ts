@@ -1,22 +1,22 @@
 import { apiClient } from "@/lib/api-client";
+import { AppError, toAppError } from "@/lib/api/core/api-error";
 import type { ApiResponse } from "@/types/api.types";
-import { ApiError } from "@/types/api.types";
 
 /**
  * Default SWR fetcher that wraps the centralized apiClient.
- * Unwraps the ApiResponse envelope and throws ApiError on failure.
+ * Unwraps the ApiResponse envelope and throws AppError on failure.
  */
 export async function swrFetcher<T>(url: string): Promise<T> {
-  const response = await apiClient.get<ApiResponse<T>>(url);
-  const body = response.data;
+  try {
+    const response = await apiClient.get<ApiResponse<T>>(url);
+    const body = response.data;
 
-  if (!body.success) {
-    const message =
-      typeof body.errors === "string"
-        ? body.errors
-        : body.message ?? "Request failed";
-    throw new ApiError(message, response.status, body.code, body.errors);
+    if (!body.success || body.data === undefined) {
+      throw new AppError(body.message ?? "Request failed");
+    }
+
+    return body.data;
+  } catch (error) {
+    throw toAppError(error);
   }
-
-  return body.data as T;
 }

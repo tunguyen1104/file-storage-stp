@@ -10,12 +10,11 @@ import type { Role } from "@/lib/constants";
 export interface DecodedToken {
   sub: string;
   userId: string;
-  email: string;
-  fullName: string;
-  role: Role;
   tenantId: string;
-  exp: number;
-  iat: number;
+  role: Role;
+  jti: string;
+  iat: number;          // issued at (seconds)
+  exp: number;          // expiration (seconds)
 }
 
 /**
