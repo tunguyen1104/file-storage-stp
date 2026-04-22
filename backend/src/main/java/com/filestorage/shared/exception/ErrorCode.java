@@ -32,7 +32,13 @@ public enum ErrorCode {
     SELF_DEACTIVATION_FORBIDDEN(1018, "error.self-deactivation-forbidden", HttpStatus.FORBIDDEN),
     SLUG_ALREADY_EXISTS(1019, "error.slug-already-exists", HttpStatus.CONFLICT),
     SYSTEM_TENANT_CANNOT_BE_DELETED(1020, "error.system-tenant-cannot-be-deleted", HttpStatus.CONFLICT),
-    INTERNAL_SERVER_ERROR(9999, "errors.server-error", HttpStatus.INTERNAL_SERVER_ERROR);
+    FILE_NOT_FOUND(1021, "error.file-not-found", HttpStatus.NOT_FOUND),
+    FOLDER_NOT_FOUND(1022, "error.folder-not-found", HttpStatus.NOT_FOUND),
+    FILE_STATUS_INVALID(1023, "error.file-status-invalid", HttpStatus.CONFLICT),
+    FILE_TOO_LARGE(1024, "error.file-too-large", HttpStatus.BAD_REQUEST),
+    TENANT_QUOTA_EXCEEDED(1025, "error.tenant-quota-exceeded", HttpStatus.CONFLICT),
+    USER_QUOTA_EXCEEDED(1026, "error.user-quota-exceeded", HttpStatus.CONFLICT),
+    INTERNAL_SERVER_ERROR(1500, "error.internal-server-error", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final int code;
     private final String key;

@@ -20,7 +20,7 @@ import java.util.UUID;
 @Builder
 public class Tenant extends BaseEntity {
 
-    @Column(name = "name", length = 255, nullable = false)
+    @Column(name = "name", nullable = false)
     private String name;
 
     @Column(name = "slug", length = 100, unique = true, nullable = false)
@@ -34,7 +34,9 @@ public class Tenant extends BaseEntity {
     @Builder.Default
     private Long storageUsedBytes = 0L;
 
-    private boolean isActive;
+    @Column(name = "is_active", nullable = false)
+    @Builder.Default
+    private boolean isActive = true;
 
     @Column(name = "created_by", columnDefinition = "uuid")
     private UUID createdBy;

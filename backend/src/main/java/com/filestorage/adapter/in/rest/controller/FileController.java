@@ -1,0 +1,214 @@
+package com.filestorage.adapter.in.rest.controller;
+
+import com.filestorage.adapter.in.rest.dto.response.ApiResponse;
+import com.filestorage.adapter.in.rest.dto.response.FileMetadataResponse;
+import com.filestorage.adapter.in.rest.dto.response.FileResponse;
+import com.filestorage.adapter.in.rest.dto.response.PageResponse;
+import com.filestorage.adapter.in.rest.dto.response.PresignedDownloadResponse;
+import com.filestorage.adapter.in.rest.dto.response.PresignedGetUrlResponse;
+import com.filestorage.adapter.in.rest.mapper.FileRestMapper;
+import com.filestorage.adapter.in.rest.security.SecurityUser;
+import com.filestorage.domain.model.enums.FileStatus;
+import com.filestorage.domain.model.enums.FileSortBy;
+import com.filestorage.domain.model.enums.RoleCode;
+import com.filestorage.domain.model.enums.SortDirection;
+import com.filestorage.domain.model.file.FileDownloadView;
+import com.filestorage.domain.model.file.FilePageView;
+import com.filestorage.domain.model.file.FilePresignedGetView;
+import com.filestorage.domain.model.file.FileView;
+import com.filestorage.domain.port.in.file.DeleteFileUseCase;
+import com.filestorage.domain.port.in.file.DownloadFileUseCase;
+import com.filestorage.domain.port.in.file.GetFileMetadataUseCase;
+import com.filestorage.domain.port.in.file.GetFilePresignedUrlUseCase;
+import com.filestorage.domain.port.in.file.ListFileMetadataUseCase;
+import com.filestorage.domain.port.in.file.RestoreFileUseCase;
+import com.filestorage.domain.port.in.file.UploadFileUseCase;
+import com.filestorage.shared.exception.AppException;
+import com.filestorage.shared.exception.ErrorCode;
+import com.filestorage.shared.util.SecurityContextUtil;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/v1")
+@RequiredArgsConstructor
+public class FileController {
+
+    private final UploadFileUseCase uploadFileUseCase;
+    private final GetFileMetadataUseCase getFileMetadataUseCase;
+    private final ListFileMetadataUseCase listFileMetadataUseCase;
+    private final DownloadFileUseCase downloadFileUseCase;
+    private final GetFilePresignedUrlUseCase getFilePresignedUrlUseCase;
+    private final DeleteFileUseCase deleteFileUseCase;
+    private final RestoreFileUseCase restoreFileUseCase;
+    private final FileRestMapper fileRestMapper;
+
+    @PostMapping(value = "/uploads/single", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<FileResponse>> uploadSingle(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(required = false) UUID folderId) throws IOException {
+        SecurityUser actor = currentUserOrThrow();
+        if (file == null || file.isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_PAYLOAD);
+        }
+
+        String effectiveOriginalName = resolveOriginalName(file.getOriginalFilename());
+        FileView view = uploadFileUseCase.execute(new UploadFileUseCase.UploadFileCommand(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                folderId,
+                effectiveOriginalName,
+                file.getContentType(),
+                file.getBytes()
+        ));
+
+        return ResponseEntity.status(201).body(ApiResponse.buildSuccess(fileRestMapper.toFileResponse(view)));
+    }
+
+    @GetMapping("/files/{fileId}/download")
+    public ResponseEntity<ApiResponse<PresignedDownloadResponse>> download(
+            @PathVariable UUID fileId,
+            @RequestParam(required = false) Integer ttlMinutes) {
+        SecurityUser actor = currentUserOrThrow();
+        FileDownloadView view = downloadFileUseCase.execute(new DownloadFileUseCase.DownloadFileQuery(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                fileId,
+                ttlMinutes
+        ));
+
+        return ResponseEntity.ok(ApiResponse.buildSuccess(new PresignedDownloadResponse(
+                view.downloadUrl(),
+                view.expiresAt(),
+                view.originalName(),
+                view.mimeType(),
+                view.sizeBytes()
+        )));
+    }
+
+    @GetMapping("/files/{fileId}")
+    public ResponseEntity<ApiResponse<FileMetadataResponse>> getFileMetadata(@PathVariable UUID fileId) {
+        SecurityUser actor = currentUserOrThrow();
+        FileView view = getFileMetadataUseCase.execute(new GetFileMetadataUseCase.GetFileMetadataQuery(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                fileId
+        ));
+
+        return ResponseEntity.ok(ApiResponse.buildSuccess(fileRestMapper.toFileMetadataResponse(view)));
+    }
+
+    @GetMapping("/files")
+    public ResponseEntity<ApiResponse<PageResponse<FileMetadataResponse>>> listFileMetadata(
+            @RequestParam(required = false) UUID folderId,
+            @RequestParam(required = false) FileStatus status,
+            @RequestParam(required = false) UUID uploadedBy,
+            @RequestParam(required = false) UUID tenantId,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int limit,
+            @RequestParam(defaultValue = "CREATED_AT") FileSortBy sortBy,
+            @RequestParam(defaultValue = "DESC") SortDirection sortDirection
+    ) {
+        SecurityUser actor = currentUserOrThrow();
+        FilePageView view = listFileMetadataUseCase.execute(new ListFileMetadataUseCase.ListFileMetadataQuery(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                folderId,
+                status,
+                uploadedBy,
+                tenantId,
+                search,
+                page,
+                limit,
+                sortBy,
+                sortDirection
+        ));
+
+        return ResponseEntity.ok(ApiResponse.buildSuccess(fileRestMapper.toMetadataPageResponse(view)));
+    }
+
+    @GetMapping("/files/{fileId}/presigned-get-url")
+    public ResponseEntity<ApiResponse<PresignedGetUrlResponse>> getPresignedGetUrl(
+            @PathVariable UUID fileId,
+            @RequestParam(required = false) Integer ttlMinutes) {
+        SecurityUser actor = currentUserOrThrow();
+        FilePresignedGetView view = getFilePresignedUrlUseCase.execute(new GetFilePresignedUrlUseCase.GetFilePresignedUrlQuery(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                fileId,
+                ttlMinutes
+        ));
+
+        return ResponseEntity.ok(ApiResponse.buildSuccess(new PresignedGetUrlResponse(
+                view.getUrl(),
+                view.expiresAt(),
+                view.originalName(),
+                view.mimeType(),
+                view.sizeBytes()
+        )));
+    }
+
+    @DeleteMapping("/files/{fileId}")
+    public ResponseEntity<ApiResponse<FileResponse>> delete(@PathVariable UUID fileId) {
+        SecurityUser actor = currentUserOrThrow();
+        FileView view = deleteFileUseCase.execute(new DeleteFileUseCase.DeleteFileCommand(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                fileId
+        ));
+        return ResponseEntity.ok(ApiResponse.buildSuccess(fileRestMapper.toFileResponse(view)));
+    }
+
+    @PostMapping("/files/{fileId}/restore")
+    public ResponseEntity<ApiResponse<FileResponse>> restore(@PathVariable UUID fileId) {
+        SecurityUser actor = currentUserOrThrow();
+        FileView view = restoreFileUseCase.execute(new RestoreFileUseCase.RestoreFileCommand(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                fileId
+        ));
+        return ResponseEntity.ok(ApiResponse.buildSuccess(fileRestMapper.toFileResponse(view)));
+    }
+
+    private SecurityUser currentUserOrThrow() {
+        return SecurityContextUtil.getCurrentUser().orElseThrow(() -> new AppException(ErrorCode.ACCESS_DENIED));
+    }
+
+    private RoleCode parseRole(String role) {
+        try {
+            return RoleCode.valueOf(role);
+        } catch (IllegalArgumentException ex) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+    }
+
+    private String resolveOriginalName(String originalFilename) {
+        if (originalFilename == null || originalFilename.isBlank()) {
+            return "upload-" + UUID.randomUUID();
+        }
+        return originalFilename.trim();
+    }
+}
+
+
+

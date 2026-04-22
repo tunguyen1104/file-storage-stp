@@ -12,6 +12,8 @@ public interface ObjectStoragePort {
 
     void delete(String storageKey);
 
-    String generatePresignedDownloadUrl(String storageKey, Duration ttl);
+    String generatePresignedDownloadUrl(String storageKey, String originalName, Duration ttl);
+
+    String generatePresignedGetUrl(String storageKey, String originalName, Duration ttl);
 }
 

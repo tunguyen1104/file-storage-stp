@@ -17,13 +17,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -64,9 +64,9 @@ class ListUsersServiceTest {
     @Test
     void superAdminCanListUsers() {
         UUID targetTenantId = UUID.randomUUID();
-        User user = createUser(UUID.randomUUID(), targetTenantId, RoleCode.MEMBER);
+        User user = createUser(UUID.randomUUID(), targetTenantId);
 
-        when(userRepository.findAll(any(), eq(PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt")))))
+        when(userRepository.findAll(org.mockito.ArgumentMatchers.<Specification<User>>any(), eq(PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt")))))
                 .thenReturn(new PageImpl<>(List.of(user), PageRequest.of(0, 20), 1));
 
         var query = new ListUsersUseCase.ListUsersQuery(
@@ -79,11 +79,11 @@ class ListUsersServiceTest {
         assertEquals(targetTenantId, result.data().get(0).tenantId());
     }
 
-    private User createUser(UUID userId, UUID tenantId, RoleCode roleCode) {
+    private User createUser(UUID userId, UUID tenantId) {
         Tenant tenant = Tenant.builder().name("T").slug("t").isActive(true).build();
         tenant.setId(tenantId);
 
-        Role role = Role.builder().code(roleCode).name(roleCode.name()).build();
+        Role role = Role.builder().code(RoleCode.MEMBER).name(RoleCode.MEMBER.name()).build();
         role.setId(UUID.randomUUID());
 
         User user = User.builder()

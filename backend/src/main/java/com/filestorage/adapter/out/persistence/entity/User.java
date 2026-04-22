@@ -33,20 +33,22 @@ public class User extends BaseEntity {
     @JoinColumn(name = "tenant_id", nullable = false)
     private Tenant tenant;
 
-    @Column(name = "email", length = 255, unique = true, nullable = false)
+    @Column(name = "email", unique = true, nullable = false)
     private String email; // lowercase
 
-    @Column(name = "password_hash", length = 255, nullable = false)
+    @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
-    @Column(name = "full_name", length = 255, nullable = false)
+    @Column(name = "full_name", nullable = false)
     private String fullName;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
-    private boolean isActive;
+    @Column(name = "is_active", nullable = false)
+    @Builder.Default
+    private boolean isActive = true;
 
     @Column(name = "storage_quota_bytes", nullable = false)
     @Builder.Default
