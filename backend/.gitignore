@@ -34,3 +34,5 @@ keys/
 
 redis_data/
 postgres_data/
+
+.env

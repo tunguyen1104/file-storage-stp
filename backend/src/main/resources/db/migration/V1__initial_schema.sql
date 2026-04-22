@@ -1,0 +1,417 @@
+CREATE EXTENSION IF NOT EXISTS ltree;
+
+CREATE TYPE "permission_file" AS ENUM (
+  'VIEW',
+  'EDIT',
+  'MANAGE'
+);
+
+CREATE TABLE "tenants" (
+  "id" uuid PRIMARY KEY,
+  "name" varchar(255) NOT NULL,
+  "slug" varchar(100) UNIQUE NOT NULL,
+  "storage_quota_bytes" bigint NOT NULL DEFAULT 53687091200,
+  "storage_used_bytes" bigint NOT NULL DEFAULT 0,
+  "is_active" boolean NOT NULL DEFAULT true,
+  "created_by" uuid,
+  "created_at" timestamptz NOT NULL DEFAULT (now()),
+  "updated_at" timestamptz NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "users" (
+  "id" uuid PRIMARY KEY,
+  "tenant_id" uuid NOT NULL,
+  "email" varchar(255) UNIQUE NOT NULL,
+  "password_hash" varchar(255) NOT NULL,
+  "full_name" varchar(255) NOT NULL,
+  "role_id" uuid NOT NULL,
+  "is_active" boolean NOT NULL DEFAULT true,
+  "storage_quota_bytes" bigint NOT NULL DEFAULT 10737418240,
+  "storage_used_bytes" bigint NOT NULL DEFAULT 0,
+  "created_by" uuid NOT NULL,
+  "last_login_at" timestamptz,
+  "password_changed_at" timestamptz NOT NULL DEFAULT (now()),
+  "created_at" timestamptz NOT NULL DEFAULT (now()),
+  "updated_at" timestamptz NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "refresh_tokens" (
+  "id" uuid PRIMARY KEY,
+  "user_id" uuid NOT NULL,
+  "token" uuid UNIQUE NOT NULL,
+  "expiry_date" timestamptz NOT NULL,
+  "ipv4_address" varchar(45),
+  "device_info" varchar(512),
+  "created_at" timestamptz NOT NULL,
+  "updated_at" timestamptz
+);
+
+CREATE TABLE "roles" (
+  "id" uuid PRIMARY KEY,
+  "code" varchar(50) UNIQUE NOT NULL,
+  "name" varchar(100) UNIQUE NOT NULL,
+  "description" text,
+  "created_at" timestamptz NOT NULL DEFAULT (now()),
+  "updated_at" timestamptz NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "folders" (
+  "id" uuid PRIMARY KEY,
+  "tenant_id" uuid NOT NULL,
+  "parent_id" uuid,
+  "owner_id" uuid,
+  "name" varchar(255) NOT NULL,
+  "path" ltree NOT NULL,
+  "created_by" uuid NOT NULL,
+  "created_at" timestamptz NOT NULL DEFAULT (now()),
+  "updated_at" timestamptz NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "files" (
+  "id" uuid PRIMARY KEY,
+  "folder_id" uuid,
+  "tenant_id" uuid NOT NULL,
+  "uploaded_by" uuid NOT NULL,
+  "original_name" varchar(500) NOT NULL,
+  "storage_key" varchar(1000) NOT NULL,
+  "mime_type" varchar(100),
+  "size_bytes" bigint NOT NULL,
+  "checksum_md5" varchar(32),
+  "status" varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  "deleted_at" timestamptz,
+  "scheduled_delete_at" timestamptz,
+  "thumbnail_key" varchar(1000),
+  "is_indexed" boolean NOT NULL DEFAULT false,
+  "created_at" timestamptz NOT NULL DEFAULT (now()),
+  "updated_at" timestamptz NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "multipart_upload_sessions" (
+  "upload_id" varchar(255) PRIMARY KEY,
+  "file_id" uuid NOT NULL,
+  "tenant_id" uuid NOT NULL,
+  "initiated_by" uuid NOT NULL,
+  "object_key" varchar(1000) NOT NULL,
+  "original_name" varchar(500) NOT NULL,
+  "mime_type" varchar(100),
+  "total_size_bytes" bigint NOT NULL,
+  "total_parts" integer NOT NULL,
+  "uploaded_parts" jsonb NOT NULL DEFAULT ('[]'),
+  "status" varchar(20) NOT NULL DEFAULT 'IN_PROGRESS',
+  "expires_at" timestamptz NOT NULL,
+  "created_at" timestamptz NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "audit_logs" (
+  "id" uuid PRIMARY KEY,
+  "tenant_id" uuid NOT NULL,
+  "user_id" uuid,
+  "file_id" uuid,
+  "action" varchar(50) NOT NULL,
+  "ip_address" inet,
+  "user_agent" text,
+  "extra_data" jsonb,
+  "created_at" timestamptz NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "file_shares" (
+  "id" uuid PRIMARY KEY,
+  "tenant_id" uuid NOT NULL,
+  "file_id" uuid,
+  "folder_id" uuid,
+  "shared_with_user_id" uuid,
+  "shared_with_tenant_id" uuid,
+  "permission" permission_file NOT NULL DEFAULT 'VIEW',
+  "shared_by" uuid NOT NULL,
+  "expires_at" timestamptz,
+  "created_at" timestamptz NOT NULL DEFAULT (now())
+);
+
+CREATE INDEX "idx_users_tenant_id" ON "users" ("tenant_id");
+
+CREATE UNIQUE INDEX "idx_refresh_tokens_token" ON "refresh_tokens" ("token");
+
+CREATE INDEX "idx_refresh_tokens_user_id" ON "refresh_tokens" ("user_id");
+
+CREATE INDEX "idx_folders_tenant_id" ON "folders" ("tenant_id");
+
+CREATE INDEX "idx_folders_parent_id" ON "folders" ("parent_id");
+
+CREATE INDEX "idx_folders_owner_id" ON "folders" ("owner_id");
+
+CREATE UNIQUE INDEX "idx_folders_unique_name_per_parent" ON "folders" ("tenant_id", "parent_id", "name");
+
+CREATE INDEX "idx_folders_path_gist" ON "folders" USING GIST ("path");
+
+CREATE INDEX "idx_files_tenant_id" ON "files" ("tenant_id");
+
+CREATE INDEX "idx_files_folder_id" ON "files" ("folder_id");
+
+CREATE INDEX "idx_files_tenant_created" ON "files" ("tenant_id", "created_at");
+
+CREATE INDEX "idx_files_uploaded_by" ON "files" ("uploaded_by");
+
+CREATE INDEX "idx_files_scheduled_delete" ON "files" ("scheduled_delete_at");
+
+CREATE INDEX "idx_files_pending_upload" ON "files" ("created_at");
+
+CREATE INDEX "idx_multipart_expires_at" ON "multipart_upload_sessions" ("expires_at");
+
+CREATE INDEX "idx_audit_logs_tenant_created" ON "audit_logs" ("tenant_id", "created_at");
+
+CREATE INDEX "idx_audit_logs_file_id" ON "audit_logs" ("file_id");
+
+CREATE INDEX "idx_shares_file_user" ON "file_shares" ("file_id", "shared_with_user_id");
+
+CREATE INDEX "idx_shares_folder_user" ON "file_shares" ("folder_id", "shared_with_user_id");
+
+CREATE INDEX "idx_shares_grantee_user" ON "file_shares" ("shared_with_user_id");
+
+CREATE INDEX "idx_shares_grantee_tenant" ON "file_shares" ("shared_with_tenant_id");
+
+COMMENT ON TABLE "tenants" IS 'Root table for multi-tenancy.
+slug CHECK: (slug ~ ''^[a-z0-9-]+$'')
+storage_used_bytes is maintained by a DB trigger on files INSERT/UPDATE/DELETE.
+';
+
+COMMENT ON COLUMN "tenants"."id" IS 'Auto-generated UUID';
+
+COMMENT ON COLUMN "tenants"."name" IS 'Display name of organization';
+
+COMMENT ON COLUMN "tenants"."slug" IS 'URL-safe identifier, e.g. company-abc. CHECK: ^[a-z0-9-]+$';
+
+COMMENT ON COLUMN "tenants"."storage_quota_bytes" IS 'Default 50 GB per tenant';
+
+COMMENT ON COLUMN "tenants"."storage_used_bytes" IS 'Tracked usage; updated on upload/delete via trigger';
+
+COMMENT ON COLUMN "tenants"."is_active" IS 'Inactive tenants cannot log in';
+
+COMMENT ON COLUMN "tenants"."created_by" IS 'Super admin user ID who created this tenant (no FK - bootstrapping)';
+
+COMMENT ON COLUMN "tenants"."updated_at" IS 'Auto-updated via trigger';
+
+COMMENT ON TABLE "users" IS 'Roles: super_admin (system only), tenant_admin, member
+super_admin users must belong to the designated system tenant (slug: system-internal).
+created_by is NOT NULL - accounts can never exist without an actor.
+Super admin bootstrapping: self-reference on created_by (only valid exception).
+';
+
+COMMENT ON COLUMN "users"."id" IS 'Auto-generated UUID';
+
+COMMENT ON COLUMN "users"."tenant_id" IS 'Every user belongs to exactly one tenant';
+
+COMMENT ON COLUMN "users"."email" IS 'Login credential; globally unique. CHECK: email = lower(email)';
+
+COMMENT ON COLUMN "users"."password_hash" IS 'bcrypt hash - never plain text';
+
+COMMENT ON COLUMN "users"."full_name" IS 'Display name';
+
+COMMENT ON COLUMN "users"."is_active" IS 'Inactive tenants cannot log in';
+
+COMMENT ON COLUMN "users"."storage_used_bytes" IS 'Tracked usage; updated on upload/delete via trigger';
+
+COMMENT ON COLUMN "users"."created_by" IS 'Who provisioned this account. Super admin row uses self-reference.';
+
+COMMENT ON COLUMN "users"."last_login_at" IS 'Updated on each successful login';
+
+COMMENT ON COLUMN "users"."password_changed_at" IS 'For password expiry policy';
+
+COMMENT ON COLUMN "users"."updated_at" IS 'Auto-updated via trigger';
+
+COMMENT ON COLUMN "refresh_tokens"."id" IS 'Auto-generated ID';
+
+COMMENT ON COLUMN "refresh_tokens"."user_id" IS 'Owner of the refresh token';
+
+COMMENT ON COLUMN "refresh_tokens"."token" IS 'Refresh token value';
+
+COMMENT ON COLUMN "refresh_tokens"."expiry_date" IS 'Expiration time of the token';
+
+COMMENT ON COLUMN "refresh_tokens"."ipv4_address" IS 'IPv4 address of the client';
+
+COMMENT ON COLUMN "refresh_tokens"."device_info" IS 'Information about user device';
+
+COMMENT ON COLUMN "refresh_tokens"."created_at" IS 'Created time';
+
+COMMENT ON COLUMN "refresh_tokens"."updated_at" IS 'Last updated time';
+
+COMMENT ON COLUMN "roles"."id" IS 'Auto-generated UUID';
+
+COMMENT ON COLUMN "roles"."code" IS 'ROLE code: SUPER_ADMIN, TENANT_ADMIN, MEMBER';
+
+COMMENT ON COLUMN "roles"."name" IS 'Human-readable name';
+
+COMMENT ON COLUMN "folders"."tenant_id" IS 'Every folder belongs to a department';
+
+COMMENT ON COLUMN "folders"."parent_id" IS 'NULL only for root folder. All other folders must have a parent.';
+
+COMMENT ON COLUMN "folders"."owner_id" IS 'Set for personal folders. NULL for root folder and department-level folders.';
+
+COMMENT ON COLUMN "folders"."name" IS 'Folder display name';
+
+COMMENT ON COLUMN "folders"."created_by" IS 'Who created this folder';
+
+COMMENT ON TABLE "files" IS 'folder_id = NULL means the file is in the tenant root (not organized into any sub-folder).
+File lifecycle state machine:
+  PENDING -> ACTIVE -> PENDING_DELETE -> DELETED
+  PENDING -> UPLOAD_FAILED (1-hour TTL, background job)
+  PENDING_DELETE -> ACTIVE (user restores within 30-day grace period)
+
+Constraints:
+  - deleted_at must be NULL when status = ACTIVE (partial index enforces this)
+  - scheduled_delete_at = deleted_at + INTERVAL 30 days (enforced by trigger)
+  - Row is NEVER hard-deleted (kept for audit trail even after DELETED status)
+';
+
+COMMENT ON COLUMN "files"."id" IS 'Auto-generated UUID';
+
+COMMENT ON COLUMN "files"."folder_id" IS 'NULL = file sits at the tenant root folder. Set to a specific folder when organized.';
+
+COMMENT ON COLUMN "files"."tenant_id" IS 'Tenant isolation - present on every tenant-owned table';
+
+COMMENT ON COLUMN "files"."uploaded_by" IS 'Who uploaded this file';
+
+COMMENT ON COLUMN "files"."original_name" IS 'Sanitized filename';
+
+COMMENT ON COLUMN "files"."mime_type" IS 'Detected by Apache Tika - never trusted from client';
+
+COMMENT ON COLUMN "files"."size_bytes" IS 'File size in bytes';
+
+COMMENT ON COLUMN "files"."checksum_md5" IS 'For client-side integrity verification';
+
+COMMENT ON COLUMN "files"."status" IS 'State machine. CHECK: status IN (''PENDING'',''ACTIVE'',''PENDING_DELETE'',''DELETED'',''UPLOAD_FAILED'')';
+
+COMMENT ON COLUMN "files"."deleted_at" IS 'Set when status transitions to PENDING_DELETE';
+
+COMMENT ON COLUMN "files"."scheduled_delete_at" IS 'Set to deleted_at + 30 days. Background job checks this.';
+
+COMMENT ON COLUMN "files"."thumbnail_key" IS 'MinIO path for generated thumbnail';
+
+COMMENT ON COLUMN "files"."is_indexed" IS 'Whether content has been indexed in Elasticsearch';
+
+COMMENT ON COLUMN "files"."updated_at" IS 'Auto-updated via trigger';
+
+COMMENT ON TABLE "multipart_upload_sessions" IS 'Session created when client requests multipart upload initiation.
+uploaded_parts JSONB is appended on each part completion.
+On COMPLETED: files.status -> ACTIVE
+On ABORTED or expired: MinIO multipart upload cancelled, files.status -> UPLOAD_FAILED.
+';
+
+COMMENT ON COLUMN "multipart_upload_sessions"."upload_id" IS 'MinIO-generated upload ID';
+
+COMMENT ON COLUMN "multipart_upload_sessions"."file_id" IS 'Pre-assigned file ID before upload completes';
+
+COMMENT ON COLUMN "multipart_upload_sessions"."tenant_id" IS 'Tenant isolation';
+
+COMMENT ON COLUMN "multipart_upload_sessions"."initiated_by" IS 'Who started this upload';
+
+COMMENT ON COLUMN "multipart_upload_sessions"."object_key" IS 'MinIO object key for this multipart upload';
+
+COMMENT ON COLUMN "multipart_upload_sessions"."original_name" IS 'Original filename';
+
+COMMENT ON COLUMN "multipart_upload_sessions"."mime_type" IS 'Declared MIME type';
+
+COMMENT ON COLUMN "multipart_upload_sessions"."total_size_bytes" IS 'Declared total file size in bytes';
+
+COMMENT ON COLUMN "multipart_upload_sessions"."total_parts" IS 'Total number of parts. CHECK: total_parts >= 1';
+
+COMMENT ON COLUMN "multipart_upload_sessions"."uploaded_parts" IS 'Array of {partNumber, etag} objects - tracks which parts completed';
+
+COMMENT ON COLUMN "multipart_upload_sessions"."status" IS 'CHECK: status IN (''IN_PROGRESS'',''COMPLETED'',''ABORTED'')';
+
+COMMENT ON COLUMN "multipart_upload_sessions"."expires_at" IS 'created_at + 24 hours. Background job aborts expired IN_PROGRESS sessions.';
+
+COMMENT ON TABLE "audit_logs" IS 'Immutable by design - enforced via PostgreSQL RULE:
+  CREATE RULE no_update_audit AS ON UPDATE TO audit_logs DO INSTEAD NOTHING;
+  CREATE RULE no_delete_audit AS ON DELETE TO audit_logs DO INSTEAD NOTHING;
+
+No FKs to tenants, users, or files intentionally:
+  Historical records must outlive the entities they reference.
+  Referential integrity here would prevent legitimate soft/hard deletes of other rows.
+  Data integrity is preserved at the application layer (always write before action).
+';
+
+COMMENT ON COLUMN "audit_logs"."id" IS 'Auto-generated UUID';
+
+COMMENT ON COLUMN "audit_logs"."tenant_id" IS 'No FK - must remain valid even if tenant is deleted';
+
+COMMENT ON COLUMN "audit_logs"."user_id" IS 'No FK - must remain valid even if user is deleted. NULL for system-generated events.';
+
+COMMENT ON COLUMN "audit_logs"."file_id" IS 'No FK - must remain valid even if file is purged. NULL for non-file actions.';
+
+COMMENT ON COLUMN "audit_logs"."action" IS 'Auth: LOGIN_SUCCESS, LOGIN_FAILED, LOGOUT | File: FILE_UPLOAD, FILE_DOWNLOAD, FILE_DELETE, FILE_RESTORE, FILE_PURGED | Admin: TENANT_CREATED, TENANT_DEACTIVATED, USER_CREATED, USER_DEACTIVATED, USER_ROLE_CHANGED | System: QUOTA_EXCEEDED, UPLOAD_FAILED, MULTIPART_ABORTED';
+
+COMMENT ON COLUMN "audit_logs"."ip_address" IS 'Client IP address';
+
+COMMENT ON COLUMN "audit_logs"."user_agent" IS 'HTTP User-Agent header';
+
+COMMENT ON COLUMN "audit_logs"."extra_data" IS 'Context-specific data - e.g. {old_role, new_role} for USER_ROLE_CHANGED';
+
+COMMENT ON TABLE "file_shares" IS 'Constraints (enforce at application layer or via CHECK):
+  - Exactly one of (file_id, folder_id) must be NOT NULL
+  - Exactly one of (shared_with_user_id, shared_with_tenant_id) must be NOT NULL
+  - A user can only share resources they have ''manage'' permission on (enforced in app)
+  - Sharing with own tenant_id (same department) is allowed - useful for dept-wide access
+
+Permission levels:
+  view   -> download, preview, see metadata
+  edit   -> add, update new files into the shared folder
+  manage -> grant or revoke access for others (folder admin delegation)
+
+Folder sharing is recursive - if you share a folder, access applies to ALL contents:
+  SELECT * FROM files WHERE folder_id = :shared_folder_id (and sub-folders recursively)
+Recursive folder traversal should use a WITH RECURSIVE CTE in PostgreSQL.
+';
+
+COMMENT ON COLUMN "file_shares"."tenant_id" IS 'Department of the person doing the sharing';
+
+COMMENT ON COLUMN "file_shares"."file_id" IS 'Set when sharing a specific file. NULL if sharing a folder.';
+
+COMMENT ON COLUMN "file_shares"."folder_id" IS 'Set when sharing a folder (all contents included). NULL if sharing a file.';
+
+COMMENT ON COLUMN "file_shares"."shared_with_user_id" IS 'Set when sharing with a specific person. NULL if sharing with a department.';
+
+COMMENT ON COLUMN "file_shares"."shared_with_tenant_id" IS 'Set when sharing with an entire department. NULL if sharing with a specific person.';
+
+COMMENT ON COLUMN "file_shares"."shared_by" IS 'Who created this share';
+
+COMMENT ON COLUMN "file_shares"."expires_at" IS 'Optional expiry. NULL = never expires.';
+
+ALTER TABLE "users" ADD FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "users" ADD FOREIGN KEY ("role_id") REFERENCES "roles" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "users" ADD FOREIGN KEY ("created_by") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "refresh_tokens" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "folders" ADD FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "folders" ADD FOREIGN KEY ("parent_id") REFERENCES "folders" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "folders" ADD FOREIGN KEY ("owner_id") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "folders" ADD FOREIGN KEY ("created_by") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "files" ADD FOREIGN KEY ("folder_id") REFERENCES "folders" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "files" ADD FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "files" ADD FOREIGN KEY ("uploaded_by") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "multipart_upload_sessions" ADD FOREIGN KEY ("file_id") REFERENCES "files" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "multipart_upload_sessions" ADD FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "multipart_upload_sessions" ADD FOREIGN KEY ("initiated_by") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "file_shares" ADD FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "file_shares" ADD FOREIGN KEY ("file_id") REFERENCES "files" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "file_shares" ADD FOREIGN KEY ("folder_id") REFERENCES "folders" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "file_shares" ADD FOREIGN KEY ("shared_with_user_id") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "file_shares" ADD FOREIGN KEY ("shared_with_tenant_id") REFERENCES "tenants" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "file_shares" ADD FOREIGN KEY ("shared_by") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;
