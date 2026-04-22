@@ -83,10 +83,51 @@ services:
       retries: 5
     networks:
       - file-storage-network
+
+  minio:
+    image: minio/minio:${MINIO_SERVER_VERSION:-RELEASE.2024-06-13T22-53-53Z}
+    container_name: minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - file-storage-network
+
+  minio-init:
+    image: minio/mc:${MINIO_MC_VERSION:-RELEASE.2024-06-12T14-34-03Z}
+    container_name: minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do sleep 2; done;
+      mc mb --ignore-existing local/${MINIO_BUCKET};
+      mc anonymous set private local/${MINIO_BUCKET};
+      exit 0;
+      "
+    restart: "no"
+    networks:
+      - file-storage-network
 volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  minio_data:
     driver: local
 
 networks:

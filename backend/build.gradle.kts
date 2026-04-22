@@ -25,6 +25,7 @@ val mapstructVersion              = "1.5.5.Final"
 val lombokMapstructBindingVersion = "0.2.0"
 val archunitVersion               = "1.3.0"
 val testcontainersVersion         = "1.19.3"
+val minioVersion                  = "8.6.0"
 
 // ─── Dependencies ─────────────────────────────────────────────────────────────
 dependencies {
@@ -36,7 +37,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("org.springframework.boot:spring-boot-starter-amqp")
-	implementation("org.springframework.retry:spring-retry")
+//	implementation("org.springframework.retry:spring-retry")
 	implementation("org.springframework.boot:spring-boot-starter-data-redis")
 	implementation("org.springframework.boot:spring-boot-starter-mail")
 	// Generates metadata for @ConfigurationProperties classes
@@ -53,6 +54,9 @@ dependencies {
 	// ── API Documentation ────────────────────────────────────────────────────
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:$springdocVersion")
 
+	// ── Object Storage (MinIO / S3-compatible) ─────────────────────────────
+	implementation("io.minio:minio:$minioVersion")
+
 	// ── Code Generation: Lombok + MapStruct ─────────────────────────────────
 	compileOnly("org.projectlombok:lombok")
 	annotationProcessor("org.projectlombok:lombok")
@@ -63,6 +67,7 @@ dependencies {
 	// ── Test ────────────────────────────────────────────────────────────────
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework.security:spring-security-test")
+	testImplementation("io.minio:minio:$minioVersion")
 
 	// Lombok + MapStruct in tests (same processor ordering as main)
 	testCompileOnly("org.projectlombok:lombok")
