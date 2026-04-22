@@ -64,6 +64,7 @@ function ResetPasswordForm() {
     try {
       const result = await resetPassword(token, data.password, data.confirmPassword);
       if (result.success) {
+        localStorage.setItem("passwordResetComplete", Date.now().toString());
         router.push("/login?reset=success");
         return;
       }

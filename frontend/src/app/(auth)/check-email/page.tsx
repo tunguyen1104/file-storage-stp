@@ -9,6 +9,7 @@ import { maskEmail } from "@/lib/auth";
 import { forgotPassword } from "@/lib/api/auth";
 
 const RESEND_COOLDOWN_SECONDS = 60;
+const REDIRECT_DELAY_MS = 1500;
 
 function CheckEmailForm() {
   const searchParams = useSearchParams();
@@ -17,6 +18,7 @@ function CheckEmailForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [redirecting, setRedirecting] = useState(false);
 
   // #6: Cooldown timer to prevent resend spam
   useEffect(() => {
@@ -26,6 +28,28 @@ function CheckEmailForm() {
     }, 1000);
     return () => clearInterval(timer);
   }, [cooldown]);
+
+  const triggerRedirect = () => {
+    setRedirecting(true);
+    localStorage.removeItem("passwordResetComplete");
+    const timer = setTimeout(() => {
+      router.push("/login?reset=success");
+    }, REDIRECT_DELAY_MS);
+    return timer;
+  };
+
+  // Redirect to login when password reset completes in another tab
+  useEffect(() => {
+    if (flow !== "reset") return;
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "passwordResetComplete") {
+        triggerRedirect();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flow]);
 
   const handleResend = async () => {
     if (!email || cooldown > 0) return;
@@ -40,6 +64,19 @@ function CheckEmailForm() {
       setLoading(false);
     }
   };
+
+  if (redirecting) {
+    return (
+      <Card className="w-full max-w-md shadow-lg">
+        <CardContent className="pt-8 pb-8 flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            Password reset successful. Redirecting to sign in…
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   // #12: Mask email to prevent phishing via crafted URLs
   const displayEmail = email ? maskEmail(email) : "your email";
