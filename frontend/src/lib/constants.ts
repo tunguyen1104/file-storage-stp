@@ -19,25 +19,24 @@ export const CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB
 export const MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024; // 10 GB
 export const RESUMABLE_THRESHOLD = 100 * 1024 * 1024; // 100 MB — use chunked above this
 
-const API_PREFIX = "/api/v1";
-
 export const API_ROUTES = {
   AUTH: {
-    LOGIN: `${API_PREFIX}/auth/signin`,
-    LOGOUT: `${API_PREFIX}/auth/logout`,
-    REFRESH: `${API_PREFIX}/auth/refresh`,
-    ME: `${API_PREFIX}/auth/me`,
-    VERIFY_EMAIL: `${API_PREFIX}/auth/verify-email`,
-    FORGOT_PASSWORD: `${API_PREFIX}/auth/forgot-password`,
-    VERIFY_RESET_TOKEN: `${API_PREFIX}/auth/verify-reset-token`,
-    RESET_PASSWORD: `${API_PREFIX}/auth/reset-password`,
-    CHANGE_PASSWORD: `${API_PREFIX}/auth/change-password`,
+    LOGIN: `/auth/signin`,
+    LOGOUT: `/auth/logout`,
+    REFRESH: `/auth/refresh`,
+    ME: `/auth/me`,
+    VERIFY_EMAIL: `/auth/verify-email`,
+    FORGOT_PASSWORD: `/auth/forgot-password`,
+    VERIFY_RESET_TOKEN: `/auth/verify-reset-token`,
+    RESET_PASSWORD: `/auth/reset-password`,
+    CHANGE_PASSWORD: `/auth/change-password`,
+    RESEND_VERIFICATION: `/auth/resend-verification`,
   },
-  FILES: `${API_PREFIX}/files`,
-  TENANTS: `${API_PREFIX}/tenants`,
-  USERS: `${API_PREFIX}/users`,
-  AUDIT_LOGS: `${API_PREFIX}/audit-logs`,
-  SEARCH: `${API_PREFIX}/search`,
+  FILES: `/files`,
+  TENANTS: `/tenants`,
+  USERS: `/users`,
+  AUDIT_LOGS: `/audit-logs`,
+  SEARCH: `/search`,
 } as const;
 
 export const DEFAULT_PAGE_SIZE = 20;

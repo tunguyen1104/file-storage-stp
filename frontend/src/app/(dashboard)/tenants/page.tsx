@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Building2, Plus, Search } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -22,55 +22,37 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-type Tenant = {
-  id: string;
-  name: string;
-  domain: string;
-  status: "Active" | "Pending" | "Suspended";
-  createdDate: string;
-};
+import { listTenants } from "@/lib/api/tenants";
+import { TenantItem } from "@/types/tenant/tenant";
 
 const PAGE_SIZE = 12;
-const PAGINATION_THRESHOLD = 12;
 
 export default function TenantsPage() {
   const [currentPage, setCurrentPage] = useState(1);
-  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [tenants, setTenants] = useState<TenantItem[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     let isMounted = true;
 
-    fetch("/mock-data/tenants.json")
-      .then((response) => response.json())
-      .then((data: Tenant[]) => {
+    listTenants({ page: currentPage, limit: PAGE_SIZE })
+      .then((data) => {
         if (!isMounted) return;
-        setTenants(Array.isArray(data) ? data : []);
+        setTenants(data.items || []);
+        setTotalPages(data.totalPages || 1);
       })
       .catch(() => {
-        if (isMounted) setTenants([]);
+        if (!isMounted) return;
+        setTenants([]);
+        setTotalPages(1);
       });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentPage]);
 
-  const shouldPaginate = tenants.length >= PAGINATION_THRESHOLD;
-
-  const totalPages = shouldPaginate ? Math.ceil(tenants.length / PAGE_SIZE) : 1;
-
-  const paginatedTenants = useMemo(() => {
-    if (!shouldPaginate) return tenants;
-    const startIndex = (currentPage - 1) * PAGE_SIZE;
-    return tenants.slice(startIndex, startIndex + PAGE_SIZE);
-  }, [currentPage, shouldPaginate, tenants]);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(1);
-    }
-  }, [currentPage, totalPages]);
+  const shouldPaginate = totalPages > 1;
 
   return (
     <section className="space-y-4">
@@ -90,14 +72,13 @@ export default function TenantsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>Domain</TableHead>
+              <TableHead>Domain/Slug</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Created Date</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedTenants.map((tenant) => (
+            {tenants.map((tenant) => (
               <TableRow key={tenant.id} className="hover:bg-gray-50">
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-2">
@@ -105,22 +86,19 @@ export default function TenantsPage() {
                     {tenant.name}
                   </div>
                 </TableCell>
-                <TableCell>{tenant.domain}</TableCell>
+                <TableCell>{tenant.slug}</TableCell>
                 <TableCell>
                   <Badge
                     variant="outline"
                     className={
-                      tenant.status === "Active"
+                      tenant.isActive !== false
                         ? "border-green-200 bg-green-50 text-green-700"
-                        : tenant.status === "Pending"
-                          ? "border-yellow-200 bg-yellow-50 text-yellow-700"
-                          : "border-red-200 bg-red-50 text-red-700"
+                        : "border-red-200 bg-red-50 text-red-700"
                     }
                   >
-                    {tenant.status}
+                    {tenant.isActive !== false ? "Active" : "Suspended"}
                   </Badge>
                 </TableCell>
-                <TableCell>{tenant.createdDate}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <Button size="sm" variant="outline">

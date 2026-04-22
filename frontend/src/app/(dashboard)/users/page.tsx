@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Search, User } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -22,47 +22,37 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TenantUser } from "@/types/response";
+import { listUsers } from "@/lib/api/users";
+import { UserItem } from "@/types/user/user";
 
 const PAGE_SIZE = 12;
-const PAGINATION_THRESHOLD = 12;
 
 export default function UsersPage() {
   const [currentPage, setCurrentPage] = useState(1);
-  const [users, setUsers] = useState<TenantUser[]>([]);
+  const [users, setUsers] = useState<UserItem[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     let isMounted = true;
 
-    fetch("/mock-data/users.json")
-      .then((response) => response.json())
-      .then((data: TenantUser[]) => {
+    listUsers({ page: currentPage, limit: PAGE_SIZE })
+      .then((data) => {
         if (!isMounted) return;
-        setUsers(Array.isArray(data) ? data : []);
+        setUsers(data.items || []);
+        setTotalPages(data.totalPages || 1);
       })
       .catch(() => {
-        if (isMounted) setUsers([]);
+        if (!isMounted) return;
+        setUsers([]);
+        setTotalPages(1);
       });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentPage]);
 
-  const shouldPaginate = users.length >= PAGINATION_THRESHOLD;
-  const totalPages = shouldPaginate ? Math.ceil(users.length / PAGE_SIZE) : 1;
-
-  const paginatedUsers = useMemo(() => {
-    if (!shouldPaginate) return users;
-    const startIndex = (currentPage - 1) * PAGE_SIZE;
-    return users.slice(startIndex, startIndex + PAGE_SIZE);
-  }, [currentPage, shouldPaginate, users]);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(1);
-    }
-  }, [currentPage, totalPages]);
+  const shouldPaginate = totalPages > 1;
 
   return (
     <section className="space-y-4">
@@ -89,12 +79,12 @@ export default function UsersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedUsers.map((member) => (
+            {users.map((member) => (
               <TableRow key={member.id} className="hover:bg-gray-50">
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-blue-600" />
-                    {member.name}
+                    {member.fullName}
                   </div>
                 </TableCell>
                 <TableCell>{member.email}</TableCell>
@@ -103,7 +93,7 @@ export default function UsersPage() {
                     {member.role}
                   </Badge>
                 </TableCell>
-                <TableCell>{member.lastLogin}</TableCell>
+                <TableCell>{member.lastLoginAt || "-"}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <Button size="sm" variant="outline">
