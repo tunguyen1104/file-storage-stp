@@ -12,8 +12,11 @@ const ERROR_CODE_TOKEN_EXPIRED = 1002;
 // ─── Promise-based Refresh Lock ─────────────────────────────────
 let refreshPromise: Promise<void> | null = null;
 
+const baseURL = process.env.NEXT_PUBLIC_BACKEND_URL ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1` : "/api/v1";
+
 // ─── Axios Instance ──────────────────────────────────────────
 export const apiClient: AxiosInstance = axios.create({
+  baseURL,
   headers: { "Content-Type": "application/json" },
   withCredentials: true, // httpOnly cookies sent to BFF automatically
 });
@@ -41,7 +44,7 @@ apiClient.interceptors.response.use(
     };
 
     // Never intercept the refresh request itself to avoid infinite loops
-    if (originalRequest.url?.includes("/api/v1/auth/refresh")) {
+    if (originalRequest.url?.includes("/auth/refresh")) {
       return Promise.reject(toAppError(error));
     }
 
@@ -71,7 +74,7 @@ apiClient.interceptors.response.use(
     // Start a new refresh and store the promise
     refreshPromise = (async () => {
       try {
-        await axios.post("/api/v1/auth/refresh", {}, { withCredentials: true });
+        await axios.post(`${baseURL}/auth/refresh`, {}, { withCredentials: true });
       } catch (refreshError) {
         // Force logout on any refresh failure
         if (

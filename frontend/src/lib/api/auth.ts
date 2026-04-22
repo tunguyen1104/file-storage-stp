@@ -84,3 +84,13 @@ export async function verifyEmail(token: string): Promise<ApiResponse> {
   );
   return response.data;
 }
+
+export async function resendVerification(
+  email: string
+): Promise<ApiResponse> {
+  const response = await apiClient.post<ApiResponse>(
+    API_ROUTES.AUTH.RESEND_VERIFICATION,
+    { email }
+  );
+  return response.data;
+}
