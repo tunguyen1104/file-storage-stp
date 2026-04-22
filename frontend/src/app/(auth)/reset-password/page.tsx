@@ -6,14 +6,13 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
-import axios from "axios";
 
 import {
   resetPasswordSchema,
   type ResetPasswordInput,
 } from "@/lib/schemas/user.schema";
 import { resetPassword, verifyResetToken } from "@/lib/api/auth";
-import type { ApiResponse } from "@/types/api.types";
+import { toAppError } from "@/lib/api/core/api-error";
 import { PasswordInput } from "@/components/auth/password-input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,33 +67,24 @@ function ResetPasswordForm() {
         router.push("/login?reset=success");
         return;
       }
-      setError(typeof result.errors === "string" ? result.errors : "Failed to reset password.");
+      setError(result.message ?? "Failed to reset password.");
     } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        const body = err.response?.data as ApiResponse | undefined;
-        if (body && !body.success) {
-          // Map field validation errors
-          if (typeof body.errors === "object" && body.errors !== null) {
-            for (const [field, messages] of Object.entries(body.errors)) {
-              if (field === "password" || field === "newPassword") {
-                form.setError("password", {
-                  message: Array.isArray(messages) ? messages[0] : String(messages),
-                });
-              } else if (field === "confirmPassword") {
-                form.setError("confirmPassword", {
-                  message: Array.isArray(messages) ? messages[0] : String(messages),
-                });
-              }
-            }
-            return;
-          }
-          if (typeof body.errors === "string") {
-            setError(body.errors);
-            return;
+      const appError = toAppError(err);
+      if (appError.validationErrors) {
+        for (const [field, messages] of Object.entries(appError.validationErrors)) {
+          if (field === "password" || field === "newPassword") {
+            form.setError("password", {
+              message: Array.isArray(messages) ? messages[0] : messages,
+            });
+          } else if (field === "confirmPassword") {
+            form.setError("confirmPassword", {
+              message: Array.isArray(messages) ? messages[0] : messages,
+            });
           }
         }
+        return;
       }
-      setError("Failed to reset password. The link may have expired.");
+      setError(appError.message || "Failed to reset password. The link may have expired.");
     }
   };
 

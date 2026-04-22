@@ -9,8 +9,7 @@ import { Loader2, AlertCircle, Building2 } from "lucide-react";
 
 import { loginSchema, type LoginInput } from "@/lib/schemas/user.schema";
 import { useAuth } from "@/hooks/use-auth";
-import type { ApiResponse } from "@/types/api.types";
-import axios from "axios";
+import { toAppError } from "@/lib/api/core/api-error";
 import { PasswordInput } from "@/components/auth/password-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,32 +58,18 @@ function LoginForm() {
       }
       router.push("/files");
     } catch (err: unknown) {
-      // Try to extract backend validation errors and map to form fields
-      if (axios.isAxiosError(err)) {
-        const body = err.response?.data as ApiResponse | undefined;
-        if (body && !body.success) {
-          if (typeof body.errors === "object" && body.errors !== null) {
-            // Field-level validation errors
-            for (const [field, messages] of Object.entries(body.errors)) {
-              if (field === "email" || field === "password") {
-                form.setError(field, {
-                  message: Array.isArray(messages) ? messages[0] : messages,
-                });
-              }
-            }
-            return;
-          }
-          if (typeof body.errors === "string") {
-            setError(body.errors);
-            return;
+      const appError = toAppError(err);
+      if (appError.validationErrors) {
+        for (const [field, messages] of Object.entries(appError.validationErrors)) {
+          if (field === "email" || field === "password") {
+            form.setError(field as "email" | "password", {
+              message: Array.isArray(messages) ? messages[0] : messages,
+            });
           }
         }
+        return;
       }
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Invalid email or password. Please try again."
-      );
+      setError(appError.message || "Invalid email or password. Please try again.");
     }
   };
 

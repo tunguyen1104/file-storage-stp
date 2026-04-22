@@ -1,5 +1,6 @@
 import { apiClient } from "@/lib/api-client";
 import { API_ROUTES } from "@/lib/constants";
+import { AppError, toAppError } from "@/lib/api/core/api-error";
 import type { ApiResponse } from "@/types/api.types";
 import type { AuthUser } from "@/contexts/auth-context";
 import type { SignInRequest, ResetPasswordRequest } from "@/types/auth/auth";
@@ -30,17 +31,17 @@ export async function logOut(): Promise<ApiResponse> {
 }
 
 export async function getMe(): Promise<AuthUser> {
-  const response = await apiClient.get<ApiResponse<AuthUser>>(
-    API_ROUTES.AUTH.ME
-  );
-  if (!response.data.success || !response.data.data) {
-    throw new Error(
-      typeof response.data.errors === "string"
-        ? response.data.errors
-        : "Failed to fetch user profile"
+  try {
+    const response = await apiClient.get<ApiResponse<AuthUser>>(
+      API_ROUTES.AUTH.ME
     );
+    if (!response.data.success || !response.data.data) {
+      throw new AppError(response.data.message ?? "Failed to fetch user profile");
+    }
+    return response.data.data;
+  } catch (error) {
+    throw toAppError(error);
   }
-  return response.data.data;
 }
 
 export async function forgotPassword(
