@@ -3,7 +3,6 @@ package com.filestorage.adapter.in.rest.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.filestorage.adapter.in.rest.advice.GlobalExceptionHandler;
 import com.filestorage.adapter.in.rest.dto.response.PageResponse;
-import com.filestorage.adapter.in.rest.dto.response.RoleSummaryResponse;
 import com.filestorage.adapter.in.rest.dto.response.UserCreatedResponse;
 import com.filestorage.adapter.in.rest.dto.response.UserDetailResponse;
 import com.filestorage.adapter.in.rest.dto.response.UserStorageResponse;
@@ -12,6 +11,7 @@ import com.filestorage.adapter.in.rest.security.SecurityUser;
 import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.model.user.UserPageView;
 import com.filestorage.domain.model.user.UserRoleView;
+
 import com.filestorage.domain.model.user.UserStorageView;
 import com.filestorage.domain.model.user.UserView;
 import com.filestorage.domain.port.in.user.ChangeUserPasswordUseCase;
@@ -126,14 +126,13 @@ class UserControllerTest {
 
     @Test
     void createUser_returns201() throws Exception {
-        UUID roleId = UUID.randomUUID();
         UUID newUserId = UUID.randomUUID();
         var userView = sampleUserView(newUserId);
         var response = new UserCreatedResponse(
                 newUserId,
                 "new.user@example.com",
                 "New User",
-                new RoleSummaryResponse(roleId, RoleCode.MEMBER, "Member"),
+                "MEMBER",
                 actorTenantId,
                 true,
                 100L,
@@ -190,7 +189,7 @@ class UserControllerTest {
                         UUID.randomUUID(),
                         "a@example.com",
                         "User A",
-                        new RoleSummaryResponse(UUID.randomUUID(), RoleCode.MEMBER, "Member"),
+                        "MEMBER",
                         actorTenantId,
                         "Tenant A",
                         true,
@@ -237,7 +236,7 @@ class UserControllerTest {
                 userId,
                 "u@example.com",
                 "User",
-                new RoleSummaryResponse(UUID.randomUUID(), RoleCode.MEMBER, "Member"),
+                "MEMBER",
                 actorTenantId,
                 "Tenant A",
                 true,
@@ -280,7 +279,7 @@ class UserControllerTest {
                 userId,
                 "updated@example.com",
                 "Updated User",
-                new RoleSummaryResponse(UUID.randomUUID(), RoleCode.MEMBER, "Member"),
+                "MEMBER",
                 actorTenantId,
                 "Tenant A",
                 true,
@@ -330,7 +329,7 @@ class UserControllerTest {
                 userId,
                 "u@example.com",
                 "User",
-                new RoleSummaryResponse(UUID.randomUUID(), RoleCode.MEMBER, "Member"),
+                "MEMBER",
                 actorTenantId,
                 "Tenant A",
                 false,
@@ -439,7 +438,7 @@ class UserControllerTest {
                         UUID.randomUUID(),
                         "a@example.com",
                         "User A",
-                        new RoleSummaryResponse(UUID.randomUUID(), RoleCode.MEMBER, "Member"),
+                        "MEMBER",
                         actorTenantId,
                         "Tenant A",
                         true,

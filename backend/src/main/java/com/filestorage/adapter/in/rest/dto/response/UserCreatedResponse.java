@@ -7,7 +7,7 @@ public record UserCreatedResponse(
         UUID id,
         String email,
         String fullName,
-        RoleSummaryResponse role,
+        String role,
         UUID tenantId,
         boolean isActive,
         long storageQuotaBytes,

@@ -7,7 +7,7 @@ public record UserDetailResponse(
         UUID id,
         String email,
         String fullName,
-        RoleSummaryResponse role,
+        String role,
         UUID tenantId,
         String tenantName,
         boolean isActive,

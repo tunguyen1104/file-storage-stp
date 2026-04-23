@@ -8,11 +8,7 @@ import com.filestorage.adapter.in.rest.mapper.TenantRestMapper;
 import com.filestorage.adapter.in.rest.security.SecurityUser;
 import com.filestorage.domain.model.tenant.TenantPageView;
 import com.filestorage.domain.model.tenant.TenantView;
-import com.filestorage.domain.port.in.tenant.CreateTenantUseCase;
-import com.filestorage.domain.port.in.tenant.DeactivateTenantUseCase;
-import com.filestorage.domain.port.in.tenant.GetTenantUseCase;
-import com.filestorage.domain.port.in.tenant.ListTenantsUseCase;
-import com.filestorage.domain.port.in.tenant.UpdateTenantUseCase;
+import com.filestorage.domain.port.in.tenant.*;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
 import org.junit.jupiter.api.AfterEach;
@@ -55,6 +51,8 @@ class TenantControllerTest {
     @Mock
     private ListTenantsUseCase listTenantsUseCase;
     @Mock
+    private ListTenantOptionsUseCase listTenantOptionsUseCase;
+    @Mock
     private GetTenantUseCase getTenantUseCase;
     @Mock
     private UpdateTenantUseCase updateTenantUseCase;
@@ -82,6 +80,7 @@ class TenantControllerTest {
         var controller = new TenantController(
                 createTenantUseCase,
                 listTenantsUseCase,
+                listTenantOptionsUseCase,
                 getTenantUseCase,
                 updateTenantUseCase,
                 deactivateTenantUseCase,
