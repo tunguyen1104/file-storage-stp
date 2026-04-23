@@ -19,9 +19,6 @@ const PUBLIC_ROUTES = [
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
-const MOCK_AUTH_MODE =
-  process.env.NODE_ENV !== "production" &&
-  process.env.NEXT_PUBLIC_MOCK_AUTH !== "false";
 
 // Fail-fast in production if JWT_SECRET is not configured
 if (IS_PRODUCTION && !JWT_SECRET) {
@@ -33,7 +30,6 @@ if (IS_PRODUCTION && !JWT_SECRET) {
 const ROLE_ROUTE_MAP: Record<string, string[]> = {
   SUPER_ADMIN: [
     "/files",
-    "/upload",
     "/search",
     "/audit-logs",
     "/tenants",
@@ -42,7 +38,6 @@ const ROLE_ROUTE_MAP: Record<string, string[]> = {
   ],
   TENANT_ADMIN: [
     "/files",
-    "/upload",
     "/search",
     "/audit-logs",
     "/users",
@@ -63,13 +58,6 @@ function redirectToLogin(request: NextRequest): NextResponse {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  if (MOCK_AUTH_MODE) {
-    if (pathname === "/") {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
-    return NextResponse.next();
-  }
 
   // Allow root path to redirect
   if (pathname === "/") {
@@ -104,7 +92,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
-    const secret = new TextEncoder().encode(JWT_SECRET);
+    const secret = Buffer.from(JWT_SECRET, "base64");
     const { payload } = await jwtVerify(accessToken, secret);
     decoded = payload as unknown as DecodedToken;
   } catch {
@@ -120,6 +108,7 @@ export async function middleware(request: NextRequest) {
   const allowedRoutes = ROLE_ROUTE_MAP[decoded.role] ?? [];
   const isAllowed = allowedRoutes.some((route) => pathname.startsWith(route));
   if (!isAllowed) {
+    console.log(111, decoded.role, pathname);
     return NextResponse.redirect(new URL("/unauthorized", request.url));
   }
 

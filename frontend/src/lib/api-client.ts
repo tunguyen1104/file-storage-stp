@@ -3,6 +3,7 @@ import axios, {
   type AxiosError,
   type InternalAxiosRequestConfig,
 } from "axios";
+import { API_ROUTES } from "@/lib/constants";
 import { getCsrfToken, CSRF_HEADER_NAME } from "./csrf";
 import { toAppError, type ApiErrorResponse } from "@/lib/api/core/api-error";
 
@@ -41,7 +42,7 @@ apiClient.interceptors.response.use(
     };
 
     // Never intercept the refresh request itself to avoid infinite loops
-    if (originalRequest.url?.includes("/api/v1/auth/refresh")) {
+    if (originalRequest.url?.includes(API_ROUTES.AUTH.REFRESH)) {
       return Promise.reject(toAppError(error));
     }
 
@@ -71,7 +72,7 @@ apiClient.interceptors.response.use(
     // Start a new refresh and store the promise
     refreshPromise = (async () => {
       try {
-        await axios.post("/api/v1/auth/refresh", {}, { withCredentials: true });
+        await axios.post(API_ROUTES.AUTH.REFRESH, {}, { withCredentials: true });
       } catch (refreshError) {
         // Force logout on any refresh failure
         if (
