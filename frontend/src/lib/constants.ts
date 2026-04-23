@@ -32,16 +32,28 @@ export const API_ROUTES = {
     VERIFY_RESET_TOKEN: `${API_PREFIX}/auth/verify-reset-token`,
     RESET_PASSWORD: `${API_PREFIX}/auth/reset-password`,
     CHANGE_PASSWORD: `${API_PREFIX}/auth/change-password`,
+    RESEND_VERIFICATION: `${API_PREFIX}/auth/resend-verification`,
   },
   FILES: `${API_PREFIX}/files`,
-  TENANTS: `${API_PREFIX}/tenants`,
-  USERS: `${API_PREFIX}/users`,
+  TENANTS: {
+    LIST: `${API_PREFIX}/tenants`,
+    BY_ID: (id: string) => `${API_PREFIX}/tenants/${id}`,
+    OPTIONS: `${API_PREFIX}/tenants/options`,
+  },
+  USERS: {
+    LIST: `${API_PREFIX}/users`,
+    TENANT: `${API_PREFIX}/users/tenant`,
+    BY_ID: (id: string) => `${API_PREFIX}/users/${id}`,
+    PASSWORD: (id: string) => `${API_PREFIX}/users/${id}/password`,
+    STORAGE: (id: string) => `${API_PREFIX}/users/${id}/storage`,
+  },
   AUDIT_LOGS: `${API_PREFIX}/audit-logs`,
   SEARCH: `${API_PREFIX}/search`,
 } as const;
 
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
+export const GB = 1024 * 1024 * 1024;
 
 export const DANGEROUS_EXTENSIONS = [
   "exe", "bat", "cmd", "sh", "php", "jsp",
