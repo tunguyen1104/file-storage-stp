@@ -7,6 +7,7 @@ import type {
   ListUsersParams,
   UpdateUserRequest,
   UserItem,
+  UserStorage,
 } from "@/types/user/user";
 
 type PaginatedResult<T> = {
@@ -98,7 +99,7 @@ export async function changeUserPassword(userId: string, payload: ChangeUserPass
   await apiClient.patch(`${API_ROUTES.USERS}/${userId}/password`, payload);
 }
 
-export async function getUserStorage(userId: string): Promise<unknown> {
-  const response = await apiClient.get<ApiResponse<unknown>>(`${API_ROUTES.USERS}/${userId}/storage`);
+export async function getUserStorage(userId: string): Promise<UserStorage | undefined> {
+  const response = await apiClient.get<ApiResponse<UserStorage>>(`${API_ROUTES.USERS}/${userId}/storage`);
   return response.data.data;
 }

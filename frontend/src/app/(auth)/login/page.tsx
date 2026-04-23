@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, AlertCircle, Building2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 
 import { loginSchema, type LoginInput } from "@/lib/schemas/user.schema";
 import { useAuth } from "@/hooks/use-auth";
@@ -74,22 +74,17 @@ function LoginForm() {
   };
 
   return (
-    <Card className="w-full max-w-md shadow-xl border-gray-200 bg-white sm:p-2">
-      <CardHeader className="text-center space-y-2 pb-6">
-        <div className="flex justify-center mb-3">
-          <div className="p-3 bg-blue-50 rounded-full shadow-sm">
-            <Building2 className="w-8 h-8 text-blue-600" />
-          </div>
-        </div>
-        <CardTitle className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">
-          Sign In
-        </CardTitle>
-        <p className="text-sm text-gray-500">
-          Access your storage workspace
+    <div className="w-full">
+      <div className="text-center space-y-3 pb-8">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
+          Welcome back
+        </h1>
+        <p className="text-base text-muted-foreground">
+          Sign in to your account to continue
         </p>
         
         {verified && (
-          <Alert className="bg-green-50 text-green-700 border-green-200 mt-4 text-left">
+          <Alert className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 mt-4 text-left">
             <AlertDescription>
               Email verified successfully! You can now sign in.
             </AlertDescription>
@@ -97,15 +92,15 @@ function LoginForm() {
         )}
 
         {resetSuccess && (
-          <Alert className="bg-green-50 text-green-700 border-green-200 mt-4 text-left">
+          <Alert className="bg-emerald-50 text-emerald-700 border-emerald-200 mt-4 text-left">
             <AlertDescription>
               Password has been reset successfully. Please log in.
             </AlertDescription>
           </Alert>
         )}
-      </CardHeader>
+      </div>
 
-      <CardContent>
+      <div>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             {error && (
@@ -121,13 +116,13 @@ function LoginForm() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-gray-700 font-medium">Work Email</FormLabel>
+                    <FormLabel className="font-semibold text-foreground">Work Email</FormLabel>
                     <FormControl>
                       <Input
                         type="email"
                         placeholder="admin@tenant.com"
                         autoComplete="email"
-                        className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500 h-11"
+                        className="bg-muted/50 border-border/50 text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary/30 transition-all h-11 rounded-lg"
                         {...field}
                       />
                     </FormControl>
@@ -141,10 +136,10 @@ function LoginForm() {
                 render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center justify-between">
-                      <FormLabel className="text-gray-700 font-medium">Password</FormLabel>
+                      <FormLabel className="font-semibold text-foreground">Password</FormLabel>
                       <Link
                         href="/forgot-password"
-                        className="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                        className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
                         tabIndex={-1}
                       >
                         Forgot password?
@@ -154,7 +149,7 @@ function LoginForm() {
                       <PasswordInput
                         placeholder="••••••••"
                         autoComplete="current-password"
-                        className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500 h-11"
+                        className="bg-muted/50 border-border/50 text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary/30 transition-all h-11 rounded-lg"
                         {...field}
                       />
                     </FormControl>
@@ -166,7 +161,7 @@ function LoginForm() {
 
             <Button
               type="submit"
-              className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base transition-colors shadow-sm"
+              className="w-full h-11 shadow-md transition-all text-base rounded-lg"
               disabled={form.formState.isSubmitting}
             >
               {form.formState.isSubmitting ? (
@@ -179,29 +174,22 @@ function LoginForm() {
             </Button>
           </form>
         </Form>
-      </CardContent>
-
-      <CardFooter className="flex flex-col space-y-2 border-t border-gray-100 pt-6 mt-4 text-center text-xs text-gray-500 sm:text-sm">
-        <p>Internal system for authorized users only</p>
-        <p>Contact your Administrator to request an account</p>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12 bg-gray selection:bg-blue-100 selection:text-blue-900">
-      <Suspense
-        fallback={
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
-            <p className="text-sm font-medium text-gray-500">Loading workspace...</p>
-          </div>
-        }
-      >
-        <LoginForm />
-      </Suspense>
-    </div>
+    <Suspense
+      fallback={
+        <div className="flex flex-col items-center justify-center gap-3 w-full py-24">
+          <Loader2 className="w-10 h-10 animate-spin text-primary" />
+          <p className="text-sm font-medium text-muted-foreground">Loading workspace...</p>
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

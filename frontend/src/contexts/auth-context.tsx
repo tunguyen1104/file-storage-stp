@@ -23,6 +23,7 @@ export interface AuthUser {
   fullName: string;
   role: Role;
   tenantId: string;
+  tenantName?: string;
 }
 
 interface AuthContextState {

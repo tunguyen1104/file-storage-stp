@@ -1,14 +1,34 @@
 export type UserRole = "SUPER_ADMIN" | "TENANT_ADMIN" | "MEMBER";
 
+export type RoleSummary = {
+  id: string;
+  code: UserRole;
+  name: string;
+};
+
 export type UserItem = {
   id: string;
   email: string;
   fullName: string;
-  role: UserRole;
+  role: UserRole | RoleSummary;
   tenantId?: string;
+  tenantName?: string;
   isActive?: boolean;
   storageQuotaBytes?: number;
+  storageUsedBytes?: number;
+  createdBy?: string;
   lastLoginAt?: string;
+  passwordChangedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type UserStorage = {
+  userId: string;
+  storageQuotaBytes: number;
+  storageUsedBytes: number;
+  storageAvailableBytes: number;
+  usagePercent: number;
 };
 
 export type ListUsersParams = {

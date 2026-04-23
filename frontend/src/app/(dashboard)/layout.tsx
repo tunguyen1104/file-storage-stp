@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { LogOut, Menu } from "lucide-react";
 
 import { DashboardSidebar } from "@/components/layout/sidebar";
+import { HeaderUserNav } from "@/components/layout/header-user-nav";
+import { ModeToggle } from "@/components/shared/ModeToggle";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -23,9 +25,9 @@ const DEFAULT_ROUTE_BY_ROLE = {
 } as const;
 
 const ALLOWED_ROUTES_BY_ROLE: Record<string, string[]> = {
-  SUPER_ADMIN: ["/tenants", "/users", "/files", "/search"],
-  TENANT_ADMIN: ["/users", "/files", "/search"],
-  MEMBER: ["/files", "/search"],
+  SUPER_ADMIN: ["/tenants", "/users", "/files", "/search", "/profile"],
+  TENANT_ADMIN: ["/users", "/files", "/search", "/profile"],
+  MEMBER: ["/files", "/search", "/profile"],
 };
 
 function toTitle(value: string) {
@@ -67,17 +69,17 @@ export default function DashboardLayout({
   }, [pathname]);
 
   if (isLoading || !user) {
-    return <div className="min-h-screen bg-gray-50" />;
+    return <div className="min-h-screen bg-background" />;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-gray-200 bg-white md:block">
+    <div className="min-h-screen bg-background text-foreground">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-border bg-card md:block">
         <DashboardSidebar user={user} pathname={pathname} />
       </aside>
 
       <div className="flex min-h-screen flex-col md:pl-64">
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 md:px-6">
+        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-card/80 backdrop-blur-md px-4 md:px-6">
           <div className="flex items-center gap-3">
             <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
               <SheetTrigger asChild>
@@ -111,14 +113,10 @@ export default function DashboardLayout({
             </Breadcrumb>
           </div>
 
-          <Button
-            variant="outline"
-            className="gap-2"
-            onClick={() => void logOut()}
-          >
-            <LogOut className="h-4 w-4" />
-            Logout
-          </Button>
+          <div className="flex items-center gap-3">
+            <ModeToggle />
+            <HeaderUserNav />
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6">

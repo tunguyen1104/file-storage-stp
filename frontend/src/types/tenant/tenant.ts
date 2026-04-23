@@ -11,7 +11,11 @@ export type TenantItem = {
   name: string;
   slug: string;
   storageQuotaBytes?: number;
+  storageUsedBytes?: number;
   isActive?: boolean;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type ListTenantsParams = {

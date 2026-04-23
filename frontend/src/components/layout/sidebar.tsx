@@ -53,14 +53,14 @@ export function DashboardSidebar({
   const navItems = NAV_ITEMS_BY_ROLE[user.role] ?? [];
 
   return (
-    <div className={cn("flex h-full flex-col bg-white", className)}>
-      <div className="flex items-center gap-3 border-b px-4 py-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
+    <div className={cn("flex h-full flex-col bg-card", className)}>
+      <div className="flex items-center gap-3 border-b border-border px-4 py-5">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-sm border border-primary/20">
           <Shield className="h-5 w-5" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-gray-900">File Storage</p>
-          <p className="text-xs text-gray-500">Multi-tenant Console</p>
+          <p className="text-sm font-bold text-card-foreground">File Storage</p>
+          <p className="text-xs font-medium text-muted-foreground">Enterprise Console</p>
         </div>
       </div>
 
@@ -75,10 +75,10 @@ export function DashboardSidebar({
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition",
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
                 isActive
-                  ? "bg-blue-50 text-blue-700"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  ? "bg-primary/10 text-primary shadow-sm"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               <Icon className="h-4 w-4" />
@@ -88,19 +88,6 @@ export function DashboardSidebar({
         })}
       </nav>
 
-      <div className="border-t p-4">
-        <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-700">
-            {user.name.charAt(0)}
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-gray-900">{user.name}</p>
-            <p className="truncate text-xs uppercase tracking-wide text-gray-500">
-              {user.role.replace("_", " ")}
-            </p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

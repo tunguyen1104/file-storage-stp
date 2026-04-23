@@ -83,10 +83,10 @@ export default function FilesPage() {
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 rounded-lg border border-border/50 bg-card p-4 md:flex-row md:items-center md:justify-between">
         <div className="relative w-full md:max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input className="h-10 bg-white pl-9" placeholder="Search files and folders..." />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input className="h-10 bg-muted/50 pl-9" placeholder="Search files and folders..." />
         </div>
         <Button className="gap-2">
           <Upload className="h-4 w-4" />
@@ -94,38 +94,43 @@ export default function FilesPage() {
         </Button>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white">
+      <div className="rounded-lg border border-border/50 bg-card">
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-gray-200 bg-gray-50/80 hover:bg-gray-50/80">
-              <TableHead className="h-11 px-3">Name</TableHead>
-              <TableHead className="h-11 px-3">Date Modified</TableHead>
-              <TableHead className="h-11 px-3">Type</TableHead>
-              <TableHead className="h-11 px-3 text-right">Size</TableHead>
+            <TableRow className="border-b border-border/50 bg-muted/40 hover:bg-muted/40">
+              <TableHead className="h-11 px-3 w-[40%] min-w-0">Name</TableHead>
+              <TableHead className="h-11 px-3 w-[22%] whitespace-nowrap">Date Modified</TableHead>
+              <TableHead className="h-11 px-3 w-[18%] whitespace-nowrap">Type</TableHead>
+              <TableHead className="h-11 px-3 w-[20%] text-right whitespace-nowrap">Size</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedFiles.map((file) => (
               <TableRow
                 key={file.id}
-                className="border-b border-gray-100 hover:bg-blue-50/50"
+                className="border-b border-border/50 hover:bg-muted/40 transition-colors"
               >
-                <TableCell className="px-3 py-2 font-medium">
-                  <div className="flex items-center gap-2.5">
-                    {renderFileIcon(file.itemType)}
-                    <span>{file.name}</span>
+                <TableCell className="px-3 py-2 font-medium min-w-0 max-w-0 w-[40%]">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="shrink-0">{renderFileIcon(file.itemType)}</span>
+                    <span
+                      className="truncate block"
+                      title={file.name}
+                    >
+                      {file.name}
+                    </span>
                   </div>
                 </TableCell>
-                <TableCell className="px-3 py-2">{file.modified}</TableCell>
-                <TableCell className="px-3 py-2">{file.type}</TableCell>
-                <TableCell className="px-3 py-2 text-right">{file.size}</TableCell>
+                <TableCell className="px-3 py-2 whitespace-nowrap">{file.modified}</TableCell>
+                <TableCell className="px-3 py-2 whitespace-nowrap">{file.type}</TableCell>
+                <TableCell className="px-3 py-2 text-right whitespace-nowrap">{file.size}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
 
         {shouldPaginate && (
-          <div className="border-t border-gray-200 px-4 py-3">
+          <div className="border-t border-border/50 px-4 py-3">
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
