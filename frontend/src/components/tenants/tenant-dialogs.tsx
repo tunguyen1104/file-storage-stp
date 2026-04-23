@@ -42,19 +42,8 @@ import {
   type CreateTenantInput,
   type UpdateTenantInput,
 } from "@/lib/schemas/tenant.schema";
+import { bytesToGbString, gbStringToBytes } from "@/lib/utils/storage";
 import type { TenantResponse } from "@/types/tenant/tenant";
-
-const GB = 1024 * 1024 * 1024;
-
-function bytesToGbString(bytes: number): string {
-  if (!bytes) return "";
-  const gb = bytes / GB;
-  return parseFloat(gb.toFixed(4)).toString();
-}
-
-function gbStringToBytes(gb: string): number {
-  return Math.round(parseFloat(gb) * GB);
-}
 
 // ─── Create Tenant Dialog ────────────────────────────────────────
 

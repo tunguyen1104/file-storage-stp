@@ -38,15 +38,8 @@ import {
   DeactivateTenantDialog,
 } from "@/components/tenants/tenant-dialogs";
 import type { TenantResponse } from "@/types/tenant/tenant";
-import { DEFAULT_PAGE_SIZE, GB } from "@/lib/constants";
-
-function formatStorageGb(bytes: number): string {
-  if (!bytes) return "—";
-  const gb = bytes / GB;
-  if (gb >= 1) return `${parseFloat(gb.toFixed(1))} GB`;
-  const mb = bytes / (1024 * 1024);
-  return `${Math.round(mb)} MB`;
-}
+import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
+import { formatStorageGb } from "@/lib/utils/storage";
 
 export default function TenantsPage() {
   const [currentPage, setCurrentPage] = useState(1);

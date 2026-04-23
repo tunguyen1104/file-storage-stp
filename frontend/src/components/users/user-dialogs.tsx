@@ -53,19 +53,8 @@ import {
 } from "@/lib/schemas/user-management.schema";
 import { ROLES, type Role } from "@/lib/constants";
 import { TenantSelect } from "@/components/tenants/TenantSelect";
+import { bytesToGbString, gbStringToBytes } from "@/lib/utils/storage";
 import type { UserResponse } from "@/types/user/user";
-
-const GB = 1024 * 1024 * 1024;
-
-function bytesToGbString(bytes: number): string {
-  if (!bytes) return "";
-  const gb = bytes / GB;
-  return parseFloat(gb.toFixed(4)).toString();
-}
-
-function gbStringToBytes(gb: string): number {
-  return Math.round(parseFloat(gb) * GB);
-}
 
 // ─── Create User Dialog ──────────────────────────────────────────
 

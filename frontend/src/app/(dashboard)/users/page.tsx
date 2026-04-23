@@ -39,18 +39,10 @@ import {
   EditUserDialog,
   DeactivateUserDialog,
 } from "@/components/users/user-dialogs";
+import { formatStorageGb } from "@/lib/utils/storage";
 import type { UserResponse } from "@/types/user/user";
 
 const PAGE_SIZE = 20;
-const GB = 1024 * 1024 * 1024;
-
-function formatStorageGb(bytes: number): string {
-  if (!bytes) return "—";
-  const gb = bytes / GB;
-  if (gb >= 1) return `${parseFloat(gb.toFixed(1))} GB`;
-  const mb = bytes / (1024 * 1024);
-  return `${Math.round(mb)} MB`;
-}
 
 function RoleBadge({ role }: { role: string }) {
   if (role === ROLES.SUPER_ADMIN) {
