@@ -4,52 +4,56 @@
 
 ```
 frontend/
-├── src/
-│   ├── app/                          # Next.js 15 App Router
-│   │   ├── (auth)/                   # 🔐 Authentication route group (no separate layout needed)
-│   │   │   ├── login/                #    → Login page
-│   │   │   ├── forgot-password/      #    → Forgot password page
-│   │   │   ├── reset-password/       #    → Reset password page
-│   │   │   ├── verify/               #    → Email verification page
-│   │   │   └── check-email/          #    → Check email notification page
-│   │   │
-│   │   ├── (dashboard)/              # 🏠 Main route group (requires authentication)
-│   │   │   ├── files/                #    → File management
-│   │   │   ├── upload/               #    → File upload
-│   │   │   ├── users/                #    → User management (admin)
-│   │   │   ├── tenants/              #    → Tenant management (super admin)
-│   │   │   ├── audit-logs/           #    → Activity history
-│   │   │   ├── search/               #    → File search
-│   │   │   └── unauthorized/         #    → Access denied page
-│   │   │
-│   │   ├── api/                      # 🔌 Backend For Frontend (BFF) - API Proxy
-│   │   │   ├── [...path]/route.ts    #    → Catch-all proxy: forwards requests to real backend
-│   │   │   ├── auth/                 #    → (Special auth routes, if needed)
-│   │   │   └── _lib/proxy.ts         #    → Main proxy logic (handles token, CSRF)
-│   │   │
-│   │   ├── layout.tsx                # Root layout (wraps AuthProvider, ThemeProvider)
-│   │   ├── globals.css               # Tailwind CSS styles
-│   │   └── middleware.ts             # ⚠️ IMPORTANT: Auth check on every request
-│   │
-│   ├── contexts/
-│   │   └── auth-context.tsx          # 🧠 React Context managing current user state
-│   │
-│   ├── hooks/
-│   │   └── use-auth.ts               # Hook to use auth context in any component
-│   │
-│   ├── lib/
-│   │   ├── api-client.ts             # ⚡ Axios instance (auto sends cookies, refresh token)
-│   │   ├── auth.ts                   # Auth helper functions (hasRole, maskEmail, ...)
-│   │   ├── csrf.ts                   # CSRF protection utilities
-│   │   ├── constants.ts              # Constants: roles, routes, file limits, ...
-│   │   └── schemas/                  # Zod validation schemas
-│   │
-│   ├── components/                   # UI components (buttons, forms, layout, ...)
-│   └── types/                        # TypeScript type definitions
-│
-├── .env.local.example                # Environment variables template
-├── package.json                      # Dependencies
-└── next.config.ts                    # Next.js config
+├── docs/                             # Documentation
+├── public/                           # Static assets
+└── src/                              # Source code
+    ├── app/                          # Next.js 15 App Router
+    │   ├── (auth)/                   # 🔐 Authentication route group (no separate layout needed)
+    │   │   ├── check-email/          #    → Check email notification page
+    │   │   ├── forgot-password/      #    → Forgot password page
+    │   │   ├── login/                #    → Login page
+    │   │   ├── reset-password/       #    → Reset password page
+    │   │   └── verify/               #    → Email verification page
+    │   │
+    │   ├── (dashboard)/              # 🏠 Main route group (requires authentication)
+    │   │   ├── audit-logs/           #    → Activity history
+    │   │   ├── files/                #    → File management
+    │   │   ├── search/               #    → File search
+    │   │   ├── tenants/              #    → Tenant management (super admin)
+    │   │   ├── unauthorized/         #    → Access denied page
+    │   │   ├── upload/               #    → File upload
+    │   │   └── users/                #    → User management (admin)
+    │   │
+    │   └── api/                      # 🔌 Backend For Frontend (BFF) - API Proxy
+    │       ├── [...path]/            #    → Catch-all proxy
+    │       ├── _lib/                 #    → Main proxy logic
+    │       ├── auth/                 #    → Auth API routes
+    │       │   └── token-session/    #        → Token session handler
+    │       └── health/               #    → Health check API
+    │
+    ├── components/                   # UI components (buttons, forms, layout, ...)
+    │   ├── audit/
+    │   ├── auth/
+    │   ├── files/
+    │   ├── layout/
+    │   ├── shared/
+    │   ├── tenants/
+    │   ├── ui/
+    │   ├── upload/
+    │   └── users/
+    │
+    ├── contexts/                     # 🧠 React Context managing states
+    │
+    ├── hooks/                        # Custom React hooks
+    │
+    ├── lib/                          # Utilities and helpers
+    │   ├── api/                      # API client and logic
+    │   │   └── core/
+    │   └── schemas/                  # Zod validation schemas
+    │
+    └── types/                        # TypeScript type definitions
+        ├── auth/
+        └── tenant/
 ```
 
 ### 📌 Understanding Route Groups (auth) and (dashboard)
