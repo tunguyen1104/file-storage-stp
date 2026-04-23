@@ -6,11 +6,7 @@ import com.filestorage.adapter.in.rest.dto.response.ApiResponse;
 import com.filestorage.adapter.in.rest.mapper.TenantRestMapper;
 import com.filestorage.adapter.in.rest.security.SecurityUser;
 import com.filestorage.domain.model.enums.RoleCode;
-import com.filestorage.domain.port.in.tenant.CreateTenantUseCase;
-import com.filestorage.domain.port.in.tenant.DeactivateTenantUseCase;
-import com.filestorage.domain.port.in.tenant.GetTenantUseCase;
-import com.filestorage.domain.port.in.tenant.ListTenantsUseCase;
-import com.filestorage.domain.port.in.tenant.UpdateTenantUseCase;
+import com.filestorage.domain.port.in.tenant.*;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
 import com.filestorage.shared.util.SecurityContextUtil;
@@ -37,6 +33,7 @@ public class TenantController {
 
     private final CreateTenantUseCase createTenantUseCase;
     private final ListTenantsUseCase listTenantsUseCase;
+    private final ListTenantOptionsUseCase listTenantOptionsUseCase;
     private final GetTenantUseCase getTenantUseCase;
     private final UpdateTenantUseCase updateTenantUseCase;
     private final DeactivateTenantUseCase deactivateTenantUseCase;
@@ -119,6 +116,19 @@ public class TenantController {
         ));
 
         return ResponseEntity.ok(ApiResponse.buildSuccess(tenantRestMapper.toTenantResponse(result)));
+    }
+
+    @GetMapping("/options")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<?>> listTenantOptions() {
+        SecurityUser actor = currentUserOrThrow();
+        var result = listTenantOptionsUseCase.execute(new ListTenantOptionsUseCase.ListTenantOptionsQuery(
+                UUID.fromString(actor.getUserId()),
+                parseRole(actor.getRole())
+        ));
+        return ResponseEntity.ok(ApiResponse.buildSuccess(
+                result.stream().map(tenantRestMapper::toTenantOptionResponse).toList()
+        ));
     }
 
     private SecurityUser currentUserOrThrow() {
