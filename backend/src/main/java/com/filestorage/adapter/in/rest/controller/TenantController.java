@@ -17,6 +17,7 @@ import com.filestorage.shared.util.SecurityContextUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -42,6 +43,7 @@ public class TenantController {
     private final TenantRestMapper tenantRestMapper;
 
     @PostMapping
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<?>> createTenant(@RequestBody @Valid CreateTenantRequest request) {
         SecurityUser actor = currentUserOrThrow();
         var result = createTenantUseCase.execute(new CreateTenantUseCase.CreateTenantCommand(
@@ -56,6 +58,7 @@ public class TenantController {
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<?>> listTenants(
             @RequestParam(required = false) Boolean isActive,
             @RequestParam(required = false) String search,
@@ -76,6 +79,7 @@ public class TenantController {
     }
 
     @GetMapping("/{tenantId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<?>> getTenantById(@PathVariable UUID tenantId) {
         SecurityUser actor = currentUserOrThrow();
         var result = getTenantUseCase.execute(new GetTenantUseCase.GetTenantQuery(
@@ -88,6 +92,7 @@ public class TenantController {
     }
 
     @PatchMapping("/{tenantId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<?>> updateTenant(@PathVariable UUID tenantId,
                                                        @RequestBody @Valid UpdateTenantRequest request) {
         SecurityUser actor = currentUserOrThrow();
@@ -104,6 +109,7 @@ public class TenantController {
     }
 
     @DeleteMapping("/{tenantId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<?>> deactivateTenant(@PathVariable UUID tenantId) {
         SecurityUser actor = currentUserOrThrow();
         var result = deactivateTenantUseCase.execute(new DeactivateTenantUseCase.DeactivateTenantCommand(

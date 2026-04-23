@@ -14,7 +14,7 @@ public interface ListTenantUsersUseCase {
             UUID actorTenantId,
             RoleCode actorRole,
             Boolean isActive,
-            UUID roleId,
+            RoleCode roleCode,
             String search,
             int page,
             int limit

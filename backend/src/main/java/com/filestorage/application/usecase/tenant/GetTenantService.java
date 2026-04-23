@@ -20,7 +20,6 @@ public class GetTenantService implements GetTenantUseCase {
     @Override
     @Transactional(readOnly = true)
     public TenantView execute(GetTenantQuery query) {
-        TenantAccessPolicy.requireSuperAdmin(query.actorRole());
 
         var tenant = tenantRepository.findById(query.tenantId())
                 .orElseThrow(() -> new AppException(ErrorCode.TENANT_NOT_FOUND));

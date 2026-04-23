@@ -23,7 +23,6 @@ public class DeactivateTenantService implements DeactivateTenantUseCase {
     @Override
     @Transactional
     public TenantView execute(DeactivateTenantCommand command) {
-        TenantAccessPolicy.requireSuperAdmin(command.actorRole());
 
         Tenant tenant = tenantRepository.findById(command.tenantId())
                 .orElseThrow(() -> new AppException(ErrorCode.TENANT_NOT_FOUND));

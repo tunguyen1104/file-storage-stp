@@ -22,7 +22,6 @@ public class DeactivateUserService implements DeactivateUserUseCase {
     @Override
     @Transactional
     public com.filestorage.domain.model.user.UserView execute(DeactivateUserCommand command) {
-        UserWritePolicy.requireAdminRole(command.actorRole());
 
         User target = userRepository.findByIdWithRoleAndTenant(command.targetUserId())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));

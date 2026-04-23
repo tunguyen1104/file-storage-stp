@@ -24,7 +24,6 @@ public class ListTenantsService implements ListTenantsUseCase {
     @Override
     @Transactional(readOnly = true)
     public TenantPageView execute(ListTenantsQuery query) {
-        TenantAccessPolicy.requireSuperAdmin(query.actorRole());
 
         int page = Math.max(1, query.page());
         int limit = Math.min(100, Math.max(1, query.limit()));

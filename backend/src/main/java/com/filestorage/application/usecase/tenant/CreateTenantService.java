@@ -23,7 +23,6 @@ public class CreateTenantService implements CreateTenantUseCase {
     @Override
     @Transactional
     public TenantView execute(CreateTenantCommand command) {
-        TenantAccessPolicy.requireSuperAdmin(command.actorRole());
 
         String slug = normalizeSlug(command.slug());
         if (tenantRepository.existsBySlug(slug)) {
