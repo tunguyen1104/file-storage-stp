@@ -16,9 +16,13 @@ import org.springframework.stereotype.Component;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -102,7 +106,7 @@ public class MinioStorageAdapter implements ObjectStoragePort {
     }
 
     @Override
-    public String generatePresignedDownloadUrl(String storageKey, Duration ttl) {
+    public String generatePresignedDownloadUrl(String storageKey, String originalName, Duration ttl) {
         Duration effectiveTtl = ttl == null ? Duration.ofMinutes(storageProperties.getDefaultDownloadTtlMinutes()) : ttl;
         requireNonBlank(storageKey, "storageKey");
         if (effectiveTtl.isNegative() || effectiveTtl.isZero()) {
@@ -115,12 +119,66 @@ public class MinioStorageAdapter implements ObjectStoragePort {
                             .method(Method.GET)
                             .bucket(minioProperties.getBucket())
                             .object(storageKey)
+                            .extraQueryParams(contentDispositionParams(buildAttachmentContentDisposition(originalName)))
                             .expiry(Math.toIntExact(effectiveTtl.getSeconds()))
                             .build()
             );
         } catch (MinioException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
             throw new IllegalStateException("Failed to generate MinIO presigned URL", e);
         }
+    }
+
+    @Override
+    public String generatePresignedGetUrl(String storageKey, String originalName, Duration ttl) {
+        Duration effectiveTtl = ttl == null ? Duration.ofMinutes(storageProperties.getDefaultDownloadTtlMinutes()) : ttl;
+        requireNonBlank(storageKey, "storageKey");
+        if (effectiveTtl.isNegative() || effectiveTtl.isZero()) {
+            throw new IllegalArgumentException("ttl must be greater than zero");
+        }
+
+        try {
+            return minioClient.getPresignedObjectUrl(
+                    GetPresignedObjectUrlArgs.builder()
+                            .method(Method.GET)
+                            .bucket(minioProperties.getBucket())
+                            .object(storageKey)
+                            .extraQueryParams(contentDispositionParams(buildInlineContentDisposition(originalName)))
+                            .expiry(Math.toIntExact(effectiveTtl.getSeconds()))
+                            .build()
+            );
+        } catch (MinioException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+            throw new IllegalStateException("Failed to generate MinIO presigned URL", e);
+        }
+    }
+
+    private static Map<String, String> contentDispositionParams(String contentDisposition) {
+        Map<String, String> params = new HashMap<>();
+        params.put("response-content-disposition", contentDisposition);
+        return params;
+    }
+
+    private static String buildAttachmentContentDisposition(String originalName) {
+        return "attachment; " + buildFilenameParameters(originalName);
+    }
+
+    private static String buildInlineContentDisposition(String originalName) {
+        return "inline; " + buildFilenameParameters(originalName);
+    }
+
+    private static String buildFilenameParameters(String originalName) {
+        String effectiveName = (originalName == null || originalName.isBlank()) ? "download" : originalName.trim();
+        String asciiFallback = toAsciiFilenameFallback(effectiveName);
+        String encoded = URLEncoder.encode(effectiveName, StandardCharsets.UTF_8).replace("+", "%20");
+        return "filename=\"" + asciiFallback + "\"; filename*=UTF-8''" + encoded;
+    }
+
+    private static String toAsciiFilenameFallback(String filename) {
+        String cleaned = filename
+                .replace("\\", "_")
+                .replace("\"", "_")
+                .replace(";", "_");
+        String ascii = cleaned.replaceAll("[^\\x20-\\x7E]", "_");
+        return ascii.isBlank() ? "download" : ascii;
     }
 
     private static String requireNonBlank(String value, String fieldName) {

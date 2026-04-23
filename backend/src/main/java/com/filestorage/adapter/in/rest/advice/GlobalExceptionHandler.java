@@ -16,6 +16,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -49,6 +50,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse<Object>> handleHttpMessageNotReadable(
             HttpMessageNotReadableException ex) {
+        String message = resolveMessage(ErrorCode.INVALID_PAYLOAD);
+        return ResponseEntity.status(ErrorCode.INVALID_PAYLOAD.getHttpStatus())
+                .body(ErrorResponse.buildError(message, ErrorCode.INVALID_PAYLOAD.getCode()));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse<Object>> handleMethodArgumentTypeMismatch(
+            MethodArgumentTypeMismatchException ex) {
         String message = resolveMessage(ErrorCode.INVALID_PAYLOAD);
         return ResponseEntity.status(ErrorCode.INVALID_PAYLOAD.getHttpStatus())
                 .body(ErrorResponse.buildError(message, ErrorCode.INVALID_PAYLOAD.getCode()));

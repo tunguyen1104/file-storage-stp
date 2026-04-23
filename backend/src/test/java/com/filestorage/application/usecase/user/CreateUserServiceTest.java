@@ -71,11 +71,11 @@ class CreateUserServiceTest {
         superAdminRole.setId(UUID.randomUUID());
 
         when(userRepository.existsByEmail("u@example.com")).thenReturn(false);
-        when(roleRepository.findById(superAdminRole.getId())).thenReturn(Optional.of(superAdminRole));
+        when(roleRepository.findByCode(RoleCode.SUPER_ADMIN)).thenReturn(Optional.of(superAdminRole));
 
         var command = new CreateUserUseCase.CreateUserCommand(
                 actorId, tenantId, RoleCode.TENANT_ADMIN,
-                "u@example.com", "User", superAdminRole.getId(), 100L, null
+                "u@example.com", "User", RoleCode.SUPER_ADMIN, 100L, null
         );
 
         assertThrows(AppException.class, () -> createUserService.execute(command));
@@ -97,7 +97,7 @@ class CreateUserServiceTest {
         actor.setId(actorId);
 
         when(userRepository.existsByEmail("u@example.com")).thenReturn(false);
-        when(roleRepository.findById(role.getId())).thenReturn(Optional.of(role));
+        when(roleRepository.findByCode(RoleCode.MEMBER)).thenReturn(Optional.of(role));
         when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
         when(userRepository.findById(actorId)).thenReturn(Optional.of(actor));
         when(passwordEncoder.encode(any())).thenReturn("encoded");
@@ -109,7 +109,7 @@ class CreateUserServiceTest {
 
         var command = new CreateUserUseCase.CreateUserCommand(
                 actorId, tenantId, RoleCode.TENANT_ADMIN,
-                "u@example.com", "User", role.getId(), 100L, null
+                "u@example.com", "User", RoleCode.MEMBER, 100L, null
         );
 
         var result = createUserService.execute(command);

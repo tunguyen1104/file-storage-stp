@@ -14,7 +14,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.containers.wait.strategy.Wait;
 
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -67,9 +69,34 @@ class MinioStorageAdapterIntegrationTest {
         String storageKey = adapter.buildStorageKey("tenant-it", "user-it", "file-it", "txt");
         adapter.upload(storageKey, "hello-minio".getBytes(StandardCharsets.UTF_8), "text/plain");
 
-        String url = adapter.generatePresignedDownloadUrl(storageKey, null);
+        String url = adapter.generatePresignedDownloadUrl(storageKey, "bao-cao.pdf", null);
 
         assertTrue(url.contains("X-Amz-Expires=900"));
+        String disposition = readContentDisposition(url);
+        assertTrue(disposition.startsWith("attachment;"));
+        assertTrue(disposition.contains("filename*=UTF-8''bao-cao.pdf"));
+    }
+
+    @Test
+    void generatePresignedGetUrlUsesInlineDisposition() {
+        String storageKey = adapter.buildStorageKey("tenant-it", "user-it", "file-inline", "png");
+        adapter.upload(storageKey, "img".getBytes(StandardCharsets.UTF_8), "image/png");
+
+        String url = adapter.generatePresignedGetUrl(storageKey, "preview.png", null);
+
+        String disposition = readContentDisposition(url);
+        assertTrue(disposition.startsWith("inline;"));
+        assertTrue(disposition.contains("filename*=UTF-8''preview.png"));
+    }
+
+    private static String readContentDisposition(String url) {
+        String query = url.substring(url.indexOf('?') + 1);
+        return Arrays.stream(query.split("&"))
+                .map(pair -> pair.split("=", 2))
+                .filter(parts -> parts.length == 2 && parts[0].equals("response-content-disposition"))
+                .map(parts -> URLDecoder.decode(parts[1], StandardCharsets.UTF_8))
+                .findFirst()
+                .orElseThrow();
     }
 }
 

@@ -13,11 +13,6 @@ final class UserWritePolicy {
     private UserWritePolicy() {
     }
 
-    static void requireAdminRole(RoleCode actorRole) {
-        if (actorRole != RoleCode.SUPER_ADMIN && actorRole != RoleCode.TENANT_ADMIN) {
-            throw new AppException(ErrorCode.FORBIDDEN);
-        }
-    }
 
     static void requireSameTenantForTenantAdmin(User target, UUID actorTenantId, RoleCode actorRole) {
         if (actorRole == RoleCode.TENANT_ADMIN && !target.getTenant().getId().equals(actorTenantId)) {

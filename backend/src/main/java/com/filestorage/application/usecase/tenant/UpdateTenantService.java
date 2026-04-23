@@ -21,7 +21,6 @@ public class UpdateTenantService implements UpdateTenantUseCase {
     @Override
     @Transactional
     public TenantView execute(UpdateTenantCommand command) {
-        TenantAccessPolicy.requireSuperAdmin(command.actorRole());
 
         Tenant tenant = tenantRepository.findById(command.tenantId())
                 .orElseThrow(() -> new AppException(ErrorCode.TENANT_NOT_FOUND));

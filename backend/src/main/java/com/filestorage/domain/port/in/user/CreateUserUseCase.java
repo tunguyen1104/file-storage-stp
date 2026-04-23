@@ -15,7 +15,7 @@ public interface CreateUserUseCase {
             RoleCode actorRole,
             String email,
             String fullName,
-            UUID roleId,
+            RoleCode roleCode,
             Long storageQuotaBytes,
             UUID tenantId
     ) {

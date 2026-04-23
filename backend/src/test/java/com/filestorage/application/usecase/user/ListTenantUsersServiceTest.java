@@ -17,13 +17,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -56,7 +56,7 @@ class ListTenantUsersServiceTest {
         UUID actorTenantId = UUID.randomUUID();
         User user = createUser(UUID.randomUUID(), actorTenantId);
 
-        when(userRepository.findAll(any(), eq(PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt")))))
+        when(userRepository.findAll(org.mockito.ArgumentMatchers.<Specification<User>>any(), eq(PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt")))))
                 .thenReturn(new PageImpl<>(List.of(user), PageRequest.of(0, 20), 1));
 
         var query = new ListTenantUsersUseCase.ListTenantUsersQuery(
@@ -74,7 +74,7 @@ class ListTenantUsersServiceTest {
         UUID actorTenantId = UUID.randomUUID();
         User user = createUser(UUID.randomUUID(), actorTenantId);
 
-        when(userRepository.findAll(any(), eq(PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt")))))
+        when(userRepository.findAll(org.mockito.ArgumentMatchers.<Specification<User>>any(), eq(PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt")))))
                 .thenReturn(new PageImpl<>(List.of(user), PageRequest.of(0, 20), 1));
 
         var query = new ListTenantUsersUseCase.ListTenantUsersQuery(

@@ -150,7 +150,7 @@ class UserControllerTest {
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "email", "new.user@example.com",
                                 "fullName", "New User",
-                                "roleId", roleId,
+                                "roleCode", RoleCode.MEMBER,
                                 "storageQuotaBytes", 100
                         ))))
                 .andExpect(status().isCreated())
@@ -167,11 +167,19 @@ class UserControllerTest {
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "email", "exists@example.com",
                                 "fullName", "Exists",
-                                "roleId", UUID.randomUUID()
+                                "roleCode", RoleCode.MEMBER
                         ))))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value(ErrorCode.EMAIL_ALREADY_EXISTS.getCode()));
+    }
+
+    @Test
+    void listUsers_invalidRoleCode_returns400() throws Exception {
+        mockMvc.perform(get("/api/v1/users").param("roleCode", "INVALID_ROLE"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_PAYLOAD.getCode()));
     }
 
     @Test

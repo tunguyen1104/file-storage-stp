@@ -24,7 +24,6 @@ public class ListTenantUsersService implements ListTenantUsersUseCase {
 	@Override
 	@Transactional(readOnly = true)
 	public UserPageView execute(ListTenantUsersQuery query) {
-		UserAccessPolicy.requireCanListTenantUsers(query.actorRole());
 
 		int page = Math.max(1, query.page());
 		int limit = Math.min(100, Math.max(1, query.limit()));
@@ -33,7 +32,7 @@ public class ListTenantUsersService implements ListTenantUsersUseCase {
 		Specification<com.filestorage.adapter.out.persistence.entity.User> spec = Specification
 				.where(UserSearchSpecifications.byTenant(query.actorTenantId()))
 				.and(UserSearchSpecifications.byIsActive(query.isActive()))
-				.and(UserSearchSpecifications.byRole(query.roleId()))
+				.and(UserSearchSpecifications.byRole(query.roleCode()))
 				.and(UserSearchSpecifications.bySearch(query.search()));
 
 		var result = userRepository.findAll(spec, pageable);

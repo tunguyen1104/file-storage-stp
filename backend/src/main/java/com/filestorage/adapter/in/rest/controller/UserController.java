@@ -21,6 +21,7 @@ import com.filestorage.shared.util.SecurityContextUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -48,7 +49,9 @@ public class UserController {
     private final ListTenantUsersUseCase listTenantUsersUseCase;
     private final UserRestMapper userRestMapper;
 
+
     @PostMapping
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN')")
     public ResponseEntity<ApiResponse<?>> createUser(@RequestBody @Valid CreateUserRequest request) {
         SecurityUser actor = currentUserOrThrow();
         var result = createUserUseCase.execute(new CreateUserUseCase.CreateUserCommand(
@@ -57,7 +60,7 @@ public class UserController {
                 parseRole(actor.getRole()),
                 request.email(),
                 request.fullName(),
-                request.roleId(),
+                request.roleCode(),
                 request.storageQuotaBytes(),
                 request.tenantId()
         ));
@@ -66,9 +69,10 @@ public class UserController {
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<?>> listUsers(
             @RequestParam(required = false) Boolean isActive,
-            @RequestParam(required = false) UUID roleId,
+            @RequestParam(required = false) RoleCode roleCode,
             @RequestParam(required = false) UUID tenantId,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "1") int page,
@@ -81,7 +85,7 @@ public class UserController {
                 parseRole(actor.getRole()),
                 tenantId,
                 isActive,
-                roleId,
+                roleCode,
                 search,
                 page,
                 limit
@@ -91,9 +95,10 @@ public class UserController {
     }
 
     @GetMapping("/tenant")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN')")
     public ResponseEntity<ApiResponse<?>> listTenantUsers(
             @RequestParam(required = false) Boolean isActive,
-            @RequestParam(required = false) UUID roleId,
+            @RequestParam(required = false) RoleCode roleCode,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int limit
@@ -104,7 +109,7 @@ public class UserController {
                 UUID.fromString(actor.getTenantId()),
                 parseRole(actor.getRole()),
                 isActive,
-                roleId,
+                roleCode,
                 search,
                 page,
                 limit
@@ -127,6 +132,7 @@ public class UserController {
     }
 
     @PatchMapping("/{userId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN')")
     public ResponseEntity<ApiResponse<?>> updateUser(@PathVariable UUID userId, @RequestBody @Valid UpdateUserRequest request) {
         SecurityUser actor = currentUserOrThrow();
         var result = updateUserUseCase.execute(new UpdateUserUseCase.UpdateUserCommand(
@@ -136,7 +142,7 @@ public class UserController {
                 userId,
                 request.fullName(),
                 request.email(),
-                request.roleId(),
+                request.roleCode(),
                 request.storageQuotaBytes()
         ));
 
@@ -144,6 +150,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{userId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN')")
     public ResponseEntity<ApiResponse<?>> deactivateUser(@PathVariable UUID userId) {
         SecurityUser actor = currentUserOrThrow();
         var result = deactivateUserUseCase.execute(new DeactivateUserUseCase.DeactivateUserCommand(

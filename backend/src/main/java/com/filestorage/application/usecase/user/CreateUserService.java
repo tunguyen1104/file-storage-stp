@@ -42,14 +42,13 @@ public class CreateUserService implements CreateUserUseCase {
     @Override
     @Transactional
     public com.filestorage.domain.model.user.UserView execute(CreateUserCommand command) {
-        UserWritePolicy.requireAdminRole(command.actorRole());
 
         String normalizedEmail = normalizeEmail(command.email());
         if (userRepository.existsByEmail(normalizedEmail)) {
             throw new AppException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
 
-        Role role = roleRepository.findById(command.roleId())
+        Role role = roleRepository.findByCode(command.roleCode())
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
         UserWritePolicy.requireRoleAssignmentAllowed(role, command.actorRole());
 

@@ -12,17 +12,6 @@ final class UserAccessPolicy {
     private UserAccessPolicy() {
     }
 
-    static void requireCanList(RoleCode actorRole) {
-        if (actorRole != RoleCode.SUPER_ADMIN) {
-            throw new AppException(ErrorCode.FORBIDDEN);
-        }
-    }
-
-    static void requireCanListTenantUsers(RoleCode actorRole) {
-        if (actorRole != RoleCode.SUPER_ADMIN && actorRole != RoleCode.TENANT_ADMIN) {
-            throw new AppException(ErrorCode.FORBIDDEN);
-        }
-    }
 
     static void requireCanRead(User target, UUID actorUserId, UUID actorTenantId, RoleCode actorRole) {
         if (actorRole == RoleCode.SUPER_ADMIN) {

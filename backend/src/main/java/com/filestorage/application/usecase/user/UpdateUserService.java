@@ -23,14 +23,13 @@ public class UpdateUserService implements UpdateUserUseCase {
     @Override
     @Transactional
     public com.filestorage.domain.model.user.UserView execute(UpdateUserCommand command) {
-        UserWritePolicy.requireAdminRole(command.actorRole());
 
         User target = userRepository.findByIdWithRoleAndTenant(command.targetUserId())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         UserWritePolicy.requireSameTenantForTenantAdmin(target, command.actorTenantId(), command.actorRole());
 
         if (command.fullName() == null && command.email() == null
-                && command.roleId() == null && command.storageQuotaBytes() == null) {
+                && command.roleCode() == null && command.storageQuotaBytes() == null) {
             throw new AppException(ErrorCode.INVALID_PAYLOAD);
         }
 
@@ -46,8 +45,8 @@ public class UpdateUserService implements UpdateUserUseCase {
             target.setEmail(normalized);
         }
 
-        if (command.roleId() != null) {
-            Role newRole = roleRepository.findById(command.roleId())
+        if (command.roleCode() != null) {
+            Role newRole = roleRepository.findByCode(command.roleCode())
                     .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
             UserWritePolicy.requireRoleAssignmentAllowed(newRole, command.actorRole());
             target.setRole(newRole);
