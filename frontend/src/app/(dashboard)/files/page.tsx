@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { ROLES } from "@/lib/constants";
 import useSWR from "swr";
 import {
   AlertCircle,
@@ -63,6 +65,9 @@ const STATUS_OPTIONS: { label: string; value: FileStatus }[] = [
 // ─── Page component ──────────────────────────────────────────────
 
 export default function FilesPage() {
+  const { user } = useAuth();
+  const isMember = user?.role === ROLES.MEMBER;
+
   // ── Filter / sort state ──
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -201,10 +206,12 @@ export default function FilesPage() {
           </Select>
         </div>
 
-        <Button className="gap-2" onClick={() => setUploadOpen(true)}>
-          <Upload className="h-4 w-4" />
-          Upload File
-        </Button>
+        {isMember && (
+          <Button className="gap-2" onClick={() => setUploadOpen(true)}>
+            <Upload className="h-4 w-4" />
+            Upload File
+          </Button>
+        )}
       </div>
 
       {/* ── Error state ── */}
@@ -309,11 +316,13 @@ export default function FilesPage() {
       </Sheet>
 
       {/* ── Dialogs ── */}
-      <UploadFileDialog
-        open={uploadOpen}
-        onOpenChange={setUploadOpen}
-        onSuccess={handleSuccess}
-      />
+      {isMember && (
+        <UploadFileDialog
+          open={uploadOpen}
+          onOpenChange={setUploadOpen}
+          onSuccess={handleSuccess}
+        />
+      )}
 
       <DeleteFileDialog
         file={deleteTarget}
