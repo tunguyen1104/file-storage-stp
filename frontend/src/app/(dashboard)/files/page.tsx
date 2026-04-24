@@ -1,10 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { FileImage, FileText, Folder, Search, Upload } from "lucide-react";
+import { useState, useCallback } from "react";
+import useSWR from "swr";
+import {
+  AlertCircle,
+  RefreshCw,
+  Search,
+  Upload,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Pagination,
   PaginationContent,
@@ -14,138 +29,249 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { FileTable } from "@/components/files/FileTable";
+import { FileActionsMenu } from "@/components/files/FileActionsMenu";
+import { FileDetailCard } from "@/components/files/FileDetailCard";
+import { DeleteFileDialog } from "@/components/files/DeleteFileDialog";
+import { UploadFileDialog } from "@/components/upload/UploadFileDialog";
+import { listFiles, downloadFile, getPresignedGetUrl, restoreFile } from "@/lib/api/file";
+import { useDebounce } from "@/hooks/use-debounce";
+import {
+  DEFAULT_PAGE_SIZE,
+  FILE_STATUS,
+  FILE_SORT_BY,
+  SORT_DIRECTION,
+} from "@/lib/constants";
+import type { FileStatus, FileSortBy, SortDirection } from "@/lib/constants";
+import type { FileMetadataResponse } from "@/types/file/file";
 
-type FileItem = {
-  id: string;
-  name: string;
-  modified: string;
-  type: string;
-  size: string;
-  itemType: "folder" | "pdf" | "image" | "docx";
-};
+// ─── Status filter options ───────────────────────────────────────
 
-const PAGE_SIZE = 12;
-const PAGINATION_THRESHOLD = 12;
+const STATUS_OPTIONS: { label: string; value: FileStatus }[] = [
+  { label: "Active", value: FILE_STATUS.ACTIVE },
+  { label: "Pending", value: FILE_STATUS.PENDING },
+  { label: "Pending Delete", value: FILE_STATUS.PENDING_DELETE },
+  { label: "Deleted", value: FILE_STATUS.DELETED },
+  { label: "Upload Failed", value: FILE_STATUS.UPLOAD_FAILED },
+];
 
-function renderFileIcon(itemType: FileItem["itemType"]) {
-  if (itemType === "folder") {
-    return <Folder className="h-4 w-4 text-amber-500" />;
-  }
-  if (itemType === "image") {
-    return <FileImage className="h-4 w-4 text-sky-500" />;
-  }
-  return <FileText className="h-4 w-4 text-blue-500" />;
-}
+// ─── Page component ──────────────────────────────────────────────
 
 export default function FilesPage() {
+  // ── Filter / sort state ──
   const [currentPage, setCurrentPage] = useState(1);
-  const [fileItems, setFileItems] = useState<FileItem[]>([]);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<FileStatus | "ALL">("ALL");
+  const [sort, setSort] = useState<{ sortBy: FileSortBy; sortDirection: SortDirection }>({
+    sortBy: FILE_SORT_BY.CREATED_AT,
+    sortDirection: SORT_DIRECTION.DESC,
+  });
 
-  useEffect(() => {
-    let isMounted = true;
+  const debouncedSearch = useDebounce(search, 400);
 
-    fetch("/mock-data/files.json")
-      .then((response) => response.json())
-      .then((data: FileItem[]) => {
-        if (!isMounted) return;
-        setFileItems(Array.isArray(data) ? data : []);
+  // ── Dialog state ──
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<FileMetadataResponse | null>(null);
+  const [previewTarget, setPreviewTarget] = useState<FileMetadataResponse | null>(null);
+
+  // ── Data fetching ──
+  const swrKey = [
+    "files",
+    currentPage,
+    debouncedSearch,
+    statusFilter,
+    sort.sortBy,
+    sort.sortDirection,
+  ] as const;
+
+  const { data, error, isLoading, mutate } = useSWR(
+    swrKey,
+    ([, page, q, status, sortBy, sortDirection]) =>
+      listFiles({
+        page,
+        limit: DEFAULT_PAGE_SIZE,
+        search: q || undefined,
+        status: status === "ALL" ? undefined : status,
+        sortBy,
+        sortDirection,
       })
-      .catch(() => {
-        if (isMounted) setFileItems([]);
-      });
+  );
 
-    return () => {
-      isMounted = false;
-    };
+  const files = data?.data ?? [];
+  const totalPages = data?.totalPages ?? 1;
+
+  // ── Handlers ──
+  function handleSearchChange(value: string) {
+    setSearch(value);
+    setCurrentPage(1);
+  }
+
+  function handleStatusChange(value: string) {
+    setStatusFilter(value as FileStatus | "ALL");
+    setCurrentPage(1);
+  }
+
+  function handleSortChange(newSort: { sortBy: FileSortBy; sortDirection: SortDirection }) {
+    setSort(newSort);
+    setCurrentPage(1);
+  }
+
+  function handleSuccess() {
+    mutate();
+  }
+
+  const handlePreview = useCallback(async (file: FileMetadataResponse) => {
+    try {
+      const { getUrl } = await getPresignedGetUrl(file.id);
+      window.open(getUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to get preview URL");
+    }
   }, []);
 
-  const shouldPaginate = fileItems.length >= PAGINATION_THRESHOLD;
-  const totalPages = shouldPaginate ? Math.ceil(fileItems.length / PAGE_SIZE) : 1;
-
-  const paginatedFiles = useMemo(() => {
-    if (!shouldPaginate) return fileItems;
-    const startIndex = (currentPage - 1) * PAGE_SIZE;
-    return fileItems.slice(startIndex, startIndex + PAGE_SIZE);
-  }, [currentPage, fileItems, shouldPaginate]);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(1);
+  const handleDownload = useCallback(async (file: FileMetadataResponse) => {
+    try {
+      const { downloadUrl } = await downloadFile(file.id);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = file.originalName;
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to download file");
     }
-  }, [currentPage, totalPages]);
+  }, []);
+
+  const handleRestore = useCallback(async (file: FileMetadataResponse) => {
+    try {
+      await restoreFile(file.id);
+      toast.success(`"${file.originalName}" has been restored`);
+      mutate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to restore file");
+    }
+  }, [mutate]);
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 md:flex-row md:items-center md:justify-between">
-        <div className="relative w-full md:max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input className="h-10 bg-white pl-9" placeholder="Search files and folders..." />
+      {/* ── Toolbar ── */}
+      <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+          {/* Search */}
+          <div className="relative w-full sm:max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="h-10 pl-9 pr-9"
+              placeholder="Search files..."
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => handleSearchChange("")}
+              >
+                <X className="h-3.5 w-3.5" />
+                <span className="sr-only">Clear search</span>
+              </button>
+            )}
+          </div>
+
+          {/* Status filter */}
+          <Select value={statusFilter} onValueChange={handleStatusChange}>
+            <SelectTrigger className="h-10 w-full sm:w-[160px]">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Statuses</SelectItem>
+              {STATUS_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <Button className="gap-2">
+
+        <Button className="gap-2" onClick={() => setUploadOpen(true)}>
           <Upload className="h-4 w-4" />
           Upload File
         </Button>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-b border-gray-200 bg-gray-50/80 hover:bg-gray-50/80">
-              <TableHead className="h-11 px-3">Name</TableHead>
-              <TableHead className="h-11 px-3">Date Modified</TableHead>
-              <TableHead className="h-11 px-3">Type</TableHead>
-              <TableHead className="h-11 px-3 text-right">Size</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedFiles.map((file) => (
-              <TableRow
-                key={file.id}
-                className="border-b border-gray-100 hover:bg-blue-50/50"
-              >
-                <TableCell className="px-3 py-2 font-medium">
-                  <div className="flex items-center gap-2.5">
-                    {renderFileIcon(file.itemType)}
-                    <span>{file.name}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="px-3 py-2">{file.modified}</TableCell>
-                <TableCell className="px-3 py-2">{file.type}</TableCell>
-                <TableCell className="px-3 py-2 text-right">{file.size}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      {/* ── Error state ── */}
+      {error && !isLoading && (
+        <div className="flex items-center gap-3 rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">
+            {error instanceof Error ? error.message : "Failed to load files"}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 text-destructive hover:text-destructive"
+            onClick={() => mutate()}
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Retry
+          </Button>
+        </div>
+      )}
 
-        {shouldPaginate && (
-          <div className="border-t border-gray-200 px-4 py-3">
+      {/* ── File table ── */}
+      <div className="rounded-lg border border-border bg-card">
+        <FileTable
+          files={files}
+          isLoading={isLoading}
+          sort={sort}
+          onSortChange={handleSortChange}
+          emptyMessage={
+            debouncedSearch
+              ? `No files found for "${debouncedSearch}"`
+              : "No files found. Upload a file to get started."
+          }
+          renderActions={(file) => (
+            <FileActionsMenu
+              file={file}
+              onPreview={handlePreview}
+              onDownload={handleDownload}
+              onRestore={handleRestore}
+              onDelete={(f) => setDeleteTarget(f)}
+            />
+          )}
+        />
+
+        {/* ── Pagination ── */}
+        {totalPages > 1 && (
+          <div className="border-t border-border px-4 py-3">
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious
                     href="#"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      setCurrentPage((page) => Math.max(1, page - 1));
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setCurrentPage((p) => Math.max(1, p - 1));
                     }}
                     className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
                   />
                 </PaginationItem>
 
-                {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <PaginationItem key={page}>
                     <PaginationLink
                       href="#"
                       isActive={page === currentPage}
-                      onClick={(event) => {
-                        event.preventDefault();
+                      onClick={(e) => {
+                        e.preventDefault();
                         setCurrentPage(page);
                       }}
                     >
@@ -157,9 +283,9 @@ export default function FilesPage() {
                 <PaginationItem>
                   <PaginationNext
                     href="#"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      setCurrentPage((page) => Math.min(totalPages, page + 1));
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setCurrentPage((p) => Math.min(totalPages, p + 1));
                     }}
                     className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
                   />
@@ -169,6 +295,32 @@ export default function FilesPage() {
           </div>
         )}
       </div>
+
+      {/* ── File detail sheet (preview panel) ── */}
+      <Sheet open={previewTarget !== null} onOpenChange={(open) => { if (!open) setPreviewTarget(null); }}>
+        <SheetContent className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>File Details</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            <FileDetailCard file={previewTarget} onMutate={handleSuccess} />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Dialogs ── */}
+      <UploadFileDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        onSuccess={handleSuccess}
+      />
+
+      <DeleteFileDialog
+        file={deleteTarget}
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        onSuccess={handleSuccess}
+      />
     </section>
   );
 }
