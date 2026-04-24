@@ -43,7 +43,7 @@ const ROLE_ROUTE_MAP: Record<string, string[]> = {
     "/users",
     "/unauthorized",
   ],
-  MEMBER: ["/files", "/search", "/unauthorized"],
+  MEMBER: ["/files", "uploads", "/search", "/unauthorized"],
 };
 
 /**
