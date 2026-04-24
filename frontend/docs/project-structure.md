@@ -6,15 +6,18 @@
 frontend/
 ├── src/
 │   ├── app/                          # Next.js 15 App Router
-│   │   ├── (auth)/                   # 🔐 Authentication route group (no separate layout needed)
+│   │   ├── (auth)/                   # Authentication route group (own layout, no sidebar)
+│   │   │   ├── layout.tsx            #    → Auth layout (no sidebar/header)
 │   │   │   ├── login/                #    → Login page
 │   │   │   ├── forgot-password/      #    → Forgot password page
 │   │   │   ├── reset-password/       #    → Reset password page
 │   │   │   ├── verify/               #    → Email verification page
 │   │   │   └── check-email/          #    → Check email notification page
 │   │   │
-│   │   ├── (dashboard)/              # 🏠 Main route group (requires authentication)
+│   │   ├── (dashboard)/              # Main route group (requires authentication)
+│   │   │   ├── layout.tsx            #    → Dashboard layout (sidebar, header, breadcrumbs)
 │   │   │   ├── files/                #    → File management
+│   │   │   │   └── [fileId]/         #    → File detail page
 │   │   │   ├── upload/               #    → File upload
 │   │   │   ├── users/                #    → User management (admin)
 │   │   │   ├── tenants/              #    → Tenant management (super admin)
@@ -22,33 +25,53 @@ frontend/
 │   │   │   ├── search/               #    → File search
 │   │   │   └── unauthorized/         #    → Access denied page
 │   │   │
-│   │   ├── api/                      # 🔌 Backend For Frontend (BFF) - API Proxy
+│   │   ├── api/                      # Backend For Frontend (BFF) - API Proxy
 │   │   │   ├── [...path]/route.ts    #    → Catch-all proxy: forwards requests to real backend
-│   │   │   ├── auth/                 #    → (Special auth routes, if needed)
-│   │   │   └── _lib/proxy.ts         #    → Main proxy logic (handles token, CSRF)
+│   │   │   ├── health/route.ts       #    → Health check endpoint
+│   │   │   └── _lib/proxy.ts         #    → Main proxy logic (handles tokens, CSRF, cookie remapping)
 │   │   │
 │   │   ├── layout.tsx                # Root layout (wraps AuthProvider, ThemeProvider)
 │   │   ├── globals.css               # Tailwind CSS styles
-│   │   └── middleware.ts             # ⚠️ IMPORTANT: Auth check on every request
+│   │   ├── theme.css                 # CSS theme variables
+│   │   └── not-found.tsx             # Custom 404 page
+│   │
+│   ├── middleware.ts                 # Auth check on every request (edge runtime)
 │   │
 │   ├── contexts/
-│   │   └── auth-context.tsx          # 🧠 React Context managing current user state
+│   │   └── auth-context.tsx          # React Context managing current user state
 │   │
 │   ├── hooks/
-│   │   └── use-auth.ts               # Hook to use auth context in any component
+│   │   ├── use-auth.ts               # Hook to consume auth context in any component
+│   │   ├── use-debounce.ts           # Debounce hook for search inputs
+│   │   └── use-mobile.ts             # Detect mobile viewport
 │   │
 │   ├── lib/
-│   │   ├── api-client.ts             # ⚡ Axios instance (auto sends cookies, refresh token)
-│   │   ├── auth.ts                   # Auth helper functions (hasRole, maskEmail, ...)
-│   │   ├── csrf.ts                   # CSRF protection utilities
-│   │   ├── constants.ts              # Constants: roles, routes, file limits, ...
+│   │   ├── api-client.ts             # Axios instance (auto sends cookies, auto refresh on code 1002)
+│   │   ├── api/
+│   │   │   ├── auth.ts               # Auth API functions (signIn, logOut, getMe, etc.)
+│   │   │   └── core/
+│   │   │       └── api-error.ts      # AppError class + toAppError() — normalizes all errors
+│   │   ├── auth.ts                   # Auth helpers: DecodedToken, hasRole(), maskEmail()
+│   │   ├── csrf.ts                   # CSRF protection utilities (double-submit cookie pattern)
+│   │   ├── constants.ts              # Constants: roles, API routes (/api/v1), file limits
+│   │   ├── swr-config.ts             # Global SWR configuration (dedup interval, retry, keepPreviousData)
+│   │   ├── swr-fetcher.ts            # Default SWR fetcher — unwraps ApiResponse envelope
+│   │   ├── utils.ts                  # Shared utility functions (cn, etc.)
 │   │   └── schemas/                  # Zod validation schemas
 │   │
+│   ├── types/
+│   │   ├── api.types.ts              # Shared types: ApiResponse<T>, PageResponse<T>
+│   │   ├── css.d.ts                  # CSS module type declarations
+│   │   ├── auth/
+│   │   │   └── auth.ts               # Auth request types: SignInRequest, ResetPasswordRequest
+│   │   └── tenant/
+│   │       └── tenant.ts             # Tenant-related types
+│   │
 │   ├── components/                   # UI components (buttons, forms, layout, ...)
-│   └── types/                        # TypeScript type definitions
+│   └── ...
 │
-├── .env.local.example                # Environment variables template
-├── package.json                      # Dependencies
+├── .env.local                        # Environment variables template
+├── package.json                      # Dependencies + "mock" / "dev:mock" scripts
 └── next.config.ts                    # Next.js config
 ```
 
