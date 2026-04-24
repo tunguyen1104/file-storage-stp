@@ -27,6 +27,7 @@ const BROWSER_COOKIE_NAMES = new Set(Object.values(COOKIE_MAP));
 const ALLOWED_PREFIXES = [
   "/api/v1/auth/",
   "/api/v1/files",
+  "/api/v1/uploads",
   "/api/v1/users",
   "/api/v1/tenants",
   "/api/v1/audit-logs",

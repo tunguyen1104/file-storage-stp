@@ -11,9 +11,25 @@ export const FILE_STATUS = {
   ACTIVE: "ACTIVE",
   PENDING_DELETE: "PENDING_DELETE",
   DELETED: "DELETED",
+  UPLOAD_FAILED: "UPLOAD_FAILED",
 } as const;
 
 export type FileStatus = (typeof FILE_STATUS)[keyof typeof FILE_STATUS];
+
+export const FILE_SORT_BY = {
+  CREATED_AT: "CREATED_AT",
+  ORIGINAL_NAME: "ORIGINAL_NAME",
+  SIZE_BYTES: "SIZE_BYTES",
+} as const;
+
+export type FileSortBy = (typeof FILE_SORT_BY)[keyof typeof FILE_SORT_BY];
+
+export const SORT_DIRECTION = {
+  ASC: "ASC",
+  DESC: "DESC",
+} as const;
+
+export type SortDirection = (typeof SORT_DIRECTION)[keyof typeof SORT_DIRECTION];
 
 export const CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB
 export const MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024; // 10 GB
@@ -34,7 +50,14 @@ export const API_ROUTES = {
     CHANGE_PASSWORD: `${API_PREFIX}/auth/change-password`,
     RESEND_VERIFICATION: `${API_PREFIX}/auth/resend-verification`,
   },
-  FILES: `${API_PREFIX}/files`,
+  FILES: {
+    LIST: `${API_PREFIX}/files`,
+    BY_ID: (id: string) => `${API_PREFIX}/files/${id}`,
+    RESTORE: (id: string) => `${API_PREFIX}/files/${id}/restore`,
+    PRESIGNED_GET_URL: (id: string) => `${API_PREFIX}/files/${id}/presigned-get-url`,
+    DOWNLOAD: (id: string) => `${API_PREFIX}/files/${id}/download`,
+    UPLOAD_SINGLE: `${API_PREFIX}/uploads/single`,
+  },
   TENANTS: {
     LIST: `${API_PREFIX}/tenants`,
     BY_ID: (id: string) => `${API_PREFIX}/tenants/${id}`,
