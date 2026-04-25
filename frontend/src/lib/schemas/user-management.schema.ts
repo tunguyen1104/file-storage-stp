@@ -4,10 +4,10 @@ import { ROLES } from "@/lib/constants";
 
 const roleCodes = [ROLES.SUPER_ADMIN, ROLES.TENANT_ADMIN, ROLES.MEMBER] as const;
 
-const storageQuotaGbField = z
+const storageQuotaBytesField = z
   .string()
-  .refine((val) => !val || (!isNaN(parseFloat(val)) && parseFloat(val) > 0), {
-    message: "Must be a positive number",
+  .refine((val) => !val || (/^\d+$/.test(val) && BigInt(val) > BigInt(0)), {
+    message: "Must be a positive whole number",
   })
   .optional();
 
@@ -16,7 +16,7 @@ export const createUserSchema = z.object({
   fullName: z.string().min(1, "Full name is required").max(255),
   roleCode: z.enum(roleCodes, { message: "Please select a role" }),
   tenantId: z.string().optional(),
-  storageQuotaGb: storageQuotaGbField,
+  storageQuotaBytes: storageQuotaBytesField,
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;
@@ -25,7 +25,7 @@ export type CreateUserInput = z.infer<typeof createUserSchema>;
 export const updateUserSchema = z.object({
   fullName: z.string().min(1, "Full name is required").max(255).optional(),
   roleCode: z.enum(roleCodes, { message: "Please select a role" }).optional(),
-  storageQuotaGb: storageQuotaGbField,
+  storageQuotaBytes: storageQuotaBytesField,
 });
 
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;

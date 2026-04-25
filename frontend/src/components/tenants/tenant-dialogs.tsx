@@ -42,7 +42,6 @@ import {
   type CreateTenantInput,
   type UpdateTenantInput,
 } from "@/lib/schemas/tenant.schema";
-import { bytesToGbString, gbStringToBytes } from "@/lib/utils/storage";
 import type { TenantResponse } from "@/types/tenant/tenant";
 
 // ─── Create Tenant Dialog ────────────────────────────────────────
@@ -60,7 +59,7 @@ export function CreateTenantDialog({
 }: CreateTenantDialogProps) {
   const form = useForm<CreateTenantInput>({
     resolver: zodResolver(createTenantSchema),
-    defaultValues: { name: "", slug: "", storageQuotaGb: "" },
+    defaultValues: { name: "", slug: "", storageQuotaBytes: "" },
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,9 +86,7 @@ export function CreateTenantDialog({
       await createTenant({
         name: values.name,
         slug: values.slug,
-        storageQuotaBytes: values.storageQuotaGb
-          ? gbStringToBytes(values.storageQuotaGb)
-          : undefined,
+        storageQuotaBytes: values.storageQuotaBytes || undefined,
       });
       toast.success("Tenant created successfully");
       form.reset();
@@ -151,21 +148,21 @@ export function CreateTenantDialog({
 
             <FormField
               control={form.control}
-              name="storageQuotaGb"
+              name="storageQuotaBytes"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
                     <span className="flex items-center gap-1.5">
                       <HardDrive className="h-3.5 w-3.5" />
-                      Storage Quota (GB)
+                      Storage Quota (Bytes)
                     </span>
                   </FormLabel>
                   <FormControl>
                     <Input
                       type="number"
-                      min="0.1"
+                      min="1"
                       step="1"
-                      placeholder="e.g. 100"
+                      placeholder="e.g. 107374182400"
                       {...field}
                       value={field.value ?? ""}
                     />
@@ -213,7 +210,7 @@ export function EditTenantDialog({
       ? {
           name: tenant.name,
           slug: tenant.slug,
-          storageQuotaGb: bytesToGbString(tenant.storageQuotaBytes),
+          storageQuotaBytes: tenant.storageQuotaBytes?.toString() ?? "",
         }
       : undefined,
   });
@@ -227,9 +224,7 @@ export function EditTenantDialog({
       await updateTenant(tenant.id, {
         name: values.name,
         slug: values.slug,
-        storageQuotaBytes: values.storageQuotaGb
-          ? gbStringToBytes(values.storageQuotaGb)
-          : undefined,
+        storageQuotaBytes: values.storageQuotaBytes || undefined,
       });
       toast.success("Tenant updated successfully");
       onOpenChange(false);
@@ -286,21 +281,21 @@ export function EditTenantDialog({
 
             <FormField
               control={form.control}
-              name="storageQuotaGb"
+              name="storageQuotaBytes"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
                     <span className="flex items-center gap-1.5">
                       <HardDrive className="h-3.5 w-3.5" />
-                      Storage Quota (GB)
+                      Storage Quota (Bytes)
                     </span>
                   </FormLabel>
                   <FormControl>
                     <Input
                       type="number"
-                      min="0.1"
+                      min="1"
                       step="1"
-                      placeholder="e.g. 100"
+                      placeholder="e.g. 107374182400"
                       {...field}
                       value={field.value ?? ""}
                     />

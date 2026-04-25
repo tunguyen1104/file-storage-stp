@@ -46,7 +46,7 @@ export type CreateUserRequest = {
   fullName: string;
   /** Role enum code, e.g. "TENANT_ADMIN" */
   roleCode: Role;
-  storageQuotaBytes?: number;
+  storageQuotaBytes?: string;
   tenantId?: string;
 };
 
@@ -54,7 +54,7 @@ export type UpdateUserRequest = {
   fullName?: string;
   email?: string;
   roleCode?: Role;
-  storageQuotaBytes?: number;
+  storageQuotaBytes?: string;
 };
 
 export type ChangeUserPasswordRequest = {

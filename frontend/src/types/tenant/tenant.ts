@@ -19,13 +19,13 @@ export type TenantOptionResponse = {
 export type CreateTenantRequest = {
   name: string;
   slug: string;
-  storageQuotaBytes?: number;
+  storageQuotaBytes?: string;
 };
 
 export type UpdateTenantRequest = {
   name?: string;
   slug?: string;
-  storageQuotaBytes?: number;
+  storageQuotaBytes?: string;
 };
 
 export type ListTenantsParams = {
