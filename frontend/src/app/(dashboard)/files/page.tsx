@@ -65,9 +65,6 @@ const STATUS_OPTIONS: { label: string; value: FileStatus }[] = [
 // ─── Page component ──────────────────────────────────────────────
 
 export default function FilesPage() {
-  const { user } = useAuth();
-  const isMember = user?.role === ROLES.MEMBER;
-
   // ── Filter / sort state ──
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -206,12 +203,10 @@ export default function FilesPage() {
           </Select>
         </div>
 
-        {isMember && (
-          <Button className="gap-2" onClick={() => setUploadOpen(true)}>
-            <Upload className="h-4 w-4" />
-            Upload File
-          </Button>
-        )}
+        <Button className="gap-2" onClick={() => setUploadOpen(true)}>
+          <Upload className="h-4 w-4" />
+          Upload File
+        </Button>
       </div>
 
       {/* ── Error state ── */}
@@ -315,14 +310,11 @@ export default function FilesPage() {
         </SheetContent>
       </Sheet>
 
-      {/* ── Dialogs ── */}
-      {isMember && (
-        <UploadFileDialog
-          open={uploadOpen}
-          onOpenChange={setUploadOpen}
-          onSuccess={handleSuccess}
-        />
-      )}
+      <UploadFileDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        onSuccess={handleSuccess}
+      />
 
       <DeleteFileDialog
         file={deleteTarget}

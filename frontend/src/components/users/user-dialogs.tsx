@@ -53,7 +53,6 @@ import {
 } from "@/lib/schemas/user-management.schema";
 import { ROLES, type Role } from "@/lib/constants";
 import { TenantSelect } from "@/components/tenants/TenantSelect";
-import { bytesToGbString, gbStringToBytes } from "@/lib/utils/storage";
 import type { UserResponse } from "@/types/user/user";
 
 // ─── Create User Dialog ──────────────────────────────────────────
@@ -78,7 +77,7 @@ export function CreateUserDialog({
       fullName: "",
       roleCode: undefined,
       tenantId: "",
-      storageQuotaGb: "",
+      storageQuotaBytes: "",
     },
   });
 
@@ -102,9 +101,7 @@ export function CreateUserDialog({
         fullName: values.fullName,
         roleCode: values.roleCode,
         tenantId: values.tenantId || undefined,
-        storageQuotaBytes: values.storageQuotaGb
-          ? gbStringToBytes(values.storageQuotaGb)
-          : undefined,
+        storageQuotaBytes: values.storageQuotaBytes || undefined,
       });
       toast.success("User created successfully");
       form.reset();
@@ -201,21 +198,21 @@ export function CreateUserDialog({
 
             <FormField
               control={form.control}
-              name="storageQuotaGb"
+              name="storageQuotaBytes"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
                     <span className="flex items-center gap-1.5">
                       <HardDrive className="h-3.5 w-3.5" />
-                      Storage Quota (GB)
+                      Storage Quota (Bytes)
                     </span>
                   </FormLabel>
                   <FormControl>
                     <Input
                       type="number"
-                      min="0.1"
-                      step="0.1"
-                      placeholder="e.g. 10"
+                      min="1"
+                      step="1"
+                      placeholder="e.g. 10737418240"
                       {...field}
                       value={field.value ?? ""}
                     />
@@ -263,7 +260,7 @@ export function EditUserDialog({
       ? {
           fullName: user.fullName,
           roleCode: user.role as Role,
-          storageQuotaGb: bytesToGbString(user.storageQuotaBytes),
+          storageQuotaBytes: user.storageQuotaBytes?.toString() ?? "",
         }
       : undefined,
   });
@@ -274,15 +271,13 @@ export function EditUserDialog({
     if (!user) return;
     setIsSubmitting(true);
     try {
-      const newStorageBytes = values.storageQuotaGb
-        ? gbStringToBytes(values.storageQuotaGb)
-        : undefined;
-
       await updateUser(user.id, {
         fullName: values.fullName !== user.fullName ? values.fullName : undefined,
         roleCode: values.roleCode !== (user.role as Role) ? values.roleCode : undefined,
         storageQuotaBytes:
-          newStorageBytes !== user.storageQuotaBytes ? newStorageBytes : undefined,
+          (values.storageQuotaBytes || undefined) !== user.storageQuotaBytes?.toString()
+            ? values.storageQuotaBytes || undefined
+            : undefined,
       });
       toast.success("User updated successfully");
       onOpenChange(false);
@@ -354,21 +349,21 @@ export function EditUserDialog({
 
             <FormField
               control={form.control}
-              name="storageQuotaGb"
+              name="storageQuotaBytes"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
                     <span className="flex items-center gap-1.5">
                       <HardDrive className="h-3.5 w-3.5" />
-                      Storage Quota (GB)
+                      Storage Quota (Bytes)
                     </span>
                   </FormLabel>
                   <FormControl>
                     <Input
                       type="number"
-                      min="0.1"
-                      step="0.1"
-                      placeholder="e.g. 10"
+                      min="1"
+                      step="1"
+                      placeholder="e.g. 10737418240"
                       {...field}
                       value={field.value ?? ""}
                     />
