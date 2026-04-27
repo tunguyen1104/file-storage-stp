@@ -1,0 +1,17 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nextjs-frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env  # Dựa vào file .env.local
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
