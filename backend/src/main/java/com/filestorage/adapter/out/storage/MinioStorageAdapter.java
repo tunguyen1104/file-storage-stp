@@ -29,6 +29,7 @@ import java.util.Map;
 public class MinioStorageAdapter implements ObjectStoragePort {
 
     private final MinioClient minioClient;
+    private final MinioClient minioPresignedClient;
     private final MinioProperties minioProperties;
     private final StorageProperties storageProperties;
 
@@ -114,7 +115,7 @@ public class MinioStorageAdapter implements ObjectStoragePort {
         }
 
         try {
-            return minioClient.getPresignedObjectUrl(
+            return minioPresignedClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .method(Method.GET)
                             .bucket(minioProperties.getBucket())
@@ -123,6 +124,7 @@ public class MinioStorageAdapter implements ObjectStoragePort {
                             .expiry(Math.toIntExact(effectiveTtl.getSeconds()))
                             .build()
             );
+
         } catch (MinioException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
             throw new IllegalStateException("Failed to generate MinIO presigned URL", e);
         }
@@ -137,7 +139,7 @@ public class MinioStorageAdapter implements ObjectStoragePort {
         }
 
         try {
-            return minioClient.getPresignedObjectUrl(
+            return minioPresignedClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .method(Method.GET)
                             .bucket(minioProperties.getBucket())

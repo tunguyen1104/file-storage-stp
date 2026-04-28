@@ -12,6 +12,7 @@ import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
 import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.port.in.user.CreateUserUseCase;
 import com.filestorage.shared.exception.AppException;
+import com.filestorage.shared.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,6 +22,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -100,7 +102,7 @@ class CreateUserServiceTest {
         when(roleRepository.findByCode(RoleCode.MEMBER)).thenReturn(Optional.of(role));
         when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
         when(userRepository.findById(actorId)).thenReturn(Optional.of(actor));
-        when(passwordEncoder.encode(any())).thenReturn("encoded");
+        when(Objects.requireNonNull(passwordEncoder.encode(any()))).thenReturn("encoded");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User saved = invocation.getArgument(0);
             saved.setId(UUID.randomUUID());
@@ -122,5 +124,64 @@ class CreateUserServiceTest {
         assertEquals(EmailEvent.EmailType.INITIAL_PASSWORD, published.type());
         assertEquals("u@example.com", published.to());
         assertTrue(published.payload().containsKey("temporaryPassword"));
+    }
+
+    @Test
+    void createUserQuotaCannotExceedTenantQuota() {
+        UUID actorId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+
+        Tenant tenant = Tenant.builder().name("T").slug("t").isActive(true).storageQuotaBytes(150L).build();
+        tenant.setId(tenantId);
+
+        Role role = Role.builder().code(RoleCode.MEMBER).name("Member").build();
+        role.setId(UUID.randomUUID());
+
+        User actor = User.builder().tenant(tenant).role(role).email("admin@example.com")
+                .passwordHash("hash").fullName("Admin").isActive(true).build();
+        actor.setId(actorId);
+
+        when(userRepository.existsByEmail("u@example.com")).thenReturn(false);
+        when(roleRepository.findByCode(RoleCode.MEMBER)).thenReturn(Optional.of(role));
+        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+        when(userRepository.findById(actorId)).thenReturn(Optional.of(actor));
+
+        var command = new CreateUserUseCase.CreateUserCommand(
+                actorId, tenantId, RoleCode.TENANT_ADMIN,
+                "u@example.com", "User", RoleCode.MEMBER, 200L, null
+        );
+
+        AppException ex = assertThrows(AppException.class, () -> createUserService.execute(command));
+        assertEquals(ErrorCode.TENANT_QUOTA_EXCEEDED, ex.getError());
+    }
+
+    @Test
+    void createUserQuotaCannotExceedTenantRemainingQuota() {
+        UUID actorId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+
+        Tenant tenant = Tenant.builder().name("T").slug("t").isActive(true).storageQuotaBytes(300L).build();
+        tenant.setId(tenantId);
+        tenant.setStorageUsedBytes(250L);
+
+        Role role = Role.builder().code(RoleCode.MEMBER).name("Member").build();
+        role.setId(UUID.randomUUID());
+
+        User actor = User.builder().tenant(tenant).role(role).email("admin@example.com")
+                .passwordHash("hash").fullName("Admin").isActive(true).build();
+        actor.setId(actorId);
+
+        when(userRepository.existsByEmail("u@example.com")).thenReturn(false);
+        when(roleRepository.findByCode(RoleCode.MEMBER)).thenReturn(Optional.of(role));
+        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+        when(userRepository.findById(actorId)).thenReturn(Optional.of(actor));
+
+        var command = new CreateUserUseCase.CreateUserCommand(
+                actorId, tenantId, RoleCode.TENANT_ADMIN,
+                "u@example.com", "User", RoleCode.MEMBER, 100L, null
+        );
+
+        AppException ex = assertThrows(AppException.class, () -> createUserService.execute(command));
+        assertEquals(ErrorCode.TENANT_QUOTA_EXCEEDED, ex.getError());
     }
 }

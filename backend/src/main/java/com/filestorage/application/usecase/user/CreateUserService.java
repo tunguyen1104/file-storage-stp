@@ -9,6 +9,7 @@ import com.filestorage.adapter.out.persistence.mapper.UserViewMapper;
 import com.filestorage.adapter.out.persistence.repository.RoleJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.TenantJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
+import com.filestorage.domain.model.user.UserView;
 import com.filestorage.domain.port.in.user.CreateUserUseCase;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
@@ -41,7 +42,7 @@ public class CreateUserService implements CreateUserUseCase {
 
     @Override
     @Transactional
-    public com.filestorage.domain.model.user.UserView execute(CreateUserCommand command) {
+    public UserView execute(CreateUserCommand command) {
 
         String normalizedEmail = normalizeEmail(command.email());
         if (userRepository.existsByEmail(normalizedEmail)) {
@@ -59,6 +60,8 @@ public class CreateUserService implements CreateUserUseCase {
         User actor = userRepository.findById(command.actorUserId())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
+        long requestedQuota = getQuota(command, tenant);
+
         String rawPassword = passwordGenerator.generate();
         User created = User.builder()
                 .tenant(tenant)
@@ -67,7 +70,7 @@ public class CreateUserService implements CreateUserUseCase {
                 .fullName(command.fullName().trim())
                 .role(role)
                 .isActive(true)
-                .storageQuotaBytes(command.storageQuotaBytes() == null ? DEFAULT_USER_QUOTA_BYTES : command.storageQuotaBytes())
+                .storageQuotaBytes(requestedQuota)
                 .storageUsedBytes(0L)
                 .createdBy(actor)
                 .build();
@@ -75,6 +78,17 @@ public class CreateUserService implements CreateUserUseCase {
         User saved = userRepository.save(created);
         publishInitialPasswordEmail(saved, rawPassword);
         return userViewMapper.toUserView(saved);
+    }
+
+    private static long getQuota(CreateUserCommand command, Tenant tenant) {
+        long requestedQuota = command.storageQuotaBytes() == null ? DEFAULT_USER_QUOTA_BYTES : command.storageQuotaBytes();
+        long tenantQuota = tenant.getStorageQuotaBytes() == null ? Long.MAX_VALUE : tenant.getStorageQuotaBytes();
+        long tenantUsed = tenant.getStorageUsedBytes() == null ? 0L : tenant.getStorageUsedBytes();
+        long tenantRemainingQuota = tenantQuota - tenantUsed;
+        if (requestedQuota > tenantRemainingQuota) {
+            throw new AppException(ErrorCode.TENANT_QUOTA_EXCEEDED);
+        }
+        return requestedQuota;
     }
 
     private void publishInitialPasswordEmail(User user, String rawPassword) {

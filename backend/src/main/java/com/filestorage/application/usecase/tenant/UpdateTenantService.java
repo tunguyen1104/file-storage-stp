@@ -25,21 +25,14 @@ public class UpdateTenantService implements UpdateTenantUseCase {
         Tenant tenant = tenantRepository.findById(command.tenantId())
                 .orElseThrow(() -> new AppException(ErrorCode.TENANT_NOT_FOUND));
 
-        if (command.name() == null && command.slug() == null && command.storageQuotaBytes() == null) {
-            throw new AppException(ErrorCode.INVALID_PAYLOAD);
-        }
+        tenant.setName(command.name().trim());
 
-        if (command.name() != null) {
-            tenant.setName(command.name().trim());
+        String slug = command.slug().trim().toLowerCase();
+        if (tenantRepository.existsBySlugAndIdNot(slug, tenant.getId())) {
+            throw new AppException(ErrorCode.SLUG_ALREADY_EXISTS);
         }
+        tenant.setSlug(slug);
 
-        if (command.slug() != null) {
-            String slug = command.slug().trim().toLowerCase();
-            if (tenantRepository.existsBySlugAndIdNot(slug, tenant.getId())) {
-                throw new AppException(ErrorCode.SLUG_ALREADY_EXISTS);
-            }
-            tenant.setSlug(slug);
-        }
 
         if (command.storageQuotaBytes() != null) {
             long used = tenant.getStorageUsedBytes() == null ? 0L : tenant.getStorageUsedBytes();

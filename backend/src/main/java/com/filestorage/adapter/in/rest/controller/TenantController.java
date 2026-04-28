@@ -60,7 +60,7 @@ public class TenantController {
             @RequestParam(required = false) Boolean isActive,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int limit
+            @RequestParam(defaultValue = "10") int limit
     ) {
         SecurityUser actor = currentUserOrThrow();
         var result = listTenantsUseCase.execute(new ListTenantsUseCase.ListTenantsQuery(

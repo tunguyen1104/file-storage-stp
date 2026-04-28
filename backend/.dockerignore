@@ -1,0 +1,17 @@
+.git
+.gitignore
+.idea
+.gradle
+build
+out
+
+postgres_data
+redis_data
+minio_data
+
+*.log
+*.tmp
+.DS_Store
+
+.env
+.env.*

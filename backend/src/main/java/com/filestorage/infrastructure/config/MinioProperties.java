@@ -23,5 +23,8 @@ public class MinioProperties {
 
     @NotBlank
     private String bucket;
+
+    @NotBlank
+    private String externalUrl;
 }
 

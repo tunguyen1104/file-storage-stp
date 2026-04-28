@@ -91,6 +91,8 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_SERVER_URL: ${MINIO_EXTERNAL_URL}
+      MINIO_REGION: "us-east-1"
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"

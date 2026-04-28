@@ -22,15 +22,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
@@ -76,7 +68,7 @@ public class UserController {
             @RequestParam(required = false) UUID tenantId,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int limit
+            @RequestParam(defaultValue = "10") int limit
     ) {
         SecurityUser actor = currentUserOrThrow();
         var result = listUsersUseCase.execute(new ListUsersUseCase.ListUsersQuery(
@@ -101,7 +93,7 @@ public class UserController {
             @RequestParam(required = false) RoleCode roleCode,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int limit
+            @RequestParam(defaultValue = "10") int limit
     ) {
         SecurityUser actor = currentUserOrThrow();
         var result = listTenantUsersUseCase.execute(new ListTenantUsersUseCase.ListTenantUsersQuery(
@@ -141,7 +133,6 @@ public class UserController {
                 parseRole(actor.getRole()),
                 userId,
                 request.fullName(),
-                request.email(),
                 request.roleCode(),
                 request.storageQuotaBytes()
         ));
