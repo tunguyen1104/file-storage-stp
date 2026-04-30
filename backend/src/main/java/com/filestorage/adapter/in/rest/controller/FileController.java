@@ -1,5 +1,6 @@
 package com.filestorage.adapter.in.rest.controller;
 
+import com.filestorage.adapter.in.rest.dto.request.MoveFileRequest;
 import com.filestorage.adapter.in.rest.dto.request.RenameFileRequest;
 import com.filestorage.adapter.in.rest.dto.response.ApiResponse;
 import com.filestorage.adapter.in.rest.dto.response.FileMetadataResponse;
@@ -27,6 +28,7 @@ import com.filestorage.domain.port.in.file.RestoreFileUseCase;
 import com.filestorage.domain.port.in.file.UploadFileUseCase;
 import com.filestorage.domain.port.in.file.DirectDeleteFileUseCase;
 import com.filestorage.domain.port.in.file.RenameFileUseCase;
+import com.filestorage.domain.port.in.file.MoveFileUseCase;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
 import com.filestorage.shared.util.SecurityContextUtil;
@@ -65,6 +67,7 @@ public class FileController {
     private final DirectDeleteFileUseCase directDeleteFileUseCase;
     private final RestoreFileUseCase restoreFileUseCase;
     private final RenameFileUseCase renameFileUseCase;
+    private final MoveFileUseCase moveFileUseCase;
     private final FileRestMapper fileRestMapper;
 
     @PostMapping(value = "/uploads/single", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -260,6 +263,26 @@ public class FileController {
                 parseRole(actor.getRole()),
                 fileId,
                 request.originalName()
+        ));
+
+        return ResponseEntity.ok(ApiResponse.buildSuccess(fileRestMapper.toFileMetadataResponse(view)));
+    }
+
+    @PatchMapping("/files/{fileId}/move")
+    public ResponseEntity<ApiResponse<FileMetadataResponse>> moveFile(
+            @PathVariable UUID fileId,
+            @RequestBody MoveFileRequest request
+    ) {
+        if (request == null) {
+            throw new AppException(ErrorCode.INVALID_PAYLOAD);
+        }
+        SecurityUser actor = currentUserOrThrow();
+        FileView view = moveFileUseCase.execute(new MoveFileUseCase.MoveFileCommand(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                fileId,
+                request.folderId()
         ));
 
         return ResponseEntity.ok(ApiResponse.buildSuccess(fileRestMapper.toFileMetadataResponse(view)));

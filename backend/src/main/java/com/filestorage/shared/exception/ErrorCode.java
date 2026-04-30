@@ -38,6 +38,9 @@ public enum ErrorCode {
     FILE_TOO_LARGE(1024, "error.file-too-large", HttpStatus.BAD_REQUEST),
     TENANT_QUOTA_EXCEEDED(1025, "error.tenant-quota-exceeded", HttpStatus.CONFLICT),
     USER_QUOTA_EXCEEDED(1026, "error.user-quota-exceeded", HttpStatus.CONFLICT),
+    FOLDER_NAME_CONFLICT(1027, "error.folder-name-conflict", HttpStatus.CONFLICT),
+    FOLDER_NOT_EMPTY(1028, "error.folder-not-empty", HttpStatus.CONFLICT),
+    FOLDER_INVALID_MOVE(1029, "error.folder-invalid-move", HttpStatus.CONFLICT),
     INTERNAL_SERVER_ERROR(1500, "error.internal-server-error", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final int code;

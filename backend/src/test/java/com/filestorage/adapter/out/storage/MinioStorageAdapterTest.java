@@ -23,7 +23,7 @@ class MinioStorageAdapterTest {
 
         StorageProperties storageProperties = new StorageProperties();
         MinioClient minioClient = Mockito.mock(MinioClient.class);
-        adapter = new MinioStorageAdapter(minioClient, minioProperties, storageProperties);
+        adapter = new MinioStorageAdapter(minioClient, minioClient, minioProperties, storageProperties);
     }
 
     @Test
@@ -38,4 +38,3 @@ class MinioStorageAdapterTest {
         assertEquals("tenant-uuid/user-uuid/file-uuid.pdf", key);
     }
 }
-

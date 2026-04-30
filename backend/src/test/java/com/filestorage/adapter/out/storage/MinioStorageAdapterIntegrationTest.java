@@ -61,7 +61,7 @@ class MinioStorageAdapterIntegrationTest {
         StorageProperties storageProperties = new StorageProperties();
         storageProperties.setDefaultDownloadTtlMinutes(15);
 
-        adapter = new MinioStorageAdapter(minioClient, minioProperties, storageProperties);
+        adapter = new MinioStorageAdapter(minioClient, minioClient, minioProperties, storageProperties);
     }
 
     @Test
@@ -99,4 +99,3 @@ class MinioStorageAdapterIntegrationTest {
                 .orElseThrow();
     }
 }
-

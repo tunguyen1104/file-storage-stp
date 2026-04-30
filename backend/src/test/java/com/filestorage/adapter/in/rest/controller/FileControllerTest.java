@@ -22,6 +22,7 @@ import com.filestorage.domain.port.in.file.RestoreFileUseCase;
 import com.filestorage.domain.port.in.file.UploadFileUseCase;
 import com.filestorage.domain.port.in.file.DirectDeleteFileUseCase;
 import com.filestorage.domain.port.in.file.RenameFileUseCase;
+import com.filestorage.domain.port.in.file.MoveFileUseCase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,6 +77,8 @@ class FileControllerTest {
     private RestoreFileUseCase restoreFileUseCase;
     @Mock
     private RenameFileUseCase renameFileUseCase;
+    @Mock
+    private MoveFileUseCase moveFileUseCase;
     @Mock
     private FileRestMapper fileRestMapper;
 
@@ -170,6 +173,7 @@ class FileControllerTest {
                         directDeleteFileUseCase,
                         restoreFileUseCase,
                         renameFileUseCase,
+                        moveFileUseCase,
                         fileRestMapper
                 ))
                 .setControllerAdvice(new GlobalExceptionHandler(messageSource))

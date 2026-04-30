@@ -11,6 +11,6 @@ import java.util.UUID;
 public interface FileJpaRepository extends JpaRepository<File, UUID>, JpaSpecificationExecutor<File> {
 
 	java.util.Optional<File> findByIdAndTenantId(UUID id, UUID tenantId);
+
+	boolean existsByFolderIdAndStatus(UUID folderId, com.filestorage.domain.model.enums.FileStatus status);
 }
-
-

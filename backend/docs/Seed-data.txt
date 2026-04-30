@@ -1,0 +1,15 @@
+Super Admin:
+superadmin@system.local
+Admin@123456
+
+Tenant Admin:
+tenantadmin@primetech.com
+Admin123@
+
+Tenant Member:
+tenantmember@primetech.com
+Member123@
+
+Tenant
+System: 025c459a-ad18-485e-ac36-a3cf283f3a74
+Normal: ab96a53d-56f0-4d0e-8d3e-5a6b6/
