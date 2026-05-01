@@ -1,0 +1,2 @@
+ALTER TABLE folders DROP COLUMN path;
+

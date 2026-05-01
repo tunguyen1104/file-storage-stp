@@ -18,6 +18,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -38,8 +40,12 @@ public class ListFileMetadataService implements ListFileMetadataUseCase {
 
         int page = Math.max(1, query.page());
         int limit = Math.min(100, Math.max(1, query.limit()));
-        FileSortBy sortBy = query.sortBy() == null ? FileSortBy.CREATED_AT : query.sortBy();
-        SortDirection sortDirection = query.sortDirection() == null ? SortDirection.DESC : query.sortDirection();
+        List<FileSortBy> sortByList = query.sortBy() == null || query.sortBy().isEmpty()
+                ? List.of(FileSortBy.CREATED_AT)
+                : query.sortBy();
+        List<SortDirection> sortDirectionList = query.sortDirection() == null
+                ? List.of()
+                : query.sortDirection();
 
         Specification<File> spec = Specification
                 .where(FileSearchSpecifications.byTenant(effectiveTenantId))
@@ -48,7 +54,17 @@ public class ListFileMetadataService implements ListFileMetadataUseCase {
                 .and(FileSearchSpecifications.byUploadedBy(effectiveUploadedBy))
                 .and(FileSearchSpecifications.bySearch(query.search()));
 
-        var pageable = PageRequest.of(page - 1, limit, Sort.by(toSpringDirection(sortDirection), sortBy.property()));
+        List<Sort.Order> orders = new ArrayList<>();
+        for (int i = 0; i < sortByList.size(); i++) {
+            FileSortBy sortBy = sortByList.get(i);
+            SortDirection direction = i < sortDirectionList.size() && sortDirectionList.get(i) != null
+                    ? sortDirectionList.get(i)
+                    : defaultSortDirection(sortBy);
+            orders.add(new Sort.Order(toSpringDirection(direction), sortBy.property()));
+        }
+        Collections.reverse(orders);
+
+        var pageable = PageRequest.of(page - 1, limit, Sort.by(orders));
         var result = fileRepository.findAll(spec, pageable);
         List<FileView> data = result.getContent().stream().map(fileViewMapper::toFileView).toList();
 
@@ -77,8 +93,11 @@ public class ListFileMetadataService implements ListFileMetadataUseCase {
         return actorUserId;
     }
 
+    private SortDirection defaultSortDirection(FileSortBy sortBy) {
+        return sortBy == FileSortBy.CREATED_AT ? SortDirection.DESC : SortDirection.ASC;
+    }
+
     private Sort.Direction toSpringDirection(SortDirection direction) {
         return direction == SortDirection.ASC ? Sort.Direction.ASC : Sort.Direction.DESC;
     }
 }
-

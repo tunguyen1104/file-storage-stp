@@ -79,6 +79,7 @@ app:
     endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
     access-key: ${MINIO_ROOT_USER:minioadmin}
     secret-key: ${MINIO_ROOT_PASSWORD:minioadmin123}
+    external-url: ${MINIO_EXTERNAL_URL:http://localhost:9000}
     bucket: ${MINIO_BUCKET:file-storage}
   storage:
     default-download-ttl-minutes: ${FILE_DOWNLOAD_DEFAULT_TTL_MINUTES:15}

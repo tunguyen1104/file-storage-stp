@@ -299,7 +299,6 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "fullName", "Updated User",
-                                "email", "updated@example.com",
                                 "storageQuotaBytes", 200
                         ))))
                 .andExpect(status().isOk())
@@ -313,9 +312,7 @@ class UserControllerTest {
 
         mockMvc.perform(patch("/api/v1/users/{userId}", userId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of(
-                                "email", "invalid-email"
-                        ))))
+                        .content(objectMapper.writeValueAsString(Map.of())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_PAYLOAD.getCode()));

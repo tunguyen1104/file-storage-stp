@@ -16,6 +16,17 @@ public class StorageConfig {
 				.credentials(minioProperties.getAccessKey(), minioProperties.getSecretKey())
 				.build();
 	}
+
+	@Bean
+	public MinioClient minioPresignedClient(MinioProperties minioProperties) {
+		return MinioClient.builder()
+				.endpoint(minioProperties.getExternalUrl())
+				.credentials(minioProperties.getAccessKey(), minioProperties.getSecretKey())
+				.region("us-east-1")
+				.build();
+	}
+
+
 }
 
 

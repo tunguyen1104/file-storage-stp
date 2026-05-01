@@ -20,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.util.List;
@@ -64,8 +65,8 @@ class ListFileMetadataServiceTest {
                 null,
                 1,
                 20,
-                FileSortBy.CREATED_AT,
-                SortDirection.DESC
+                List.of(FileSortBy.CREATED_AT),
+                List.of(SortDirection.DESC)
         );
 
         AppException ex = assertThrows(AppException.class, () -> service.execute(query));
@@ -80,8 +81,10 @@ class ListFileMetadataServiceTest {
 
         File file = File.builder().originalName("report.pdf").build();
         file.setId(UUID.randomUUID());
-        when(fileRepository.findAll(ArgumentMatchers.<Specification<File>>any(), eq(PageRequest.of(0, 20, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")))))
-                .thenReturn(new PageImpl<>(List.of(file)));
+        when(fileRepository.findAll(
+                ArgumentMatchers.<Specification<File>>any(),
+                eq(PageRequest.of(0, 20, Sort.by(new Sort.Order(Sort.Direction.DESC, "createdAt"))))
+        )).thenReturn(new PageImpl<>(List.of(file)));
 
         FileView view = new FileView(file.getId(), "report.pdf", "application/pdf", 10L, com.filestorage.domain.model.enums.FileStatus.ACTIVE, null, actorTenantId, "k", actorUserId, "User", null, null, false, null, null, null, null);
         when(fileViewMapper.toFileView(file)).thenReturn(view);
@@ -97,8 +100,8 @@ class ListFileMetadataServiceTest {
                 null,
                 1,
                 20,
-                FileSortBy.CREATED_AT,
-                SortDirection.DESC
+                List.of(FileSortBy.CREATED_AT),
+                List.of(SortDirection.DESC)
         );
 
         var result = service.execute(query);
@@ -124,12 +127,46 @@ class ListFileMetadataServiceTest {
                 null,
                 1,
                 20,
-                FileSortBy.CREATED_AT,
-                SortDirection.DESC
+                List.of(FileSortBy.CREATED_AT),
+                List.of(SortDirection.DESC)
         );
 
         AppException ex = assertThrows(AppException.class, () -> service.execute(query));
         assertEquals(ErrorCode.FORBIDDEN, ex.getError());
+    }
+
+    @Test
+    void laterSortFieldHasHigherPriorityAndDefaultsDirection() {
+        UUID actorUserId = UUID.randomUUID();
+        UUID actorTenantId = UUID.randomUUID();
+        when(fileSupport.resolveActor(actorUserId, actorTenantId)).thenReturn(actor(actorUserId, actorTenantId));
+
+        File file = File.builder().originalName("report.pdf").build();
+        file.setId(UUID.randomUUID());
+        when(fileRepository.findAll(
+                ArgumentMatchers.<Specification<File>>any(),
+                eq(PageRequest.of(0, 20, Sort.by(
+                        new Sort.Order(Sort.Direction.DESC, "createdAt"),
+                        new Sort.Order(Sort.Direction.ASC, "originalName")
+                )))
+        )).thenReturn(new PageImpl<>(List.of(file)));
+
+        var query = new ListFileMetadataUseCase.ListFileMetadataQuery(
+                actorUserId,
+                actorTenantId,
+                RoleCode.TENANT_ADMIN,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                20,
+                List.of(FileSortBy.ORIGINAL_NAME, FileSortBy.CREATED_AT),
+                List.of(SortDirection.ASC)
+        );
+
+        service.execute(query);
     }
 
     private User actor(UUID userId, UUID tenantId) {
@@ -146,5 +183,3 @@ class ListFileMetadataServiceTest {
         return actor;
     }
 }
-
-

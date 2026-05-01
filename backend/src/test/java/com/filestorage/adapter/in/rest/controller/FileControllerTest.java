@@ -12,6 +12,7 @@ import com.filestorage.domain.model.file.FileDownloadView;
 import com.filestorage.domain.model.file.FilePageView;
 import com.filestorage.domain.model.file.FilePresignedGetView;
 import com.filestorage.domain.model.file.FileView;
+import com.filestorage.domain.port.in.file.BulkUploadFilesUseCase;
 import com.filestorage.domain.port.in.file.DeleteFileUseCase;
 import com.filestorage.domain.port.in.file.DownloadFileUseCase;
 import com.filestorage.domain.port.in.file.GetFileMetadataUseCase;
@@ -19,6 +20,9 @@ import com.filestorage.domain.port.in.file.GetFilePresignedUrlUseCase;
 import com.filestorage.domain.port.in.file.ListFileMetadataUseCase;
 import com.filestorage.domain.port.in.file.RestoreFileUseCase;
 import com.filestorage.domain.port.in.file.UploadFileUseCase;
+import com.filestorage.domain.port.in.file.DirectDeleteFileUseCase;
+import com.filestorage.domain.port.in.file.RenameFileUseCase;
+import com.filestorage.domain.port.in.file.MoveFileUseCase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,6 +38,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -43,6 +48,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -54,6 +60,8 @@ class FileControllerTest {
     @Mock
     private UploadFileUseCase uploadFileUseCase;
     @Mock
+    private BulkUploadFilesUseCase bulkUploadFilesUseCase;
+    @Mock
     private GetFileMetadataUseCase getFileMetadataUseCase;
     @Mock
     private ListFileMetadataUseCase listFileMetadataUseCase;
@@ -64,7 +72,13 @@ class FileControllerTest {
     @Mock
     private DeleteFileUseCase deleteFileUseCase;
     @Mock
+    private DirectDeleteFileUseCase directDeleteFileUseCase;
+    @Mock
     private RestoreFileUseCase restoreFileUseCase;
+    @Mock
+    private RenameFileUseCase renameFileUseCase;
+    @Mock
+    private MoveFileUseCase moveFileUseCase;
     @Mock
     private FileRestMapper fileRestMapper;
 
@@ -150,12 +164,16 @@ class FileControllerTest {
 
         mockMvc = MockMvcBuilders.standaloneSetup(new FileController(
                         uploadFileUseCase,
+                        bulkUploadFilesUseCase,
                         getFileMetadataUseCase,
                         listFileMetadataUseCase,
                         downloadFileUseCase,
                         getFilePresignedUrlUseCase,
                         deleteFileUseCase,
+                        directDeleteFileUseCase,
                         restoreFileUseCase,
+                        renameFileUseCase,
+                        moveFileUseCase,
                         fileRestMapper
                 ))
                 .setControllerAdvice(new GlobalExceptionHandler(messageSource))
@@ -195,6 +213,22 @@ class FileControllerTest {
         mockMvc.perform(multipart("/api/v1/uploads/single").file(file))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void uploadBulk_returns201() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        FileView first = new FileView(UUID.randomUUID(), "one.txt", "text/plain", 1L, FileStatus.ACTIVE, null, tenantId, "tenant/user/one.txt", userId, "Uploader", null, null, false, null, null, Instant.now(), Instant.now());
+        FileView second = new FileView(UUID.randomUUID(), "two.txt", "text/plain", 1L, FileStatus.ACTIVE, null, tenantId, "tenant/user/two.txt", userId, "Uploader", null, null, false, null, null, Instant.now(), Instant.now());
+        when(bulkUploadFilesUseCase.execute(any())).thenReturn(List.of(first, second));
+
+        MockMultipartFile firstFile = new MockMultipartFile("files", "one.txt", "text/plain", "a".getBytes());
+        MockMultipartFile secondFile = new MockMultipartFile("files", "two.txt", "text/plain", "b".getBytes());
+        mockMvc.perform(multipart("/api/v1/uploads/bulk").file(firstFile).file(secondFile))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.length()").value(2));
     }
 
     @Test
@@ -259,6 +293,7 @@ class FileControllerTest {
                 .andExpect(jsonPath("$.data.status").value("PENDING_DELETE"));
     }
 
+
     @Test
     void restore_returns200() throws Exception {
         UUID fileId = UUID.randomUUID();
@@ -269,7 +304,21 @@ class FileControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"));
     }
+
+    @Test
+    void rename_returns200() throws Exception {
+        UUID fileId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        FileView view = new FileView(fileId, "renamed.pdf", "application/pdf", 3L, FileStatus.ACTIVE, null, tenantId,
+                "tenant/user/file.pdf", userId, "Uploader", null, null, false, null, null, Instant.now(), Instant.now());
+        when(renameFileUseCase.execute(any())).thenReturn(view);
+
+        mockMvc.perform(patch("/api/v1/files/{fileId}", fileId)
+                        .contentType("application/json")
+                        .content("{\"originalName\":\"renamed.pdf\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.originalName").value("renamed.pdf"));
+    }
 }
-
-
-

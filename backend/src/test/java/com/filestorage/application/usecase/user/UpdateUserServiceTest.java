@@ -47,7 +47,7 @@ class UpdateUserServiceTest {
 
         var command = new UpdateUserUseCase.UpdateUserCommand(
                 UUID.randomUUID(), UUID.randomUUID(), RoleCode.TENANT_ADMIN,
-                target.getId(), "Name", null, null, null
+                target.getId(), "Name", null, null
         );
 
         assertThrows(AppException.class, () -> updateUserService.execute(command));
@@ -61,7 +61,7 @@ class UpdateUserServiceTest {
 
         var command = new UpdateUserUseCase.UpdateUserCommand(
                 UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN,
-                target.getId(), null, null, null, 50L
+                target.getId(), null, null, 50L
         );
 
         assertThrows(AppException.class, () -> updateUserService.execute(command));
@@ -72,17 +72,65 @@ class UpdateUserServiceTest {
         UUID tenantId = UUID.randomUUID();
         User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, 100L, 20L);
         when(userRepository.findByIdWithRoleAndTenant(target.getId())).thenReturn(Optional.of(target));
-        when(userRepository.existsByEmailAndIdNot("new@example.com", target.getId())).thenReturn(false);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var command = new UpdateUserUseCase.UpdateUserCommand(
                 UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN,
-                target.getId(), "New Name", "new@example.com", null, 200L
+                target.getId(), "New Name", null, 200L
         );
 
         var result = updateUserService.execute(command);
-        assertEquals("new@example.com", result.email());
+        assertEquals("u@example.com", result.email());
         assertEquals(200L, result.storageQuotaBytes());
+    }
+
+    @Test
+    void quotaCannotExceedTenantQuota() {
+        UUID tenantId = UUID.randomUUID();
+        User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, 100L, 20L);
+        target.getTenant().setStorageQuotaBytes(150L);
+        when(userRepository.findByIdWithRoleAndTenant(target.getId())).thenReturn(Optional.of(target));
+
+        var command = new UpdateUserUseCase.UpdateUserCommand(
+                UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN,
+                target.getId(), null, null, 200L
+        );
+
+        assertThrows(AppException.class, () -> updateUserService.execute(command));
+    }
+
+    @Test
+    void quotaCannotExceedTenantRemainingQuota() {
+        UUID tenantId = UUID.randomUUID();
+        User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, 100L, 20L);
+        target.getTenant().setStorageQuotaBytes(300L);
+        target.getTenant().setStorageUsedBytes(260L);
+        when(userRepository.findByIdWithRoleAndTenant(target.getId())).thenReturn(Optional.of(target));
+
+        var command = new UpdateUserUseCase.UpdateUserCommand(
+                UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN,
+                target.getId(), null, null, 50L
+        );
+
+        assertThrows(AppException.class, () -> updateUserService.execute(command));
+    }
+
+    @Test
+    void quotaUsesRemainingQuotaExcludingTarget() {
+        UUID tenantId = UUID.randomUUID();
+        User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, 100L, 20L);
+        target.getTenant().setStorageQuotaBytes(300L);
+        target.getTenant().setStorageUsedBytes(260L);
+        when(userRepository.findByIdWithRoleAndTenant(target.getId())).thenReturn(Optional.of(target));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var command = new UpdateUserUseCase.UpdateUserCommand(
+                UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN,
+                target.getId(), "Updated Name", null, 40L
+        );
+
+        var result = updateUserService.execute(command);
+        assertEquals(40L, result.storageQuotaBytes());
     }
 
     private User userEntity(UUID userId, UUID tenantId, RoleCode roleCode, long quota, long used) {

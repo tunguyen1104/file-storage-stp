@@ -1,5 +1,7 @@
 package com.filestorage.adapter.in.rest.controller;
 
+import com.filestorage.adapter.in.rest.dto.request.MoveFileRequest;
+import com.filestorage.adapter.in.rest.dto.request.RenameFileRequest;
 import com.filestorage.adapter.in.rest.dto.response.ApiResponse;
 import com.filestorage.adapter.in.rest.dto.response.FileMetadataResponse;
 import com.filestorage.adapter.in.rest.dto.response.FileResponse;
@@ -16,6 +18,7 @@ import com.filestorage.domain.model.file.FileDownloadView;
 import com.filestorage.domain.model.file.FilePageView;
 import com.filestorage.domain.model.file.FilePresignedGetView;
 import com.filestorage.domain.model.file.FileView;
+import com.filestorage.domain.port.in.file.BulkUploadFilesUseCase;
 import com.filestorage.domain.port.in.file.DeleteFileUseCase;
 import com.filestorage.domain.port.in.file.DownloadFileUseCase;
 import com.filestorage.domain.port.in.file.GetFileMetadataUseCase;
@@ -23,23 +26,30 @@ import com.filestorage.domain.port.in.file.GetFilePresignedUrlUseCase;
 import com.filestorage.domain.port.in.file.ListFileMetadataUseCase;
 import com.filestorage.domain.port.in.file.RestoreFileUseCase;
 import com.filestorage.domain.port.in.file.UploadFileUseCase;
+import com.filestorage.domain.port.in.file.DirectDeleteFileUseCase;
+import com.filestorage.domain.port.in.file.RenameFileUseCase;
+import com.filestorage.domain.port.in.file.MoveFileUseCase;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
 import com.filestorage.shared.util.SecurityContextUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.validation.Valid;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -48,12 +58,16 @@ import java.util.UUID;
 public class FileController {
 
     private final UploadFileUseCase uploadFileUseCase;
+    private final BulkUploadFilesUseCase bulkUploadFilesUseCase;
     private final GetFileMetadataUseCase getFileMetadataUseCase;
     private final ListFileMetadataUseCase listFileMetadataUseCase;
     private final DownloadFileUseCase downloadFileUseCase;
     private final GetFilePresignedUrlUseCase getFilePresignedUrlUseCase;
     private final DeleteFileUseCase deleteFileUseCase;
+    private final DirectDeleteFileUseCase directDeleteFileUseCase;
     private final RestoreFileUseCase restoreFileUseCase;
+    private final RenameFileUseCase renameFileUseCase;
+    private final MoveFileUseCase moveFileUseCase;
     private final FileRestMapper fileRestMapper;
 
     @PostMapping(value = "/uploads/single", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -77,6 +91,40 @@ public class FileController {
         ));
 
         return ResponseEntity.status(201).body(ApiResponse.buildSuccess(fileRestMapper.toFileResponse(view)));
+    }
+
+    @PostMapping(value = "/uploads/bulk", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<List<FileResponse>>> uploadBulk(
+            @RequestParam("files") List<MultipartFile> files,
+            @RequestParam(required = false) UUID folderId) throws IOException {
+        SecurityUser actor = currentUserOrThrow();
+        if (files == null || files.isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_PAYLOAD);
+        }
+
+        List<BulkUploadFilesUseCase.UploadItem> items = new ArrayList<>();
+        for (MultipartFile file : files) {
+            if (file == null || file.isEmpty()) {
+                throw new AppException(ErrorCode.INVALID_PAYLOAD);
+            }
+            String effectiveOriginalName = resolveOriginalName(file.getOriginalFilename());
+            items.add(new BulkUploadFilesUseCase.UploadItem(
+                    effectiveOriginalName,
+                    file.getContentType(),
+                    file.getBytes()
+            ));
+        }
+
+        List<FileView> views = bulkUploadFilesUseCase.execute(new BulkUploadFilesUseCase.BulkUploadCommand(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                folderId,
+                items
+        ));
+
+        List<FileResponse> responses = views.stream().map(fileRestMapper::toFileResponse).toList();
+        return ResponseEntity.status(201).body(ApiResponse.buildSuccess(responses));
     }
 
     @GetMapping("/files/{fileId}/download")
@@ -122,9 +170,9 @@ public class FileController {
             @RequestParam(required = false) UUID tenantId,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int limit,
-            @RequestParam(defaultValue = "CREATED_AT") FileSortBy sortBy,
-            @RequestParam(defaultValue = "DESC") SortDirection sortDirection
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(required = false) List<FileSortBy> sortBy,
+            @RequestParam(required = false) List<SortDirection> sortDirection
     ) {
         SecurityUser actor = currentUserOrThrow();
         FilePageView view = listFileMetadataUseCase.execute(new ListFileMetadataUseCase.ListFileMetadataQuery(
@@ -179,6 +227,18 @@ public class FileController {
         return ResponseEntity.ok(ApiResponse.buildSuccess(fileRestMapper.toFileResponse(view)));
     }
 
+    @DeleteMapping("/files/{fileId}/direct")
+    public ResponseEntity<Void> hardDelete(@PathVariable UUID fileId) {
+        SecurityUser actor = currentUserOrThrow();
+        directDeleteFileUseCase.execute(new DirectDeleteFileUseCase.DirectDeleteFileCommand(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                fileId
+        ));
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/files/{fileId}/restore")
     public ResponseEntity<ApiResponse<FileResponse>> restore(@PathVariable UUID fileId) {
         SecurityUser actor = currentUserOrThrow();
@@ -189,6 +249,43 @@ public class FileController {
                 fileId
         ));
         return ResponseEntity.ok(ApiResponse.buildSuccess(fileRestMapper.toFileResponse(view)));
+    }
+
+    @PatchMapping("/files/{fileId}")
+    public ResponseEntity<ApiResponse<FileMetadataResponse>> renameFile(
+            @PathVariable UUID fileId,
+            @RequestBody @Valid RenameFileRequest request
+    ) {
+        SecurityUser actor = currentUserOrThrow();
+        FileView view = renameFileUseCase.execute(new RenameFileUseCase.RenameFileCommand(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                fileId,
+                request.originalName()
+        ));
+
+        return ResponseEntity.ok(ApiResponse.buildSuccess(fileRestMapper.toFileMetadataResponse(view)));
+    }
+
+    @PatchMapping("/files/{fileId}/move")
+    public ResponseEntity<ApiResponse<FileMetadataResponse>> moveFile(
+            @PathVariable UUID fileId,
+            @RequestBody MoveFileRequest request
+    ) {
+        if (request == null) {
+            throw new AppException(ErrorCode.INVALID_PAYLOAD);
+        }
+        SecurityUser actor = currentUserOrThrow();
+        FileView view = moveFileUseCase.execute(new MoveFileUseCase.MoveFileCommand(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                fileId,
+                request.folderId()
+        ));
+
+        return ResponseEntity.ok(ApiResponse.buildSuccess(fileRestMapper.toFileMetadataResponse(view)));
     }
 
     private SecurityUser currentUserOrThrow() {
@@ -210,6 +307,4 @@ public class FileController {
         return originalFilename.trim();
     }
 }
-
-
 

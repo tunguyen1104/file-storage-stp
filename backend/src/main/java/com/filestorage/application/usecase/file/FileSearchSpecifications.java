@@ -1,6 +1,7 @@
 package com.filestorage.application.usecase.file;
 
 import com.filestorage.adapter.out.persistence.entity.File;
+import com.filestorage.shared.util.VietnameseUtils;
 import com.filestorage.domain.model.enums.FileStatus;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -33,8 +34,15 @@ final class FileSearchSpecifications {
             if (search == null || search.isBlank()) {
                 return cb.conjunction();
             }
-            String pattern = "%" + search.trim().toLowerCase() + "%";
-            return cb.like(cb.lower(root.get("originalName")), pattern);
+            String trimmed = search.trim();
+            if (VietnameseUtils.containsAccent(trimmed)) {
+                String pattern = "%" + trimmed.toLowerCase() + "%";
+                return cb.like(cb.lower(root.get("originalName")), pattern);
+            }
+
+            String normalized = VietnameseUtils.removeAccent(trimmed).toLowerCase();
+            String pattern = "%" + normalized + "%";
+            return cb.like(cb.function("vi_unaccent", String.class, cb.lower(root.get("originalName"))), pattern);
         };
     }
 }

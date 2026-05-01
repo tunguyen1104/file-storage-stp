@@ -15,7 +15,6 @@ public interface UpdateUserUseCase {
             RoleCode actorRole,
             UUID targetUserId,
             String fullName,
-            String email,
             RoleCode roleCode,
             Long storageQuotaBytes
     ) {

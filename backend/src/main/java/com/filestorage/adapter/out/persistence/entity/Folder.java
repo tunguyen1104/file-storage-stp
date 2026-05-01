@@ -48,12 +48,7 @@ public class Folder extends BaseEntity {
     @Column(name = "name", nullable = false)
     private String name;
 
-    @Column(name = "path", columnDefinition = "ltree", nullable = false)
-    private String path;
-
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
 }
-
-

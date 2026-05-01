@@ -6,6 +6,7 @@ import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.model.enums.SortDirection;
 import com.filestorage.domain.model.file.FilePageView;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface ListFileMetadataUseCase {
@@ -23,9 +24,8 @@ public interface ListFileMetadataUseCase {
             String search,
             int page,
             int limit,
-            FileSortBy sortBy,
-            SortDirection sortDirection
+            List<FileSortBy> sortBy,
+            List<SortDirection> sortDirection
     ) {
     }
 }
-
