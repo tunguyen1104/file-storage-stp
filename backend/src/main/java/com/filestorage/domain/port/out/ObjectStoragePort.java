@@ -1,6 +1,7 @@
 package com.filestorage.domain.port.out;
 
 import java.time.Duration;
+import java.util.List;
 
 public interface ObjectStoragePort {
 
@@ -47,7 +48,49 @@ public interface ObjectStoragePort {
     ObjectMetadata getObjectMetadata(String storageKey);
 
     /** Value object carrying the actual metadata of a stored object. */
-    record ObjectMetadata(long sizeBytes, String contentType) {
-    }
+    record ObjectMetadata(long sizeBytes, String contentType) {}
+
+    // ── Multipart upload operations ───────────────────────────────────────────
+
+    /**
+     * Initiates a multipart upload on MinIO/S3 and returns the server-generated upload ID.
+     *
+     * @param storageKey  object path inside the bucket
+     * @param contentType declared MIME type
+     * @return MinIO-generated uploadId string
+     */
+    String initiateMultipartUpload(String storageKey, String contentType);
+
+    /**
+     * Generates a presigned PUT URL for a single part of a multipart upload.
+     *
+     * @param uploadId   MinIO upload ID returned by {@link #initiateMultipartUpload}
+     * @param storageKey object path inside the bucket
+     * @param partNumber 1-based part index
+     * @param ttlMinutes URL validity window in minutes
+     * @return presigned PUT URL as a string
+     */
+    String generatePresignedPartUrl(String uploadId, String storageKey, int partNumber, int ttlMinutes);
+
+    /**
+     * Instructs MinIO/S3 to assemble all uploaded parts into the final object.
+     * No file bytes flow through the backend.
+     *
+     * @param uploadId   MinIO upload ID
+     * @param storageKey object path inside the bucket
+     * @param parts      ordered list of part descriptors (partNumber + ETag)
+     */
+    void completeMultipartUpload(String uploadId, String storageKey, List<PartDescriptor> parts);
+
+    /**
+     * Aborts a multipart upload and removes all intermediate parts from storage.
+     *
+     * @param uploadId   MinIO upload ID
+     * @param storageKey object path inside the bucket
+     */
+    void abortMultipartUpload(String uploadId, String storageKey);
+
+    /** Domain-safe descriptor of a completed multipart part. */
+    record PartDescriptor(int partNumber, String etag) {}
 }
 

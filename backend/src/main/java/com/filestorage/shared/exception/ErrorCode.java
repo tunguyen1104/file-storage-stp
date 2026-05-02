@@ -45,6 +45,10 @@ public enum ErrorCode {
     INVALID_FILE_STATUS(1031, "error.invalid-file-status", HttpStatus.CONFLICT),
     FILE_NOT_FOUND_ON_STORAGE(1032, "error.file-not-found-on-storage", HttpStatus.UNPROCESSABLE_CONTENT),
     FILE_METADATA_MISMATCH(1033, "error.file-metadata-mismatch", HttpStatus.UNPROCESSABLE_CONTENT),
+    UPLOAD_SESSION_NOT_FOUND(1034, "error.upload-session-not-found", HttpStatus.NOT_FOUND),
+    INVALID_SESSION_STATUS(1035, "error.invalid-session-status", HttpStatus.CONFLICT),
+    UPLOAD_SESSION_EXPIRED(1036, "error.upload-session-expired", HttpStatus.UNPROCESSABLE_CONTENT),
+    PARTS_INCOMPLETE(1037, "error.parts-incomplete", HttpStatus.UNPROCESSABLE_CONTENT),
     INTERNAL_SERVER_ERROR(1500, "error.internal-server-error", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final int code;
