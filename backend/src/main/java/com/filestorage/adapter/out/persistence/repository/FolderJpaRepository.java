@@ -5,12 +5,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface FolderJpaRepository extends JpaRepository<Folder, UUID>, JpaSpecificationExecutor<Folder> {
 
-	java.util.Optional<Folder> findByIdAndTenantId(UUID id, UUID tenantId);
+
+	Optional<Folder> findByIdAndTenantId(UUID id, UUID tenantId);
+
+	Optional<Folder> findByIdAndOwnerId(UUID id, UUID ownerId);
 
 	boolean existsByTenantIdAndParentIdAndName(UUID tenantId, UUID parentId, String name);
 
