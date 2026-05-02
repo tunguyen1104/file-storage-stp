@@ -3,16 +3,23 @@ package com.filestorage.adapter.out.storage;
 import com.filestorage.domain.port.out.ObjectStoragePort;
 import com.filestorage.infrastructure.config.MinioProperties;
 import com.filestorage.infrastructure.config.StorageProperties;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import io.minio.GetObjectArgs;
 import io.minio.GetPresignedObjectUrlArgs;
+import io.minio.MinioAsyncClient;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import io.minio.StatObjectArgs;
 import io.minio.StatObjectResponse;
 import io.minio.errors.ErrorResponseException;
+import io.minio.errors.InsufficientDataException;
+import io.minio.errors.InternalException;
 import io.minio.errors.MinioException;
+import io.minio.errors.XmlParserException;
 import io.minio.http.Method;
+import io.minio.messages.Part;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -26,7 +33,9 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 @Component
 @RequiredArgsConstructor
@@ -35,6 +44,7 @@ public class MinioStorageAdapter implements ObjectStoragePort {
 
     private final MinioClient minioClient;
     private final MinioClient minioPresignedClient;
+    private final MinioAsyncClient minioAsyncClient;
     private final MinioProperties minioProperties;
     private final StorageProperties storageProperties;
 
@@ -235,6 +245,108 @@ public class MinioStorageAdapter implements ObjectStoragePort {
             return new ObjectMetadata(stat.size(), stat.contentType());
         } catch (MinioException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
             throw new IllegalStateException("Failed to retrieve object metadata from MinIO: " + storageKey, e);
+        }
+    }
+
+    // ── Multipart upload operations ───────────────────────────────────────────
+
+    @Override
+    public String initiateMultipartUpload(String storageKey, String contentType) {
+        requireNonBlank(storageKey, "storageKey");
+        String effectiveContentType = (contentType == null || contentType.isBlank())
+                ? "application/octet-stream"
+                : contentType;
+
+        Multimap<String, String> headers = HashMultimap.create();
+        headers.put("Content-Type", effectiveContentType);
+
+        try {
+            var response = minioAsyncClient.createMultipartUploadAsync(
+                    minioProperties.getBucket(), null, storageKey, headers, null
+            ).get();
+            return response.result().uploadId();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while initiating multipart upload for key: " + storageKey, e);
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("Failed to initiate multipart upload for key: " + storageKey, e.getCause());
+        } catch (InsufficientDataException | InternalException | XmlParserException
+                 | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+            throw new IllegalStateException("Failed to initiate multipart upload for key: " + storageKey, e);
+        }
+    }
+
+    @Override
+    public String generatePresignedPartUrl(String uploadId, String storageKey, int partNumber, int ttlMinutes) {
+        requireNonBlank(storageKey, "storageKey");
+        if (partNumber < 1) {
+            throw new IllegalArgumentException("partNumber must be >= 1");
+        }
+        if (ttlMinutes <= 0) {
+            throw new IllegalArgumentException("ttlMinutes must be > 0");
+        }
+
+        Map<String, String> extraQueryParams = new HashMap<>();
+        extraQueryParams.put("uploadId", uploadId);
+        extraQueryParams.put("partNumber", String.valueOf(partNumber));
+
+        try {
+            return minioPresignedClient.getPresignedObjectUrl(
+                    GetPresignedObjectUrlArgs.builder()
+                            .method(Method.PUT)
+                            .bucket(minioProperties.getBucket())
+                            .object(storageKey)
+                            .expiry(ttlMinutes * 60)
+                            .extraQueryParams(extraQueryParams)
+                            .build()
+            );
+        } catch (MinioException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+            throw new IllegalStateException("Failed to generate presigned part URL for key: " + storageKey, e);
+        }
+    }
+
+    @Override
+    public void completeMultipartUpload(String uploadId, String storageKey, List<PartDescriptor> parts) {
+        requireNonBlank(storageKey, "storageKey");
+        if (parts == null || parts.isEmpty()) {
+            throw new IllegalArgumentException("parts must not be empty");
+        }
+
+        Part[] minioParts = parts.stream()
+                .map(p -> new Part(p.partNumber(), p.etag()))
+                .toArray(Part[]::new);
+
+        try {
+            minioAsyncClient.completeMultipartUploadAsync(
+                    minioProperties.getBucket(), null, storageKey, uploadId, minioParts, null, null
+            ).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while completing multipart upload for key: " + storageKey, e);
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("Failed to complete multipart upload for key: " + storageKey, e.getCause());
+        } catch (InsufficientDataException | InternalException | XmlParserException
+                 | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+            throw new IllegalStateException("Failed to complete multipart upload for key: " + storageKey, e);
+        }
+    }
+
+    @Override
+    public void abortMultipartUpload(String uploadId, String storageKey) {
+        requireNonBlank(storageKey, "storageKey");
+
+        try {
+            minioAsyncClient.abortMultipartUploadAsync(
+                    minioProperties.getBucket(), null, storageKey, uploadId, null, null
+            ).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while aborting multipart upload for key: " + storageKey, e);
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("Failed to abort multipart upload for key: " + storageKey, e.getCause());
+        } catch (InsufficientDataException | InternalException | XmlParserException
+                 | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+            throw new IllegalStateException("Failed to abort multipart upload for key: " + storageKey, e);
         }
     }
 
