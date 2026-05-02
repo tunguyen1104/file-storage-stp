@@ -2,9 +2,11 @@ package com.filestorage.domain.model.enums;
 
 public enum FileStatus {
     PENDING,
+    SCANNING,
     ACTIVE,
     PENDING_DELETE,
-    DELETED,
-    UPLOAD_FAILED
+    INFECTED,
+    UPLOAD_FAILED,
+    DELETED
 }
 

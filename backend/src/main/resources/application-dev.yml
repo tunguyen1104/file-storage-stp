@@ -86,5 +86,17 @@ app:
     single-upload-max-mb: ${FILE_SINGLE_UPLOAD_MAX_MB:100}
     multipart-threshold-mb: ${FILE_MULTIPART_THRESHOLD_MB:100}
     key-pattern: ${FILE_STORAGE_KEY_PATTERN:tenantId/userId/fileId.ext}
+  upload:
+    presigned-put-ttl-minutes: ${PRESIGNED_PUT_TTL_MINUTES:15}
+    pending-cleanup-threshold-hours: ${PENDING_CLEANUP_THRESHOLD_HOURS:1}
+    multipart:
+      part-url-ttl-minutes: ${MULTIPART_PART_URL_TTL_MINUTES:30}
+      session-ttl-hours: ${MULTIPART_SESSION_TTL_HOURS:24}
+      cleanup-interval-minutes: ${MULTIPART_CLEANUP_INTERVAL_MINUTES:30}
+  virus-scan:
+    clamav:
+      host: ${CLAMAV_HOST:localhost}
+      port: ${CLAMAV_PORT:3310}
+      timeout-ms: ${CLAMAV_TIMEOUT_MS:30000}
 server:
   port: 8081

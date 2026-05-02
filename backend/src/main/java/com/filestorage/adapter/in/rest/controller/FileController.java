@@ -1,34 +1,42 @@
 package com.filestorage.adapter.in.rest.controller;
 
 import com.filestorage.adapter.in.rest.dto.request.MoveFileRequest;
+import com.filestorage.adapter.in.rest.dto.request.PresignedUploadInitRequest;
 import com.filestorage.adapter.in.rest.dto.request.RenameFileRequest;
 import com.filestorage.adapter.in.rest.dto.response.ApiResponse;
+import com.filestorage.adapter.in.rest.dto.response.ConfirmUploadResponse;
 import com.filestorage.adapter.in.rest.dto.response.FileMetadataResponse;
 import com.filestorage.adapter.in.rest.dto.response.FileResponse;
+import com.filestorage.adapter.in.rest.dto.response.FileStatusResponse;
 import com.filestorage.adapter.in.rest.dto.response.PageResponse;
 import com.filestorage.adapter.in.rest.dto.response.PresignedDownloadResponse;
 import com.filestorage.adapter.in.rest.dto.response.PresignedGetUrlResponse;
+import com.filestorage.adapter.in.rest.dto.response.PresignedUploadInitResponse;
 import com.filestorage.adapter.in.rest.mapper.FileRestMapper;
 import com.filestorage.adapter.in.rest.security.SecurityUser;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.enums.FileSortBy;
 import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.model.enums.SortDirection;
+import com.filestorage.domain.model.file.ConfirmUploadView;
 import com.filestorage.domain.model.file.FileDownloadView;
 import com.filestorage.domain.model.file.FilePageView;
 import com.filestorage.domain.model.file.FilePresignedGetView;
 import com.filestorage.domain.model.file.FileView;
+import com.filestorage.domain.model.file.PresignedUploadView;
 import com.filestorage.domain.port.in.file.BulkUploadFilesUseCase;
+import com.filestorage.domain.port.in.file.ConfirmUploadUseCase;
 import com.filestorage.domain.port.in.file.DeleteFileUseCase;
+import com.filestorage.domain.port.in.file.DirectDeleteFileUseCase;
 import com.filestorage.domain.port.in.file.DownloadFileUseCase;
 import com.filestorage.domain.port.in.file.GetFileMetadataUseCase;
 import com.filestorage.domain.port.in.file.GetFilePresignedUrlUseCase;
+import com.filestorage.domain.port.in.file.InitPresignedUploadUseCase;
 import com.filestorage.domain.port.in.file.ListFileMetadataUseCase;
+import com.filestorage.domain.port.in.file.MoveFileUseCase;
+import com.filestorage.domain.port.in.file.RenameFileUseCase;
 import com.filestorage.domain.port.in.file.RestoreFileUseCase;
 import com.filestorage.domain.port.in.file.UploadFileUseCase;
-import com.filestorage.domain.port.in.file.DirectDeleteFileUseCase;
-import com.filestorage.domain.port.in.file.RenameFileUseCase;
-import com.filestorage.domain.port.in.file.MoveFileUseCase;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
 import com.filestorage.shared.util.SecurityContextUtil;
@@ -68,6 +76,8 @@ public class FileController {
     private final RestoreFileUseCase restoreFileUseCase;
     private final RenameFileUseCase renameFileUseCase;
     private final MoveFileUseCase moveFileUseCase;
+    private final InitPresignedUploadUseCase initPresignedUploadUseCase;
+    private final ConfirmUploadUseCase confirmUploadUseCase;
     private final FileRestMapper fileRestMapper;
 
     @PostMapping(value = "/uploads/single", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -287,6 +297,50 @@ public class FileController {
 
         return ResponseEntity.ok(ApiResponse.buildSuccess(fileRestMapper.toFileMetadataResponse(view)));
     }
+
+    // ─── Presigned Upload ────────────────────────────────────────────────────────
+
+    @PostMapping("/uploads/presigned")
+    public ResponseEntity<ApiResponse<PresignedUploadInitResponse>> initPresignedUpload(
+            @RequestBody @Valid PresignedUploadInitRequest request) {
+        SecurityUser actor = currentUserOrThrow();
+        PresignedUploadView view = initPresignedUploadUseCase.execute(new InitPresignedUploadUseCase.InitPresignedUploadCommand(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                request.folderId(),
+                request.originalName(),
+                request.mimeType(),
+                request.sizeBytes()
+        ));
+        return ResponseEntity.status(201).body(ApiResponse.buildSuccess(fileRestMapper.toPresignedUploadInitResponse(view)));
+    }
+
+    @PostMapping("/files/{fileId}/confirm-upload")
+    public ResponseEntity<ApiResponse<ConfirmUploadResponse>> confirmUpload(@PathVariable UUID fileId) {
+        SecurityUser actor = currentUserOrThrow();
+        ConfirmUploadView view = confirmUploadUseCase.execute(new ConfirmUploadUseCase.ConfirmUploadCommand(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                fileId
+        ));
+        return ResponseEntity.ok(ApiResponse.buildSuccess(fileRestMapper.toConfirmUploadResponse(view)));
+    }
+
+    @GetMapping("/files/{fileId}/status")
+    public ResponseEntity<ApiResponse<FileStatusResponse>> getFileStatus(@PathVariable UUID fileId) {
+        SecurityUser actor = currentUserOrThrow();
+        FileView view = getFileMetadataUseCase.execute(new GetFileMetadataUseCase.GetFileMetadataQuery(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                fileId
+        ));
+        return ResponseEntity.ok(ApiResponse.buildSuccess(fileRestMapper.toFileStatusResponse(view)));
+    }
+
+    // ─── Helpers ─────────────────────────────────────────────────────────────────
 
     private SecurityUser currentUserOrThrow() {
         return SecurityContextUtil.getCurrentUser().orElseThrow(() -> new AppException(ErrorCode.ACCESS_DENIED));
