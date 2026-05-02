@@ -8,9 +8,13 @@ import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
+import io.minio.StatObjectArgs;
+import io.minio.StatObjectResponse;
+import io.minio.errors.ErrorResponseException;
 import io.minio.errors.MinioException;
 import io.minio.http.Method;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayInputStream;
@@ -26,6 +30,7 @@ import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class MinioStorageAdapter implements ObjectStoragePort {
 
     private final MinioClient minioClient;
@@ -150,6 +155,86 @@ public class MinioStorageAdapter implements ObjectStoragePort {
             );
         } catch (MinioException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
             throw new IllegalStateException("Failed to generate MinIO presigned URL", e);
+        }
+    }
+
+    @Override
+    public void deleteObjectIfExists(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return;
+        }
+        try {
+            minioClient.removeObject(
+                    RemoveObjectArgs.builder()
+                            .bucket(minioProperties.getBucket())
+                            .object(storageKey)
+                            .build()
+            );
+        } catch (ErrorResponseException e) {
+            if ("NoSuchKey".equals(e.errorResponse().code())) {
+                log.debug("deleteObjectIfExists: object not found, skipping — key={}", storageKey);
+                return;
+            }
+            throw new IllegalStateException("Failed to delete object from MinIO: " + storageKey, e);
+        } catch (MinioException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+            throw new IllegalStateException("Failed to delete object from MinIO: " + storageKey, e);
+        }
+    }
+
+    @Override
+    public String generatePresignedPutUrl(String storageKey, String contentType, int ttlMinutes) {
+        requireNonBlank(storageKey, "storageKey");
+        if (ttlMinutes <= 0) {
+            throw new IllegalArgumentException("ttlMinutes must be greater than zero");
+        }
+        try {
+            return minioPresignedClient.getPresignedObjectUrl(
+                    GetPresignedObjectUrlArgs.builder()
+                            .method(Method.PUT)
+                            .bucket(minioProperties.getBucket())
+                            .object(storageKey)
+                            .expiry(ttlMinutes * 60)
+                            .build()
+            );
+        } catch (MinioException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+            throw new IllegalStateException("Failed to generate presigned PUT URL for MinIO", e);
+        }
+    }
+
+    @Override
+    public boolean objectExists(String storageKey) {
+        requireNonBlank(storageKey, "storageKey");
+        try {
+            minioClient.statObject(
+                    StatObjectArgs.builder()
+                            .bucket(minioProperties.getBucket())
+                            .object(storageKey)
+                            .build()
+            );
+            return true;
+        } catch (ErrorResponseException e) {
+            if ("NoSuchKey".equals(e.errorResponse().code())) {
+                return false;
+            }
+            throw new IllegalStateException("Failed to stat object in MinIO: " + storageKey, e);
+        } catch (MinioException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+            throw new IllegalStateException("Failed to stat object in MinIO: " + storageKey, e);
+        }
+    }
+
+    @Override
+    public ObjectMetadata getObjectMetadata(String storageKey) {
+        requireNonBlank(storageKey, "storageKey");
+        try {
+            StatObjectResponse stat = minioClient.statObject(
+                    StatObjectArgs.builder()
+                            .bucket(minioProperties.getBucket())
+                            .object(storageKey)
+                            .build()
+            );
+            return new ObjectMetadata(stat.size(), stat.contentType());
+        } catch (MinioException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+            throw new IllegalStateException("Failed to retrieve object metadata from MinIO: " + storageKey, e);
         }
     }
 
