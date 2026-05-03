@@ -2,25 +2,25 @@ package com.filestorage.application.usecase.file;
 
 import com.filestorage.adapter.out.persistence.entity.File;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
-import com.filestorage.domain.event.VirusScanRequestedEvent;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.file.ConfirmUploadView;
 import com.filestorage.domain.port.in.file.ConfirmUploadUseCase;
 import com.filestorage.domain.port.out.ObjectStoragePort;
-import com.filestorage.domain.port.out.VirusScanEventPublisherPort;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class ConfirmUploadService implements ConfirmUploadUseCase {
 
     private final FileJpaRepository fileRepository;
     private final ObjectStoragePort objectStoragePort;
-    private final VirusScanEventPublisherPort virusScanEventPublisherPort;
+    private final UploadStorageVerifier uploadStorageVerifier;
 
     @Override
     @Transactional
@@ -47,42 +47,16 @@ public class ConfirmUploadService implements ConfirmUploadUseCase {
             throw new AppException(ErrorCode.FILE_NOT_FOUND_ON_STORAGE);
         }
 
-        // Verify metadata matches what was declared at initiation (security: prevents quota fraud)
-        ObjectStoragePort.ObjectMetadata actual = objectStoragePort.getObjectMetadata(storageKey);
-        if (!metadataMatches(file, actual)) {
-            file.setStatus(FileStatus.UPLOAD_FAILED);
-            fileRepository.save(file);
-            throw new AppException(ErrorCode.FILE_METADATA_MISMATCH);
-        }
+        // Verify declared size matches actual size in MinIO (quota fraud prevention)
+        uploadStorageVerifier.verifySizeOrFail(file, storageKey);
 
-        // Transition to SCANNING and publish async virus-scan task
-        file.setStatus(FileStatus.SCANNING);
-        fileRepository.save(file);
+        // Re-detect real MIME type via Tika to prevent spoofing (e.g. evil.exe → report.pdf)
+        uploadStorageVerifier.verifyMimeOrFail(file, storageKey);
 
-        virusScanEventPublisherPort.publishVirusScanRequested(new VirusScanRequestedEvent(
-                file.getId(),
-                storageKey,
-                command.tenantId(),
-                command.userId()
-        ));
+        // Route to ClamAV scan or activate directly if eligible for bypass
+        FileStatus resultStatus = uploadStorageVerifier.routeToScanOrActivate(
+                file, command.tenantId(), command.userId());
 
-        return new ConfirmUploadView(file.getId(), FileStatus.SCANNING);
-    }
-
-    private boolean metadataMatches(File file, ObjectStoragePort.ObjectMetadata actual) {
-        if (file.getSizeBytes() != null && actual.sizeBytes() != file.getSizeBytes()) {
-            return false;
-        }
-        return file.getMimeType() == null || normalizeContentType(file.getMimeType())
-                .equalsIgnoreCase(normalizeContentType(actual.contentType()));
-    }
-
-    /** Strips parameters (e.g. {@code charset=utf-8}) from a MIME type for comparison. */
-    private static String normalizeContentType(String contentType) {
-        if (contentType == null) {
-            return "";
-        }
-        int semicolon = contentType.indexOf(';');
-        return semicolon >= 0 ? contentType.substring(0, semicolon).trim() : contentType.trim();
+        return new ConfirmUploadView(file.getId(), resultStatus);
     }
 }

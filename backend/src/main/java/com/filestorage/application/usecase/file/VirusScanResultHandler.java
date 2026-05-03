@@ -55,7 +55,7 @@ public class VirusScanResultHandler {
         objectStoragePort.deleteObjectIfExists(file.getStorageKey());
     }
 
-    private void handleClean(File file) {
+    void handleClean(File file) {
         long sizeBytes = file.getSizeBytes() == null ? 0L : file.getSizeBytes();
 
         // Single atomic UPDATE: increments quota only if the result stays within the limit.

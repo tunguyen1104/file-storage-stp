@@ -1,33 +1,31 @@
 package com.filestorage.application.usecase.file;
 
 import com.filestorage.adapter.out.persistence.entity.MultipartUploadSession;
-import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.MultipartUploadSessionJpaRepository;
-import com.filestorage.domain.event.VirusScanRequestedEvent;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.enums.MultipartUploadStatus;
 import com.filestorage.domain.model.file.MultipartCompleteView;
 import com.filestorage.domain.port.in.file.CompleteMultipartUploadUseCase;
 import com.filestorage.domain.port.out.CachePort;
 import com.filestorage.domain.port.out.ObjectStoragePort;
-import com.filestorage.domain.port.out.VirusScanEventPublisherPort;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class CompleteMultipartUploadService implements CompleteMultipartUploadUseCase {
 
     private final MultipartUploadSessionJpaRepository sessionRepository;
-    private final FileJpaRepository fileRepository;
     private final ObjectStoragePort objectStoragePort;
-    private final VirusScanEventPublisherPort virusScanEventPublisherPort;
     private final CachePort cachePort;
+    private final UploadStorageVerifier uploadStorageVerifier;
 
     @Override
     @Transactional
@@ -53,32 +51,31 @@ public class CompleteMultipartUploadService implements CompleteMultipartUploadUs
                 .map(p -> new ObjectStoragePort.PartDescriptor(p.partNumber(), p.etag()))
                 .toList();
 
-        // Instruct MinIO to assemble parts into the final object
+        // Instruct MinIO to assemble parts into the final object (no bytes through backend)
         objectStoragePort.completeMultipartUpload(
                 session.getUploadId(),
                 session.getObjectKey(),
                 partDescriptors
         );
 
-        // Transition statuses
+        // Transition session to terminal state and evict Redis cache
         session.setStatus(MultipartUploadStatus.COMPLETED);
         sessionRepository.save(session);
-
-        com.filestorage.adapter.out.persistence.entity.File file = session.getFile();
-        file.setStatus(FileStatus.SCANNING);
-        fileRepository.save(file);
-
-        // Evict Redis cache — session is terminal
         cachePort.evictMultipartSession(session.getUploadId());
 
-        // Reuse existing virus-scan async pipeline
-        virusScanEventPublisherPort.publishVirusScanRequested(new VirusScanRequestedEvent(
-                file.getId(),
-                file.getStorageKey(),
-                command.tenantId(),
-                command.userId()
-        ));
+        var file = session.getFile();
+        String storageKey = session.getObjectKey();
 
-        return new MultipartCompleteView(file.getId(), FileStatus.SCANNING);
+        // Verify actual assembled size matches the declared total size (quota fraud prevention)
+        uploadStorageVerifier.verifySizeOrFail(file, storageKey);
+
+        // Re-detect real MIME type via Tika to prevent spoofing after assembly
+        uploadStorageVerifier.verifyMimeOrFail(file, storageKey);
+
+        // Route to ClamAV scan or activate directly if eligible for bypass
+        FileStatus resultStatus = uploadStorageVerifier.routeToScanOrActivate(
+                file, command.tenantId(), command.userId());
+
+        return new MultipartCompleteView(file.getId(), resultStatus);
     }
 }

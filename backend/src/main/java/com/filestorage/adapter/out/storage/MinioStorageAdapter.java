@@ -107,6 +107,23 @@ public class MinioStorageAdapter implements ObjectStoragePort {
     }
 
     @Override
+    public byte[] downloadPartial(String storageKey, long maxBytes) {
+        requireNonBlank(storageKey, "storageKey");
+        try (InputStream in = minioClient.getObject(
+                GetObjectArgs.builder()
+                        .bucket(minioProperties.getBucket())
+                        .object(storageKey)
+                        .offset(0L)
+                        .length(maxBytes)
+                        .build()
+        )) {
+            return in.readAllBytes();
+        } catch (MinioException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+            throw new IllegalStateException("Failed to partially download object from MinIO", e);
+        }
+    }
+
+    @Override
     public void delete(String storageKey) {
         requireNonBlank(storageKey, "storageKey");
         try {

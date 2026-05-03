@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -42,16 +43,16 @@ class InitPresignedUploadServiceTest {
     private UserJpaRepository userRepository;
     @Mock
     private ObjectStoragePort objectStoragePort;
+    @Mock
+    private FileUploadValidator fileUploadValidator;
 
-    private UploadProperties uploadProperties;
     private InitPresignedUploadService service;
 
     @BeforeEach
     void setUp() {
-        uploadProperties = new UploadProperties();
         service = new InitPresignedUploadService(
                 fileRepository, folderRepository, userRepository,
-                objectStoragePort, uploadProperties
+                objectStoragePort, new UploadProperties(), fileUploadValidator
         );
     }
 
@@ -133,6 +134,22 @@ class InitPresignedUploadServiceTest {
 
         AppException ex = assertThrows(AppException.class, () -> service.execute(command));
         assertEquals(ErrorCode.ACCESS_DENIED, ex.getError());
+    }
+
+    @Test
+    void rejectsDisallowedMimeType() {
+        UUID userId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+
+        doThrow(new AppException(ErrorCode.UNSUPPORTED_FILE_TYPE))
+                .when(fileUploadValidator).validateMimeType("application/zip");
+
+        var command = new InitPresignedUploadUseCase.InitPresignedUploadCommand(
+                userId, tenantId, RoleCode.MEMBER, null, "archive.zip", "application/zip", 1024L
+        );
+
+        AppException ex = assertThrows(AppException.class, () -> service.execute(command));
+        assertEquals(ErrorCode.UNSUPPORTED_FILE_TYPE, ex.getError());
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────────

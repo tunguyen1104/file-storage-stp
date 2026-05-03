@@ -26,6 +26,7 @@ val lombokMapstructBindingVersion = "0.2.0"
 val archunitVersion               = "1.3.0"
 val testcontainersVersion         = "1.19.3"
 val minioVersion                  = "8.6.0"
+val tikaVersion                   = "2.9.2"
 
 // ─── Dependencies ─────────────────────────────────────────────────────────────
 dependencies {
@@ -56,6 +57,9 @@ dependencies {
 
 	// ── Object Storage (MinIO / S3-compatible) ─────────────────────────────
 	implementation("io.minio:minio:$minioVersion")
+
+	// ── MIME Detection (Apache Tika) ────────────────────────────────────────
+	implementation("org.apache.tika:tika-core:$tikaVersion")
 
 	// ── Code Generation: Lombok + MapStruct ─────────────────────────────────
 	compileOnly("org.projectlombok:lombok")
