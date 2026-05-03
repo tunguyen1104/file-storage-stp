@@ -58,7 +58,9 @@ ACTIVE  → DELETED         (user soft-delete)
 
 **Application**
 - `InitPresignedUploadService` — validate folder, `SELECT FOR UPDATE` check quota, tạo `File(PENDING)`, sinh presigned PUT URL
-- `ConfirmUploadService` — xác minh file tồn tại trên MinIO, so sánh metadata thực tế với khai báo (chống bypass quota), chuyển `PENDING → SCANNING`, publish event
+- `ConfirmUploadService` — xác minh file tồn tại trên MinIO, delegate verify size + MIME + scan routing sang `UploadStorageVerifier`; chuyển `PENDING → SCANNING`, publish event
+- `UploadStorageVerifier` *(dùng chung presigned & multipart)* — `verifySizeOrFail` (StatObject), `verifyMimeOrFail` (Tika, 8 KB đầu), `routeToScanOrActivate` (bypass hoặc publish event)
+- `FileUploadValidator` — `validateMimeType` (whitelist), `rejectIfMimeSpoofed` (Tika), `shouldBypassScan` (size + MIME gate)
 - `VirusScanResultHandler` — sạch → `ACTIVE` + atomic quota UPDATE; nhiễm → `INFECTED` + xóa MinIO object
 
 **Adapter — REST**
@@ -70,7 +72,7 @@ ACTIVE  → DELETED         (user soft-delete)
 - `UserJpaRepository` — thêm atomic UPDATE quota method
 
 **Adapter — Storage**
-- `MinioStorageAdapter` — thêm `generatePresignedPutUrl`, `objectExists`, `getObjectMetadata`
+- `MinioStorageAdapter` — thêm `generatePresignedPutUrl`, `objectExists`, `getObjectMetadata`, **`downloadPartial(storageKey, maxBytes)`** (dùng `GetObjectArgs.offset(0).length(n)` để chỉ lấy N byte đầu)
 
 **Adapter — Virus Scan**
 - `ClamAvVirusScanAdapter` — implement `VirusScanPort` qua ClamAV REST sidecar
@@ -84,7 +86,9 @@ ACTIVE  → DELETED         (user soft-delete)
 ### Lưu ý
 
 - **Quota:** Không trừ khi tạo `PENDING`. Chỉ cộng sau scan sạch bằng atomic UPDATE.
-- **Xác minh metadata:** `statObject` từ MinIO so với khai báo — ngăn upload file lớn hơn quota đã bypass.
+- **Xác minh metadata:** `StatObject` từ MinIO so với khai báo — ngăn upload file lớn hơn quota đã bypass. `sizeBytes` do MinIO server đếm thực tế, không thể fake.
+- **MIME whitelist:** `FileUploadValidator.validateMimeType()` kiểm tra tại `InitPresignedUploadService` (early-exit, client-declared). Sau đó `UploadStorageVerifier.verifyMimeOrFail()` re-verify bằng Apache Tika với 8 KB đầu file — chống spoofing (e.g. `evil.exe` → `report.pdf`).
+- **Partial download:** `ObjectStoragePort.downloadPartial(storageKey, 8192)` chỉ lấy 8 KB từ MinIO thay vì toàn bộ file — tránh load file lớn vào RAM chỉ để detect MIME.
 - **Presigned URL:** TTL 15 phút, không lưu DB.
 
 ---
@@ -153,9 +157,10 @@ Session: IN_PROGRESS → COMPLETED  (POST /complete thành công)
 - `InitMultipartUploadService` — validate input, `SELECT FOR UPDATE` check quota (in-flight PENDING/SCANNING), validate folder, gọi MinIO `initiateMultipartUpload`, tạo `File(PENDING)` + `Session(IN_PROGRESS)`, cache Redis 24h
 - `GetPartPresignedUrlService` — load từ Redis (fallback DB), validate `IN_PROGRESS` + chưa hết hạn + ownership, sinh presigned PUT URL
 - `CompletePartUploadService` — validate ownership, append `PartInfo(partNumber, etag)` vào JSONB, cập nhật DB + Redis
-- `CompleteMultipartUploadService` — validate đủ parts, gọi MinIO `completeMultipartUpload`, `PENDING → SCANNING` + `IN_PROGRESS → COMPLETED`, xoá Redis, publish event
+- `CompleteMultipartUploadService` — validate đủ parts, gọi MinIO `completeMultipartUpload`, `IN_PROGRESS → COMPLETED`, xoá Redis, delegate verify size + MIME + scan routing sang `UploadStorageVerifier`
 - `AbortMultipartUploadService` — gọi MinIO `abortMultipartUpload`, `UPLOAD_FAILED` + `ABORTED`, xoá Redis
 - `GetMultipartUploadSessionService` — trả về session kèm `uploadedParts` để resume
+- `UploadStorageVerifier` *(dùng chung với presigned)* — `verifySizeOrFail`, `verifyMimeOrFail`, `routeToScanOrActivate`
 - `VirusScanResultHandler` — **tái dùng hoàn toàn** từ presigned upload
 
 **Adapter — REST**
@@ -185,6 +190,8 @@ Session: IN_PROGRESS → COMPLETED  (POST /complete thành công)
 
 - **Quota:** `SELECT FOR UPDATE` tại `init` tránh race condition. Chỉ cộng quota sau scan sạch bằng atomic UPDATE.
 - **Concurrent parts:** `CompletePartUploadService` dùng optimistic locking (`@Version`) tránh ghi đè JSONB.
+- **MIME whitelist:** `FileUploadValidator.validateMimeType()` kiểm tra tại `InitMultipartUploadService` (early-exit). `UploadStorageVerifier.verifyMimeOrFail()` re-verify bằng Tika sau khi MinIO hoàn tất ghép file — chỉ download 8 KB đầu, không load cả file vào RAM.
+- **Size verify:** `UploadStorageVerifier.verifySizeOrFail()` gọi `getObjectMetadata` sau khi MinIO assemble — `sizeBytes` do MinIO đếm server-side, client không thể fake.
 - **ETag:** Lấy từ response header MinIO sau PUT chunk. Client gửi nguyên xi (kể cả dấu `"` bao quanh).
 - **Không cần confirm-upload:** Multipart hoàn tất ngay tại `POST /complete`, khác với presigned single-file.
 - **MinIO constraints:** Part tối thiểu 5 MB (trừ part cuối), tối đa 10.000 parts, file tối đa 5 TB.
@@ -216,10 +223,54 @@ app:
       part-url-ttl-minutes: 30
       session-ttl-hours: 24
       cleanup-interval-minutes: 30
-  virus-scan:
-    clamav:
-      host: localhost
-      port: 3310
-      timeout-ms: 30000
+
+    # Whitelist — only these MIME types are accepted at upload init time
+    allowed-mime-types:
+      - image/jpeg
+      - image/png
+      - image/gif
+      - image/webp
+      - image/svg+xml
+      - application/pdf
+      - application/msword
+      - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+      - application/vnd.ms-excel
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - text/plain
+      - text/csv
+      - video/mp4
+      - video/quicktime
+      - video/x-msvideo
+      - audio/mpeg
+      - audio/wav
+      - audio/flac
+      - audio/ogg
+
+    virus-scan:
+      clamav:
+        host: localhost
+        port: 3310
+        timeout-ms: 30000
+      # Files larger than this (MB) in a bypass-exempt MIME type skip ClamAV entirely
+      bypass-scan-size-mb: 50
+      bypass-mime-types:
+        - video/mp4
+        - video/quicktime
+        - video/x-msvideo
+        - audio/mpeg
+        - audio/wav
+        - audio/flac
+        - audio/ogg
 ```
+
+---
+
+## 5 — Security notes
+
+- **Never trust client-declared MIME alone** — whitelist check tại init là early-exit guard. `UploadStorageVerifier.verifyMimeOrFail()` luôn re-verify bằng Apache Tika sau khi file đã lên MinIO.
+- **Partial download cho Tika** — chỉ tải 8 KB đầu (`downloadPartial`) thay vì toàn bộ file. Tika đọc magic bytes, không cần toàn bộ nội dung.
+- **`sizeBytes` không thể fake** — MinIO tính từ bytes thực nhận được (server-side). `getObjectMetadata` là source of truth, khác với `Content-Type` do client tự khai.
+- **Bypass là size + MIME gated** — `video/mp4` dưới 50 MB vẫn bị scan bình thường.
+- **ZIP/EXE bị chặn hoàn toàn** — `application/zip`, `application/x-msdownload`, `application/x-executable` không có trong whitelist, bị reject tại init trước khi bytes chạm MinIO.
+- **MIME spoof detected sau upload** — file bị `UPLOAD_FAILED` và object bị purge khỏi MinIO ngay lập tức.
 
