@@ -37,7 +37,7 @@ public class CompleteMultipartUploadService implements CompleteMultipartUploadUs
         }
 
         MultipartUploadSession session = sessionRepository
-                .findByUploadIdAndInitiatedById(command.uploadId(), command.userId())
+                .findByUploadIdAndInitiatedByIdForUpdate(command.uploadId(), command.userId())
                 .orElseThrow(() -> new AppException(ErrorCode.UPLOAD_SESSION_NOT_FOUND));
 
         if (session.getStatus() != MultipartUploadStatus.IN_PROGRESS) {

@@ -19,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class ConfirmUploadService implements ConfirmUploadUseCase {
 
     private final FileJpaRepository fileRepository;
-    private final FileSupport fileSupport;
     private final ObjectStoragePort objectStoragePort;
     private final VirusScanEventPublisherPort virusScanEventPublisherPort;
 
@@ -63,8 +62,8 @@ public class ConfirmUploadService implements ConfirmUploadUseCase {
         virusScanEventPublisherPort.publishVirusScanRequested(new VirusScanRequestedEvent(
                 file.getId(),
                 storageKey,
-                file.getTenant().getId(),
-                file.getUploadedBy().getId()
+                command.tenantId(),
+                command.userId()
         ));
 
         return new ConfirmUploadView(file.getId(), FileStatus.SCANNING);

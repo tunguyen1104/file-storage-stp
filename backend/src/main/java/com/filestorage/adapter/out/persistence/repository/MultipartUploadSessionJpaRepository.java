@@ -2,7 +2,9 @@ package com.filestorage.adapter.out.persistence.repository;
 
 import com.filestorage.adapter.out.persistence.entity.MultipartUploadSession;
 import com.filestorage.domain.model.enums.MultipartUploadStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -16,6 +18,23 @@ import java.util.UUID;
 public interface MultipartUploadSessionJpaRepository extends JpaRepository<MultipartUploadSession, String> {
 
     /**
+     * Load session with PESSIMISTIC_WRITE lock — used only by CompletePartUploadService
+     * to prevent lost-update race condition when multiple parts complete concurrently.
+     * Two concurrent calls for the same uploadId will serialize here.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT s FROM MultipartUploadSession s
+            JOIN FETCH s.initiatedBy
+            JOIN FETCH s.file
+            WHERE s.uploadId = :uploadId
+              AND s.initiatedBy.id = :userId
+            """)
+    Optional<MultipartUploadSession> findByUploadIdAndInitiatedByIdForUpdate(
+            @Param("uploadId") String uploadId,
+            @Param("userId") UUID userId);
+
+    /**
      * Load session by uploadId + owner check — used by all owner-only operations
      * (get part URL, complete part, complete multipart, get session).
      * JOIN FETCH initiatedBy to avoid N+1 on ownership checks.
@@ -23,6 +42,7 @@ public interface MultipartUploadSessionJpaRepository extends JpaRepository<Multi
     @Query("""
             SELECT s FROM MultipartUploadSession s
             JOIN FETCH s.initiatedBy
+            JOIN FETCH s.file
             WHERE s.uploadId = :uploadId
               AND s.initiatedBy.id = :userId
             """)
@@ -31,10 +51,10 @@ public interface MultipartUploadSessionJpaRepository extends JpaRepository<Multi
             @Param("userId") UUID userId);
 
     /**
-     * Load session by uploadId scoped to a tenant (via the linked file).
-     * Used by abort — tenant isolation enforced at query level
-     * JOIN FETCH initiatedBy
+     * Load session with PESSIMISTIC_WRITE lock scoped to a tenant — used by
+     * AbortMultipartUploadService to prevent complete+abort race condition.
      */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT s FROM MultipartUploadSession s
             JOIN FETCH s.initiatedBy
@@ -43,7 +63,7 @@ public interface MultipartUploadSessionJpaRepository extends JpaRepository<Multi
             WHERE s.uploadId = :uploadId
               AND f.tenant.id = :tenantId
             """)
-    Optional<MultipartUploadSession> findByUploadIdAndFileTenantId(
+    Optional<MultipartUploadSession> findByUploadIdAndFileTenantIdForUpdate(
             @Param("uploadId") String uploadId,
             @Param("tenantId") UUID tenantId);
 

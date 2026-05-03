@@ -29,9 +29,9 @@ public class AbortMultipartUploadService implements AbortMultipartUploadUseCase 
     @Override
     @Transactional
     public AbortView execute(AbortMultipartUploadCommand command) {
-        // Tenant isolation enforced at query level
+        // Tenant isolation enforced at query level; lock prevents complete+abort race
         MultipartUploadSession session = sessionRepository
-                .findByUploadIdAndFileTenantId(command.uploadId(), command.tenantId())
+                .findByUploadIdAndFileTenantIdForUpdate(command.uploadId(), command.tenantId())
                 .orElseThrow(() -> new AppException(ErrorCode.UPLOAD_SESSION_NOT_FOUND));
 
 
