@@ -11,6 +11,8 @@ public interface ObjectStoragePort {
 
     byte[] download(String storageKey);
 
+    byte[] downloadPartial(String storageKey, long maxBytes);
+
     void delete(String storageKey);
 
     /**

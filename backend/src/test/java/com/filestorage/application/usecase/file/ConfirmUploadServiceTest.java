@@ -9,7 +9,6 @@ import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.model.file.ConfirmUploadView;
 import com.filestorage.domain.port.in.file.ConfirmUploadUseCase;
 import com.filestorage.domain.port.out.ObjectStoragePort;
-import com.filestorage.domain.port.out.VirusScanEventPublisherPort;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -35,18 +36,18 @@ class ConfirmUploadServiceTest {
     @Mock
     private FileJpaRepository fileRepository;
     @Mock
-    private FileSupport fileSupport;
-    @Mock
     private ObjectStoragePort objectStoragePort;
     @Mock
-    private VirusScanEventPublisherPort virusScanEventPublisherPort;
+    private UploadStorageVerifier uploadStorageVerifier;
 
     private ConfirmUploadService service;
 
     @BeforeEach
     void setUp() {
-        service = new ConfirmUploadService(fileRepository, fileSupport, objectStoragePort, virusScanEventPublisherPort);
+        service = new ConfirmUploadService(fileRepository, objectStoragePort, uploadStorageVerifier);
     }
+
+    // ─── Happy path ───────────────────────────────────────────────────────────
 
     @Test
     void ownerCanConfirmOwnPendingFile() {
@@ -57,53 +58,74 @@ class ConfirmUploadServiceTest {
 
         when(fileRepository.findByIdAndTenantId(fileId, tenantId)).thenReturn(Optional.of(file));
         when(objectStoragePort.objectExists(file.getStorageKey())).thenReturn(true);
-        when(objectStoragePort.getObjectMetadata(file.getStorageKey()))
-                .thenReturn(new ObjectStoragePort.ObjectMetadata(1024L, "application/pdf"));
         when(fileRepository.save(any())).thenReturn(file);
+        // verifySizeOrFail and verifyMimeOrFail are no-ops (mock default)
+        when(uploadStorageVerifier.routeToScanOrActivate(eq(file), eq(tenantId), eq(userId)))
+                .thenReturn(FileStatus.SCANNING);
 
-        var command = new ConfirmUploadUseCase.ConfirmUploadCommand(userId, tenantId, RoleCode.MEMBER, fileId);
-
-        ConfirmUploadView view = service.execute(command);
+        ConfirmUploadView view = service.execute(command(userId, tenantId, fileId));
 
         assertEquals(fileId, view.fileId());
         assertEquals(FileStatus.SCANNING, view.status());
-        verify(virusScanEventPublisherPort).publishVirusScanRequested(any());
+        verify(uploadStorageVerifier).verifySizeOrFail(file, file.getStorageKey());
+        verify(uploadStorageVerifier).verifyMimeOrFail(file, file.getStorageKey());
+        verify(uploadStorageVerifier).routeToScanOrActivate(file, tenantId, userId);
     }
+
+    @Test
+    void largeTrustedMediaFileBypassesScanAndBecomesActive() {
+        UUID userId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        UUID fileId = UUID.randomUUID();
+        File file = buildFile(fileId, tenantId, userId, FileStatus.PENDING, "video/mp4", 60L * 1024 * 1024);
+
+        when(fileRepository.findByIdAndTenantId(fileId, tenantId)).thenReturn(Optional.of(file));
+        when(objectStoragePort.objectExists(file.getStorageKey())).thenReturn(true);
+        when(fileRepository.save(any())).thenReturn(file);
+        when(uploadStorageVerifier.routeToScanOrActivate(eq(file), eq(tenantId), eq(userId)))
+                .thenReturn(FileStatus.ACTIVE);
+
+        ConfirmUploadView view = service.execute(command(userId, tenantId, fileId));
+
+        assertEquals(FileStatus.ACTIVE, view.status());
+    }
+
+    // ─── Access control ───────────────────────────────────────────────────────
 
     @Test
     void nonOwnerMemberCannotConfirmOtherUsersFile() {
         UUID ownerId = UUID.randomUUID();
-        UUID actorId = UUID.randomUUID(); // different user
+        UUID actorId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
         UUID fileId = UUID.randomUUID();
         File file = buildFile(fileId, tenantId, ownerId, FileStatus.PENDING);
 
         when(fileRepository.findByIdAndTenantId(fileId, tenantId)).thenReturn(Optional.of(file));
 
-        var command = new ConfirmUploadUseCase.ConfirmUploadCommand(actorId, tenantId, RoleCode.MEMBER, fileId);
+        AppException ex = assertThrows(AppException.class,
+                () -> service.execute(command(actorId, tenantId, fileId)));
 
-        AppException ex = assertThrows(AppException.class, () -> service.execute(command));
         assertEquals(ErrorCode.ACCESS_DENIED, ex.getError());
         verify(fileRepository, never()).save(any());
     }
 
     /**
-     * Service enforces owner-only rule regardless of role.
-     * TENANT_ADMIN confirming another user's file also gets ACCESS_DENIED.
+     * Owner-only rule applies regardless of role.
+     * Even TENANT_ADMIN cannot confirm another user's file.
      */
     @Test
     void tenantAdminCannotConfirmOtherUsersFile() {
         UUID ownerId = UUID.randomUUID();
-        UUID adminId = UUID.randomUUID(); // different from owner
+        UUID adminId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
         UUID fileId = UUID.randomUUID();
         File file = buildFile(fileId, tenantId, ownerId, FileStatus.PENDING);
 
         when(fileRepository.findByIdAndTenantId(fileId, tenantId)).thenReturn(Optional.of(file));
 
-        var command = new ConfirmUploadUseCase.ConfirmUploadCommand(adminId, tenantId, RoleCode.TENANT_ADMIN, fileId);
+        var cmd = new ConfirmUploadUseCase.ConfirmUploadCommand(adminId, tenantId, RoleCode.TENANT_ADMIN, fileId);
+        AppException ex = assertThrows(AppException.class, () -> service.execute(cmd));
 
-        AppException ex = assertThrows(AppException.class, () -> service.execute(command));
         assertEquals(ErrorCode.ACCESS_DENIED, ex.getError());
         verify(fileRepository, never()).save(any());
     }
@@ -113,34 +135,34 @@ class ConfirmUploadServiceTest {
         UUID adminId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
         UUID fileId = UUID.randomUUID();
-        File file = buildFile(fileId, tenantId, adminId, FileStatus.PENDING); // admin is the owner
+        File file = buildFile(fileId, tenantId, adminId, FileStatus.PENDING);
 
         when(fileRepository.findByIdAndTenantId(fileId, tenantId)).thenReturn(Optional.of(file));
         when(objectStoragePort.objectExists(file.getStorageKey())).thenReturn(true);
-        when(objectStoragePort.getObjectMetadata(file.getStorageKey()))
-                .thenReturn(new ObjectStoragePort.ObjectMetadata(1024L, "application/pdf"));
         when(fileRepository.save(any())).thenReturn(file);
+        when(uploadStorageVerifier.routeToScanOrActivate(any(), any(), any()))
+                .thenReturn(FileStatus.SCANNING);
 
-        var command = new ConfirmUploadUseCase.ConfirmUploadCommand(adminId, tenantId, RoleCode.TENANT_ADMIN, fileId);
+        var cmd = new ConfirmUploadUseCase.ConfirmUploadCommand(adminId, tenantId, RoleCode.TENANT_ADMIN, fileId);
+        ConfirmUploadView view = service.execute(cmd);
 
-        ConfirmUploadView view = service.execute(command);
-
-        assertEquals(fileId, view.fileId());
         assertEquals(FileStatus.SCANNING, view.status());
     }
+
+    // ─── Guard failures ───────────────────────────────────────────────────────
 
     @Test
     void confirmFailsWhenFileNotInPendingStatus() {
         UUID userId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
         UUID fileId = UUID.randomUUID();
-        File file = buildFile(fileId, tenantId, userId, FileStatus.ACTIVE); // already active
+        File file = buildFile(fileId, tenantId, userId, FileStatus.ACTIVE);
 
         when(fileRepository.findByIdAndTenantId(fileId, tenantId)).thenReturn(Optional.of(file));
 
-        var command = new ConfirmUploadUseCase.ConfirmUploadCommand(userId, tenantId, RoleCode.MEMBER, fileId);
+        AppException ex = assertThrows(AppException.class,
+                () -> service.execute(command(userId, tenantId, fileId)));
 
-        AppException ex = assertThrows(AppException.class, () -> service.execute(command));
         assertEquals(ErrorCode.INVALID_FILE_STATUS, ex.getError());
         verify(objectStoragePort, never()).objectExists(anyString());
     }
@@ -156,12 +178,14 @@ class ConfirmUploadServiceTest {
         when(objectStoragePort.objectExists(file.getStorageKey())).thenReturn(false);
         when(fileRepository.save(any())).thenReturn(file);
 
-        var command = new ConfirmUploadUseCase.ConfirmUploadCommand(userId, tenantId, RoleCode.MEMBER, fileId);
+        AppException ex = assertThrows(AppException.class,
+                () -> service.execute(command(userId, tenantId, fileId)));
 
-        AppException ex = assertThrows(AppException.class, () -> service.execute(command));
         assertEquals(ErrorCode.FILE_NOT_FOUND_ON_STORAGE, ex.getError());
-        verify(virusScanEventPublisherPort, never()).publishVirusScanRequested(any());
+        verify(uploadStorageVerifier, never()).verifySizeOrFail(any(), anyString());
     }
+
+    // ─── UploadStorageVerifier delegation ─────────────────────────────────────
 
     @Test
     void confirmFailsWhenSizeMismatch() {
@@ -169,70 +193,52 @@ class ConfirmUploadServiceTest {
         UUID tenantId = UUID.randomUUID();
         UUID fileId = UUID.randomUUID();
         File file = buildFile(fileId, tenantId, userId, FileStatus.PENDING);
-        // declared 1024 bytes; actual is different
-        ObjectStoragePort.ObjectMetadata mismatch = new ObjectStoragePort.ObjectMetadata(9999L, "application/pdf");
 
         when(fileRepository.findByIdAndTenantId(fileId, tenantId)).thenReturn(Optional.of(file));
         when(objectStoragePort.objectExists(file.getStorageKey())).thenReturn(true);
-        when(objectStoragePort.getObjectMetadata(file.getStorageKey())).thenReturn(mismatch);
         when(fileRepository.save(any())).thenReturn(file);
+        doThrow(new AppException(ErrorCode.FILE_METADATA_MISMATCH))
+                .when(uploadStorageVerifier).verifySizeOrFail(eq(file), anyString());
 
-        var command = new ConfirmUploadUseCase.ConfirmUploadCommand(userId, tenantId, RoleCode.MEMBER, fileId);
+        AppException ex = assertThrows(AppException.class,
+                () -> service.execute(command(userId, tenantId, fileId)));
 
-        AppException ex = assertThrows(AppException.class, () -> service.execute(command));
         assertEquals(ErrorCode.FILE_METADATA_MISMATCH, ex.getError());
-        verify(virusScanEventPublisherPort, never()).publishVirusScanRequested(any());
+        verify(uploadStorageVerifier, never()).verifyMimeOrFail(any(), anyString());
     }
 
     @Test
-    void confirmFailsWhenContentTypeMismatch() {
+    void mimeSpoofingCausesFailureBeforeScanPublished() {
         UUID userId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
         UUID fileId = UUID.randomUUID();
         File file = buildFile(fileId, tenantId, userId, FileStatus.PENDING);
-        // declared "application/pdf"; actual content-type is different
-        ObjectStoragePort.ObjectMetadata mismatch =
-                new ObjectStoragePort.ObjectMetadata(1024L, "text/plain");
 
         when(fileRepository.findByIdAndTenantId(fileId, tenantId)).thenReturn(Optional.of(file));
         when(objectStoragePort.objectExists(file.getStorageKey())).thenReturn(true);
-        when(objectStoragePort.getObjectMetadata(file.getStorageKey())).thenReturn(mismatch);
         when(fileRepository.save(any())).thenReturn(file);
+        doThrow(new AppException(ErrorCode.UNSUPPORTED_FILE_TYPE))
+                .when(uploadStorageVerifier).verifyMimeOrFail(eq(file), anyString());
 
-        var command = new ConfirmUploadUseCase.ConfirmUploadCommand(userId, tenantId, RoleCode.MEMBER, fileId);
+        AppException ex = assertThrows(AppException.class,
+                () -> service.execute(command(userId, tenantId, fileId)));
 
-        AppException ex = assertThrows(AppException.class, () -> service.execute(command));
-        assertEquals(ErrorCode.FILE_METADATA_MISMATCH, ex.getError());
-        verify(virusScanEventPublisherPort, never()).publishVirusScanRequested(any());
+        assertEquals(ErrorCode.UNSUPPORTED_FILE_TYPE, ex.getError());
+        verify(uploadStorageVerifier, never()).routeToScanOrActivate(any(), any(), any());
     }
 
-    @Test
-    void contentTypeWithCharsetStillMatches() {
-        UUID userId = UUID.randomUUID();
-        UUID tenantId = UUID.randomUUID();
-        UUID fileId = UUID.randomUUID();
-        File file = buildFile(fileId, tenantId, userId, FileStatus.PENDING);
-        // Storage returns content-type with charset parameter; declared type is without
-        ObjectStoragePort.ObjectMetadata withCharset =
-                new ObjectStoragePort.ObjectMetadata(1024L, "application/pdf; charset=utf-8");
+    // ─── Helpers ──────────────────────────────────────────────────────────────
 
-        when(fileRepository.findByIdAndTenantId(fileId, tenantId)).thenReturn(Optional.of(file));
-        when(objectStoragePort.objectExists(file.getStorageKey())).thenReturn(true);
-        when(objectStoragePort.getObjectMetadata(file.getStorageKey())).thenReturn(withCharset);
-        when(fileRepository.save(any())).thenReturn(file);
-
-        var command = new ConfirmUploadUseCase.ConfirmUploadCommand(userId, tenantId, RoleCode.MEMBER, fileId);
-
-        ConfirmUploadView view = service.execute(command);
-
-        assertEquals(FileStatus.SCANNING, view.status());
-        verify(virusScanEventPublisherPort).publishVirusScanRequested(any());
+    private static ConfirmUploadUseCase.ConfirmUploadCommand command(UUID userId, UUID tenantId, UUID fileId) {
+        return new ConfirmUploadUseCase.ConfirmUploadCommand(userId, tenantId, RoleCode.MEMBER, fileId);
     }
-
-
-    // ─── Helpers ─────────────────────────────────────────────────────────────────
 
     private File buildFile(UUID fileId, UUID tenantId, UUID uploadedById, FileStatus status) {
+        return buildFile(fileId, tenantId, uploadedById, status, "application/pdf", 1024L);
+    }
+
+    private File buildFile(UUID fileId, UUID tenantId, UUID uploadedById, FileStatus status,
+                           String mimeType, long sizeBytes) {
         Tenant tenant = Tenant.builder().name("Tenant").slug("tenant").isActive(true).build();
         tenant.setId(tenantId);
 
@@ -249,8 +255,8 @@ class ConfirmUploadServiceTest {
                 .uploadedBy(uploader)
                 .originalName("report.pdf")
                 .storageKey("tenant/user/uuid.pdf")
-                .mimeType("application/pdf")
-                .sizeBytes(1024L)
+                .mimeType(mimeType)
+                .sizeBytes(sizeBytes)
                 .status(status)
                 .isIndexed(false)
                 .build();

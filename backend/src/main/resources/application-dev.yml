@@ -93,6 +93,38 @@ app:
       part-url-ttl-minutes: ${MULTIPART_PART_URL_TTL_MINUTES:30}
       session-ttl-hours: ${MULTIPART_SESSION_TTL_HOURS:24}
       cleanup-interval-minutes: ${MULTIPART_CLEANUP_INTERVAL_MINUTES:30}
+    allowed-mime-types:
+      - image/jpeg
+      - image/png
+      - image/gif
+      - image/webp
+      - image/svg+xml
+      - application/pdf
+      - application/msword
+      - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+      - application/vnd.ms-excel
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/vnd.ms-powerpoint
+      - application/vnd.openxmlformats-officedocument.presentationml.presentation
+      - text/plain
+      - text/csv
+      - video/mp4
+      - video/quicktime
+      - video/x-msvideo
+      - audio/mpeg
+      - audio/wav
+      - audio/flac
+      - audio/ogg
+    virus-scan:
+      bypass-scan-size-mb: ${VIRUS_SCAN_BYPASS_SIZE_MB:50}
+      bypass-mime-types:
+        - video/mp4
+        - video/quicktime
+        - video/x-msvideo
+        - audio/mpeg
+        - audio/wav
+        - audio/flac
+        - audio/ogg
   virus-scan:
     clamav:
       host: ${CLAMAV_HOST:localhost}

@@ -49,6 +49,7 @@ public enum ErrorCode {
     INVALID_SESSION_STATUS(1035, "error.invalid-session-status", HttpStatus.CONFLICT),
     UPLOAD_SESSION_EXPIRED(1036, "error.upload-session-expired", HttpStatus.UNPROCESSABLE_CONTENT),
     PARTS_INCOMPLETE(1037, "error.parts-incomplete", HttpStatus.UNPROCESSABLE_CONTENT),
+    UNSUPPORTED_FILE_TYPE(1038, "error.file.unsupported_type", HttpStatus.UNPROCESSABLE_CONTENT),
     INTERNAL_SERVER_ERROR(1500, "error.internal-server-error", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final int code;
