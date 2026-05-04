@@ -41,6 +41,18 @@ public class CompletePartUploadService implements CompletePartUploadUseCase {
             throw new AppException(ErrorCode.INVALID_SESSION_STATUS);
         }
 
+        // Reject part numbers outside the declared range (1..totalParts)
+        if (command.partNumber() < 1 || command.partNumber() > session.getTotalParts()) {
+            throw new AppException(ErrorCode.INVALID_PART_NUMBER);
+        }
+
+        // Reject duplicate part registration to prevent JSONB pollution
+        boolean alreadyRecorded = session.getUploadedParts().stream()
+                .anyMatch(p -> p.partNumber() == command.partNumber());
+        if (alreadyRecorded) {
+            throw new AppException(ErrorCode.PART_ALREADY_COMPLETED);
+        }
+
         // Append the new part — build a fresh mutable list to avoid immutable-list mutation
         List<MultipartUploadSession.PartInfo> updated = new ArrayList<>(session.getUploadedParts());
         updated.add(new MultipartUploadSession.PartInfo(command.partNumber(), command.etag()));

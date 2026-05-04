@@ -50,6 +50,8 @@ public enum ErrorCode {
     UPLOAD_SESSION_EXPIRED(1036, "error.upload-session-expired", HttpStatus.UNPROCESSABLE_CONTENT),
     PARTS_INCOMPLETE(1037, "error.parts-incomplete", HttpStatus.UNPROCESSABLE_CONTENT),
     UNSUPPORTED_FILE_TYPE(1038, "error.file.unsupported_type", HttpStatus.UNPROCESSABLE_CONTENT),
+    INVALID_PART_NUMBER(1039, "error.invalid-part-number", HttpStatus.BAD_REQUEST),
+    PART_ALREADY_COMPLETED(1040, "error.part-already-completed", HttpStatus.CONFLICT),
     INTERNAL_SERVER_ERROR(1500, "error.internal-server-error", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final int code;

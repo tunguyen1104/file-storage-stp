@@ -49,20 +49,21 @@ public class FileUploadValidator {
 
     /**
      * Uses Apache Tika to detect the real MIME type from the first bytes of {@code inputStream},
-     * then validates the detected type against the whitelist.
+     * validates it against the whitelist, and returns the detected type.
      * <p>
-     * Call this after the file has been retrieved from object storage to prevent MIME-spoofing.
-     * If Tika detection fails, the method falls back to {@code declaredMimeType} and validates
-     * that instead — the earlier whitelist check at init time already covered it.
+     * Use this variant when the detected MIME type is needed downstream (e.g. to make
+     * accurate scan-bypass decisions based on the real type, not the client-declared one).
      *
-     * @param inputStream    stream positioned at the start of the file content (not closed by this method)
-     * @param declaredMimeType the MIME type that was declared at upload init time (fallback)
+     * @param inputStream      stream positioned at the start of the file content (not closed by this method)
+     * @param declaredMimeType the MIME type declared at upload init time (used as Tika fallback)
+     * @return the Tika-detected (and whitelist-validated) MIME type
      * @throws AppException with {@link ErrorCode#UNSUPPORTED_FILE_TYPE} if the detected type is not allowed
      */
-    public void rejectIfMimeSpoofed(InputStream inputStream, String declaredMimeType) {
+    public String detectAndValidateMime(InputStream inputStream, String declaredMimeType) {
         String detected = detectMime(inputStream, declaredMimeType);
         log.debug("Tika detected MIME type: '{}' (declared: '{}')", detected, declaredMimeType);
         validateMimeType(detected);
+        return detected;
     }
 
     /**
