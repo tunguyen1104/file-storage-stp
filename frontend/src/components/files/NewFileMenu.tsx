@@ -10,6 +10,7 @@ import {
   Copy,
   Send,
   Pencil,
+  Trash2,
   ChevronRight,
   X,
 } from "lucide-react";
@@ -21,12 +22,17 @@ interface NewFileMenuProps {
   anchorRef?: React.RefObject<HTMLElement | null>;
   onUpload?: () => void;
   onCreateFolder?: () => void;
+  /** Called when Edit is clicked; only provided when inside a folder */
+  onEditFolder?: () => void;
+  /** Called when Remove is clicked; only provided when inside a folder */
+  onRemoveFolder?: () => void;
 }
 
 type MenuItem = {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   hasArrow?: boolean;
+  danger?: boolean;
   onClick?: () => void;
 };
 
@@ -36,6 +42,8 @@ export function NewFileMenu({
   anchorRef,
   onUpload,
   onCreateFolder,
+  onEditFolder,
+  onRemoveFolder,
 }: NewFileMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -81,7 +89,8 @@ export function NewFileMenu({
   ];
 
   const modifyItems: MenuItem[] = [
-    { icon: Pencil, label: "Edit", hasArrow: true },
+    ...(onEditFolder ? [{ icon: Pencil, label: "Edit", hasArrow: false, onClick: onEditFolder }] : []),
+    ...(onRemoveFolder ? [{ icon: Trash2, label: "Remove", hasArrow: false, danger: true, onClick: onRemoveFolder }] : []),
   ];
 
   return (
@@ -105,13 +114,13 @@ export function NewFileMenu({
       </div>
 
       {/* CREATE section */}
-      <MenuSection label="CREATE" items={createItems} defaultActiveIndex={0} />
+      <MenuSection label="CREATE" items={createItems} />
 
       {/* ADD section */}
       <MenuSection label="ADD" items={addItems} />
 
-      {/* MODIFY section */}
-      <MenuSection label="MODIFY" items={modifyItems} />
+      {/* MODIFY section — only shown when inside a folder */}
+      {modifyItems.length > 0 && <MenuSection label="MODIFY" items={modifyItems} />}
 
       <div className="h-2" />
     </div>
@@ -123,11 +132,9 @@ export function NewFileMenu({
 function MenuSection({
   label,
   items,
-  defaultActiveIndex,
 }: {
   label: string;
   items: MenuItem[];
-  defaultActiveIndex?: number;
 }) {
   return (
     <div className="px-2 py-1">
@@ -136,16 +143,15 @@ function MenuSection({
       </p>
       {items.map((item, idx) => {
         const Icon = item.icon;
-        const isDefault = idx === defaultActiveIndex;
         return (
           <button
             key={item.label}
             onClick={item.onClick}
             className={cn(
               "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors text-left",
-              isDefault
-                ? "bg-[#7C3AED] text-white"
-                : "text-gray-200 hover:bg-white/10"
+              item.danger
+                ? "text-red-400 hover:bg-red-600 hover:text-white"
+                : "text-gray-200 hover:bg-[#7C3AED] hover:text-white"
             )}
             role="menuitem"
           >

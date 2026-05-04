@@ -26,6 +26,7 @@ const BROWSER_COOKIE_NAMES = new Set(Object.values(COOKIE_MAP));
  */
 const ALLOWED_PREFIXES = [
   "/api/v1/auth/",
+  "/api/v1/folders",
   "/api/v1/files",
   "/api/v1/uploads",
   "/api/v1/users",
@@ -102,6 +103,7 @@ function clearAuthCookies(response: NextResponse) {
  */
 const CSRF_EXEMPT_PATHS = new Set([
   "/api/v1/auth/signin",
+  "/api/v1/auth/refresh",
   "/api/v1/auth/forgot-password",
   "/api/v1/auth/verify-reset-token",
   "/api/v1/auth/reset-password",
@@ -156,7 +158,7 @@ export async function proxyToBackend(
   const headers = new Headers();
 
   const contentType = req.headers.get("content-type");
-  if (contentType) {
+  if (contentType && !["GET", "HEAD"].includes(req.method)) {
     headers.set("Content-Type", contentType);
   } else if (!["GET", "HEAD"].includes(req.method)) {
     headers.set("Content-Type", "application/json");

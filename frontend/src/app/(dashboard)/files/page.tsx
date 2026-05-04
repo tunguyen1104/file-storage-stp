@@ -22,6 +22,7 @@ import {
   ChevronRight,
   Home,
   X,
+  Folder as FolderIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -40,7 +41,11 @@ import { DeleteFileDialog } from "@/components/files/DeleteFileDialog";
 import { UploadFileDialog } from "@/components/upload/UploadFileDialog";
 import { NewFileMenu } from "@/components/files/NewFileMenu";
 import { listFiles, downloadFile, getPresignedGetUrl } from "@/lib/api/file";
+import { listFolderItems, getFolderBreadcrumbs } from "@/lib/api/folder";
 import { useDebounce } from "@/hooks/use-debounce";
+import { CreateFolderDialog } from "@/components/folders/CreateFolderDialog";
+import { RenameFolderDialog } from "@/components/folders/RenameFolderDialog";
+import { DeleteFolderDialog } from "@/components/folders/DeleteFolderDialog";
 import {
   DEFAULT_PAGE_SIZE,
   FILE_STATUS,
@@ -49,11 +54,13 @@ import {
 } from "@/lib/constants";
 import type { FileSortBy, SortDirection } from "@/lib/constants";
 import type { FileMetadataResponse } from "@/types/file/file";
+import type { FolderItem } from "@/types/folder/folder";
 import { cn } from "@/lib/utils";
 
 // ─── File icon helpers ───────────────────────────────────────────
 
-function renderFileIcon(mimeType: string, size = "h-5 w-5") {
+function renderFileIcon(mimeType: string | null, size = "h-5 w-5") {
+  if (!mimeType) return <FolderIcon className={cn(size, "text-blue-500 fill-blue-100")} />;
   if (mimeType.startsWith("image/")) return <FileImage className={cn(size, "text-sky-500")} />;
   if (mimeType.startsWith("video/")) return <FileVideo className={cn(size, "text-purple-500")} />;
   if (mimeType.startsWith("audio/")) return <FileAudio className={cn(size, "text-orange-500")} />;
@@ -71,7 +78,8 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
-function getTypeName(mimeType: string): string {
+function getTypeName(mimeType: string | null): string {
+  if (!mimeType) return "Folder";
   if (mimeType.includes("pdf")) return "PDF";
   if (mimeType.includes("spreadsheet") || mimeType.includes("excel") || mimeType.includes("xlsx")) return "Excel";
   if (mimeType.includes("document") || mimeType.includes("word") || mimeType.includes("docx")) return "Doc";
@@ -111,45 +119,106 @@ function FilesPageInner() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [newFileMenuOpen, setNewFileMenuOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<FileMetadataResponse | null>(null);
+  const [selectedItem, setSelectedItem] = useState<any>(null); // FolderItem or FileMetadataResponse
   const [selectedFile, setSelectedFile] = useState<FileMetadataResponse | null>(null);
   const [droppedFile, setDroppedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Reset selected file, page, and search when tab changes
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [createFolderOpen, setCreateFolderOpen] = useState(false);
+  const [renameFolderOpen, setRenameFolderOpen] = useState(false);
+  const [deleteFolderOpen, setDeleteFolderOpen] = useState(false);
+
   useEffect(() => {
     setSelectedFile(null);
+    setSelectedItem(null);
     setCurrentPage(1);
     setSearch("");
+    setCurrentFolderId(null);
   }, [tab]);
 
   const newFileButtonRef = useRef<HTMLButtonElement>(null);
 
   // ── Data ──
-  const swrKey = ["files", currentPage, debouncedSearch, statusFilter, sort.sortBy, sort.sortDirection, tab] as const;
+  const swrKey = ["items", currentPage, debouncedSearch, statusFilter, sort.sortBy, sort.sortDirection, tab, currentFolderId] as const;
   const { data, error, isLoading, mutate } = useSWR(
     swrKey,
-    ([, page, q, status, sortBy, sortDirection]) =>
-      listFiles({
-        page,
-        limit: DEFAULT_PAGE_SIZE,
-        search: q || undefined,
-        status,
-        sortBy,
-        sortDirection,
-      })
+    async ([, page, q, status, sortBy, sortDirection, t, fId]) => {
+      if (t === "trash") {
+        return listFiles({
+          page,
+          limit: DEFAULT_PAGE_SIZE,
+          search: q || undefined,
+          status,
+          sortBy,
+          sortDirection,
+        });
+      } else {
+        return listFolderItems(fId, {
+          page,
+          size: DEFAULT_PAGE_SIZE,
+          search: q || undefined,
+          sort: sortBy === FILE_SORT_BY.CREATED_AT ? "CREATED_AT" : sortBy === FILE_SORT_BY.SIZE_BYTES ? "SIZE_BYTES" : "NAME",
+          sortOrder: sortDirection === SORT_DIRECTION.ASC ? "ASC" : "DESC",
+        });
+      }
+    },
+    { revalidateOnFocus: false }
   );
 
-  const files = data?.data ?? [];
+  const { data: breadcrumbs, mutate: mutateBreadcrumbs } = useSWR(
+    !isTrash && currentFolderId ? ["breadcrumbs", currentFolderId] : null,
+    ([, id]) => getFolderBreadcrumbs(id),
+    { revalidateOnFocus: false }
+  );
+
+  // Both APIs return PageResponse<T> wrapped in ApiResponse
+  const items = data?.data ?? [];
   const totalPages = data?.totalPages ?? 1;
+  // Current folder name derived from breadcrumbs (used by RenameFolderDialog)
+  const currentFolderName = breadcrumbs?.find((c) => c.id === currentFolderId)?.name ?? "";
 
   function handleSuccess() {
     mutate();
+    mutateBreadcrumbs();
     setDeleteTarget(null);
     setSelectedFile(null);
+    setSelectedItem(null);
   }
 
-  function handleFileSelect(file: FileMetadataResponse) {
-    setSelectedFile((prev) => (prev?.id === file.id ? null : file));
+  function handleItemSelect(item: any) {
+    if (item.type === "folder") {
+      setCurrentFolderId(item.id);
+      setCurrentPage(1);
+      setSelectedItem(null);
+      setSelectedFile(null);
+    } else {
+      if (selectedItem?.id === item.id) {
+        // Deselect
+        setSelectedItem(null);
+        setSelectedFile(null);
+      } else {
+        // Map FolderItem → FileMetadataResponse shape instantly (no API call)
+        setSelectedItem(item);
+        setSelectedFile({
+          id: item.id,
+          originalName: item.name ?? item.originalName,
+          mimeType: item.mimeType ?? "application/octet-stream",
+          sizeBytes: item.sizeBytes ?? 0,
+          status: "ACTIVE" as any,
+          folderId: item.parentId ?? null,
+          tenantId: null,
+          checksumMd5: null,
+          thumbnailKey: null,
+          isIndexed: false,
+          uploadedBy: item.uploadedBy ?? { id: "", fullName: "—" },
+          deletedAt: null,
+          scheduledDeleteAt: null,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt ?? item.createdAt,
+        });
+      }
+    }
   }
 
   const handleDownload = useCallback(async (file: FileMetadataResponse) => {
@@ -206,13 +275,68 @@ function FilesPageInner() {
         )}>
           {/* Breadcrumb + toolbar */}
           <div className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3 shrink-0">
-            <div className="flex items-center gap-1.5 text-sm">
-              <span className="flex items-center gap-1 text-gray-500 hover:text-gray-700 cursor-pointer transition-colors">
+            <div className="flex items-center gap-1.5 text-sm overflow-x-auto whitespace-nowrap hide-scrollbar">
+              <span
+                className="flex items-center gap-1 text-gray-500 hover:text-gray-700 cursor-pointer transition-colors"
+                onClick={() => {
+                  setCurrentFolderId(null);
+                  setCurrentPage(1);
+                }}
+              >
                 <Home className="h-3.5 w-3.5" />
                 My Files
               </span>
-              <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
-              <span className="font-semibold text-gray-800">{pageLabel}</span>
+
+              {!isTrash && (
+                <>
+                  <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                  <span
+                    className={cn(
+                      "cursor-pointer transition-colors",
+                      !currentFolderId ? "font-semibold text-gray-800 cursor-default" : "text-gray-500 hover:text-gray-700"
+                    )}
+                    onClick={() => {
+                      if (currentFolderId) {
+                        setCurrentFolderId(null);
+                        setCurrentPage(1);
+                      }
+                    }}
+                  >
+                    All Files
+                  </span>
+                </>
+              )}
+
+              {!isTrash && breadcrumbs?.map((crumb) => {
+                if (crumb.name === "root") return null;
+                const isLast = crumb.id === currentFolderId;
+                return (
+                  <div key={crumb.id} className="flex items-center gap-1.5">
+                    <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                    <span
+                      className={cn(
+                        "cursor-pointer transition-colors",
+                        isLast ? "font-semibold text-gray-800 cursor-default" : "text-gray-500 hover:text-gray-700"
+                      )}
+                      onClick={() => {
+                        if (!isLast) {
+                          setCurrentFolderId(crumb.id);
+                          setCurrentPage(1);
+                        }
+                      }}
+                    >
+                      {crumb.name}
+                    </span>
+                  </div>
+                );
+              })}
+
+              {isTrash && (
+                <>
+                  <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                  <span className="font-semibold text-gray-800">{pageLabel}</span>
+                </>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -242,7 +366,7 @@ function FilesPageInner() {
                 </button>
               </div>
 
-              {/* New File button (only on All Files, not Trash) */}
+              {/* Choose button (only on All Files, not Trash) */}
               {!isTrash && (
                 <div className="relative">
                   <Button
@@ -252,7 +376,7 @@ function FilesPageInner() {
                     onClick={() => setNewFileMenuOpen((v) => !v)}
                   >
                     <Plus className="h-4 w-4" />
-                    New File
+                    Choose
                   </Button>
                   <NewFileMenu
                     open={newFileMenuOpen}
@@ -264,8 +388,16 @@ function FilesPageInner() {
                     }}
                     onCreateFolder={() => {
                       setNewFileMenuOpen(false);
-                      toast.info("Create folder coming soon");
+                      setCreateFolderOpen(true);
                     }}
+                    onEditFolder={currentFolderId ? () => {
+                      setNewFileMenuOpen(false);
+                      setRenameFolderOpen(true);
+                    } : undefined}
+                    onRemoveFolder={currentFolderId ? () => {
+                      setNewFileMenuOpen(false);
+                      setDeleteFolderOpen(true);
+                    } : undefined}
                   />
                 </div>
               )}
@@ -345,21 +477,20 @@ function FilesPageInner() {
               />
             )}
 
-            {/* File list / grid */}
             {viewMode === "list" ? (
               <FileListView
-                files={files}
+                items={items}
                 isLoading={isLoading}
-                selectedFile={selectedFile}
-                onSelect={handleFileSelect}
+                selectedItemId={selectedItem?.id}
+                onSelect={handleItemSelect}
                 emptyMessage={emptyLabel}
               />
             ) : (
               <FileGridView
-                files={files}
+                items={items}
                 isLoading={isLoading}
-                selectedFile={selectedFile}
-                onSelect={handleFileSelect}
+                selectedItemId={selectedItem?.id}
+                onSelect={handleItemSelect}
                 emptyMessage={emptyLabel}
               />
             )}
@@ -441,6 +572,43 @@ function FilesPageInner() {
           }}
           onSuccess={handleSuccess}
           initialFile={droppedFile}
+          folderId={currentFolderId ?? undefined}
+        />
+      )}
+      <CreateFolderDialog
+        open={createFolderOpen}
+        onOpenChange={setCreateFolderOpen}
+        parentId={currentFolderId}
+        onSuccess={handleSuccess}
+      />
+      {currentFolderId && (
+        <RenameFolderDialog
+          open={renameFolderOpen}
+          onOpenChange={setRenameFolderOpen}
+          folderId={currentFolderId}
+          currentName={currentFolderName}
+          onSuccess={handleSuccess}
+        />
+      )}
+      {currentFolderId && (
+        <DeleteFolderDialog
+          open={deleteFolderOpen}
+          onOpenChange={setDeleteFolderOpen}
+          folderId={currentFolderId}
+          folderName={currentFolderName}
+          onSuccess={() => {
+            // Navigate to parent folder (one level up via breadcrumbs)
+            const parentCrumb = breadcrumbs
+              ? breadcrumbs[breadcrumbs.length - 2]
+              : null;
+            const parentId =
+              parentCrumb && parentCrumb.name !== "root"
+                ? parentCrumb.id
+                : null;
+            setCurrentFolderId(parentId);
+            setCurrentPage(1);
+            mutate();
+          }}
         />
       )}
       <DeleteFileDialog
@@ -457,16 +625,16 @@ function FilesPageInner() {
 // ─── List View ───────────────────────────────────────────────────
 
 function FileListView({
-  files,
+  items,
   isLoading,
-  selectedFile,
+  selectedItemId,
   onSelect,
   emptyMessage,
 }: {
-  files: FileMetadataResponse[];
+  items: any[];
   isLoading: boolean;
-  selectedFile: FileMetadataResponse | null;
-  onSelect: (f: FileMetadataResponse) => void;
+  selectedItemId: string | undefined;
+  onSelect: (item: any) => void;
   emptyMessage: string;
 }) {
   if (isLoading) {
@@ -496,7 +664,7 @@ function FileListView({
     );
   }
 
-  if (files.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-gray-200 bg-white py-16">
         <FolderOpen className="h-10 w-10 text-gray-300" />
@@ -517,12 +685,14 @@ function FileListView({
           </tr>
         </thead>
         <tbody>
-          {files.map((file) => {
-            const isSelected = selectedFile?.id === file.id;
+          {items.map((item) => {
+            const isSelected = selectedItemId === item.id;
+            const name = item.name || item.originalName;
+            const date = item.updatedAt || item.createdAt;
             return (
               <tr
-                key={file.id}
-                onClick={() => onSelect(file)}
+                key={item.id}
+                onClick={() => onSelect(item)}
                 className={cn(
                   "group border-b border-gray-50 cursor-pointer transition-colors",
                   isSelected
@@ -532,17 +702,17 @@ function FileListView({
               >
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2.5">
-                    {renderFileIcon(file.mimeType, "h-4 w-4 shrink-0")}
+                    {renderFileIcon(item.mimeType, "h-4 w-4 shrink-0")}
                     <span className={cn(
                       "truncate font-medium",
                       isSelected ? "text-[#7C3AED]" : "text-gray-800"
                     )}>
-                      {file.originalName}
+                      {name}
                     </span>
                   </div>
                 </td>
                 <td className="px-4 py-3 text-gray-400 hidden sm:table-cell whitespace-nowrap">
-                  {new Date(file.updatedAt ?? file.createdAt).toLocaleString(undefined, {
+                  {date && new Date(date).toLocaleString(undefined, {
                     month: "short",
                     day: "numeric",
                     year: "numeric",
@@ -551,10 +721,10 @@ function FileListView({
                   })}
                 </td>
                 <td className="px-4 py-3 text-gray-500 hidden md:table-cell">
-                  {getTypeName(file.mimeType)}
+                  {getTypeName(item.mimeType)}
                 </td>
                 <td className="px-4 py-3 text-right text-gray-400 tabular-nums whitespace-nowrap">
-                  {file.sizeBytes > 0 ? formatBytes(file.sizeBytes) : "—"}
+                  {item.type === "folder" || !item.sizeBytes ? "—" : formatBytes(item.sizeBytes)}
                 </td>
               </tr>
             );
@@ -568,16 +738,16 @@ function FileListView({
 // ─── Grid View ───────────────────────────────────────────────────
 
 function FileGridView({
-  files,
+  items,
   isLoading,
-  selectedFile,
+  selectedItemId,
   onSelect,
   emptyMessage,
 }: {
-  files: FileMetadataResponse[];
+  items: any[];
   isLoading: boolean;
-  selectedFile: FileMetadataResponse | null;
-  onSelect: (f: FileMetadataResponse) => void;
+  selectedItemId: string | undefined;
+  onSelect: (item: any) => void;
   emptyMessage: string;
 }) {
   if (isLoading) {
@@ -596,7 +766,7 @@ function FileGridView({
     );
   }
 
-  if (files.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-gray-200 bg-white py-16">
         <FolderOpen className="h-10 w-10 text-gray-300" />
@@ -607,12 +777,13 @@ function FileGridView({
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-      {files.map((file) => {
-        const isSelected = selectedFile?.id === file.id;
+      {items.map((item) => {
+        const isSelected = selectedItemId === item.id;
+        const name = item.name || item.originalName;
         return (
           <div
-            key={file.id}
-            onClick={() => onSelect(file)}
+            key={item.id}
+            onClick={() => onSelect(item)}
             className={cn(
               "group relative rounded-xl border p-4 cursor-pointer transition-all space-y-3",
               isSelected
@@ -628,14 +799,16 @@ function FileGridView({
             </button>
 
             <div className="flex h-12 items-center justify-center">
-              {renderFileIcon(file.mimeType, "h-10 w-10")}
+              {renderFileIcon(item.mimeType, "h-10 w-10")}
             </div>
 
             <div>
-              <p className="truncate text-xs font-semibold text-gray-800">
-                {file.originalName}
+              <p className="truncate text-xs font-semibold text-gray-800" title={name}>
+                {name}
               </p>
-              <p className="mt-0.5 text-[10px] text-gray-400">{formatBytes(file.sizeBytes)}</p>
+              <p className="mt-0.5 text-[10px] text-gray-400">
+                {item.type === "folder" || !item.sizeBytes ? "—" : formatBytes(item.sizeBytes)}
+              </p>
             </div>
           </div>
         );

@@ -59,6 +59,14 @@ export const API_ROUTES = {
     DOWNLOAD: (id: string) => `${API_PREFIX}/files/${id}/download`,
     UPLOAD_SINGLE: `${API_PREFIX}/uploads/single`,
   },
+  FOLDERS: {
+    ROOT: `${API_PREFIX}/folders/root`,
+    CHILDREN: (id: string) => `${API_PREFIX}/folders/${id}/children`,
+    CREATE: `${API_PREFIX}/folders`,
+    BY_ID: (id: string) => `${API_PREFIX}/folders/${id}`,
+    BREADCRUMBS: (id: string) => `${API_PREFIX}/folders/${id}/breadcrumbs`,
+    MOVE: (id: string) => `${API_PREFIX}/folders/${id}/move`,
+  },
   TENANTS: {
     LIST: `${API_PREFIX}/tenants`,
     BY_ID: (id: string) => `${API_PREFIX}/tenants/${id}`,

@@ -72,7 +72,8 @@ apiClient.interceptors.response.use(
     // Start a new refresh and store the promise
     refreshPromise = (async () => {
       try {
-        await axios.post(API_ROUTES.AUTH.REFRESH, {}, { withCredentials: true });
+        // Use apiClient so the CSRF token header is automatically attached
+        await apiClient.post(API_ROUTES.AUTH.REFRESH, {});
       } catch (refreshError) {
         // Force logout on any refresh failure
         if (
