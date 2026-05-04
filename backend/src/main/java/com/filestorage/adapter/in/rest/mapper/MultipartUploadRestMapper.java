@@ -23,9 +23,14 @@ public interface MultipartUploadRestMapper {
 
     PartCompletionResponse toPartCompletionResponse(PartCompletionView view);
 
-    @Mapping(target = "message",
-             constant = "File is being scanned for viruses. Please check back shortly.")
+    @Mapping(target = "message", expression = "java(toCompleteMessage(view))")
     MultipartCompleteResponse toCompleteResponse(MultipartCompleteView view);
+
+    default String toCompleteMessage(MultipartCompleteView view) {
+        return view.status() == com.filestorage.domain.model.enums.FileStatus.ACTIVE
+                ? "File uploaded successfully."
+                : "File is being scanned for viruses. Please check back shortly.";
+    }
 
     @Mapping(target = "uploadedParts", expression = "java(toPartInfoList(view))")
     MultipartSessionResponse toSessionResponse(MultipartSessionView view);
