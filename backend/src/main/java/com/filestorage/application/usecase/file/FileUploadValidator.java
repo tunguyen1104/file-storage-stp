@@ -1,5 +1,6 @@
 package com.filestorage.application.usecase.file;
 
+import com.filestorage.infrastructure.config.ClamAvProperties;
 import com.filestorage.infrastructure.config.UploadProperties;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
@@ -31,6 +32,7 @@ import java.io.InputStream;
 public class FileUploadValidator {
 
     private final UploadProperties uploadProperties;
+    private final ClamAvProperties clamAvProperties;
     private final Tika tika = new Tika();
 
     /**
@@ -69,20 +71,41 @@ public class FileUploadValidator {
     /**
      * Returns {@code true} when this file should skip ClamAV virus scanning.
      * <p>
-     * Bypass applies only when <em>both</em> conditions hold:
+     * Bypass applies when <em>any</em> of the following conditions hold:
      * <ul>
-     *   <li>The file size exceeds the configured threshold ({@code app.upload.virus-scan.bypass-scan-size-mb} MB).</li>
-     *   <li>The MIME type is in {@code app.upload.virus-scan.bypass-mime-types}.</li>
+     *   <li><b>Too large for ClamAV</b> — file size exceeds {@code app.virus-scan.clamav.max-scan-file-size-bytes}.
+     *       Sending a larger file would cause HTTP 413 from the REST API sidecar.</li>
+     *   <li><b>Trusted large media</b> — file size exceeds the bypass-size threshold
+     *       ({@code app.upload.virus-scan.bypass-scan-size-mb}) AND the MIME type is in
+     *       {@code app.upload.virus-scan.bypass-mime-types}.</li>
      * </ul>
      *
-     * @param mimeType  the file's MIME type
+     * @param mimeType  the file's MIME type (Tika-detected, not client-declared)
      * @param sizeBytes the file's size in bytes
      * @return {@code true} if the file qualifies for scan bypass; {@code false} otherwise
      */
     public boolean shouldBypassScan(String mimeType, long sizeBytes) {
-        long thresholdBytes = uploadProperties.getVirusScan().getBypassScanSizeMb() * 1024L * 1024L;
-        return sizeBytes > thresholdBytes
-                && uploadProperties.getVirusScan().getBypassMimeTypes().contains(normalise(mimeType));
+        // Guard: file exceeds ClamAV REST API size limit → bypass to prevent HTTP 413
+        if (sizeBytes > clamAvProperties.getMaxScanFileSizeBytes()) {
+            log.warn("Scan bypass (file too large for ClamAV): size={} bytes > maxScanFileSizeBytes={} bytes — activating directly",
+                    sizeBytes, clamAvProperties.getMaxScanFileSizeBytes());
+            return true;
+        }
+
+        // Bypass: trusted large-media type above configured threshold
+        long bypassThresholdBytes = uploadProperties.getVirusScan().getBypassScanSizeMb() * 1024L * 1024L;
+        String normalisedMime = normalise(mimeType);
+        boolean exceedsThreshold = sizeBytes > bypassThresholdBytes;
+        boolean isTrustedMediaType = uploadProperties.getVirusScan().getBypassMimeTypes().contains(normalisedMime);
+
+        if (exceedsThreshold && isTrustedMediaType) {
+            log.debug("Scan bypass (trusted media): mime='{}' size={}MB > threshold={}MB",
+                    normalisedMime, sizeBytes / (1024L * 1024L),
+                    uploadProperties.getVirusScan().getBypassScanSizeMb());
+            return true;
+        }
+
+        return false;
     }
 
     // ─── Private helpers ──────────────────────────────────────────────────────

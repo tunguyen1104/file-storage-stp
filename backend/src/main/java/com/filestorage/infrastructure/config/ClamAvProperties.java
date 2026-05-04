@@ -24,9 +24,12 @@ public class ClamAvProperties {
 
     /** Port of the ClamAV REST API service. */
     @Min(1)
-    private int port = 3310;
+    private int port = 3001;
 
     /** HTTP request timeout in milliseconds. */
     @Min(1000)
     private int timeoutMs = 30_000;
+
+    @Min(1)
+    private long maxScanFileSizeBytes = 209_715_200L;
 }

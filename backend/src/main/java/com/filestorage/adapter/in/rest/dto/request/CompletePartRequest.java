@@ -1,11 +1,13 @@
 package com.filestorage.adapter.in.rest.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
 
-@Data
+@Getter
+@Setter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class CompletePartRequest {
 
     @NotBlank

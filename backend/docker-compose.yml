@@ -130,7 +130,7 @@ services:
     container_name: clamav-file-storage
     restart: unless-stopped
     ports:
-      - "${CLAMAV_PORT:-3310}:3310"
+      - "3310:3310"
     volumes:
       - ./clamav_data:/var/lib/clamav
     healthcheck:
@@ -139,6 +139,26 @@ services:
       timeout: 30s
       retries: 5
       start_period: 120s
+    networks:
+      - file-storage-network
+
+  clamav-rest:
+    image: benzino77/clamav-rest-api
+    container_name: clamav-rest-api
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - APP_PORT=8090
+      - APP_FORM_KEY=FILES
+      - APP_MAX_FILE_SIZE=${CLAMAV_MAX_SCAN_FILE_SIZE_BYTES:-209715200}
+      - CLAMD_IP=clamav
+      - CLAMD_PORT=3310
+      - CLAMD_TIMEOUT=60000
+    ports:
+      - "${CLAMAV_REST_PORT:-3001}:8090"
+    depends_on:
+      clamav:
+        condition: service_healthy
     networks:
       - file-storage-network
 
