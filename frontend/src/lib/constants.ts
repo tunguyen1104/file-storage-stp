@@ -53,6 +53,7 @@ export const API_ROUTES = {
   FILES: {
     LIST: `${API_PREFIX}/files`,
     BY_ID: (id: string) => `${API_PREFIX}/files/${id}`,
+    DIRECT_DELETE: (id: string) => `${API_PREFIX}/files/${id}/direct`,
     RESTORE: (id: string) => `${API_PREFIX}/files/${id}/restore`,
     PRESIGNED_GET_URL: (id: string) => `${API_PREFIX}/files/${id}/presigned-get-url`,
     DOWNLOAD: (id: string) => `${API_PREFIX}/files/${id}/download`,

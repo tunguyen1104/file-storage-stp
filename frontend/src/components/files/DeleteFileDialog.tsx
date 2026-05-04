@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { deleteFile } from "@/lib/api/file";
+import { deleteFile, deleteFileDirect } from "@/lib/api/file";
 import type { FileMetadataResponse } from "@/types/file/file";
 
 // ─── Props ───────────────────────────────────────────────────────
@@ -24,6 +24,7 @@ interface DeleteFileDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  isDirectDelete?: boolean;
 }
 
 // ─── Component ───────────────────────────────────────────────────
@@ -33,6 +34,7 @@ export function DeleteFileDialog({
   open,
   onOpenChange,
   onSuccess,
+  isDirectDelete,
 }: DeleteFileDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -40,8 +42,13 @@ export function DeleteFileDialog({
     if (!file) return;
     setIsSubmitting(true);
     try {
-      await deleteFile(file.id);
-      toast.success(`"${file.originalName}" has been deleted`);
+      if (isDirectDelete) {
+        await deleteFileDirect(file.id);
+        toast.success(`"${file.originalName}" has been permanently deleted`);
+      } else {
+        await deleteFile(file.id);
+        toast.success(`"${file.originalName}" has been moved to trash`);
+      }
       onOpenChange(false);
       onSuccess();
     } catch (error) {
@@ -55,11 +62,13 @@ export function DeleteFileDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete File</AlertDialogTitle>
+          <AlertDialogTitle>{isDirectDelete ? "Permanently Delete File" : "Delete File"}</AlertDialogTitle>
           <AlertDialogDescription>
             Are you sure you want to delete{" "}
             <span className="font-semibold">{file?.originalName}</span>?
-            The file will be moved to trash and scheduled for permanent deletion.
+            {isDirectDelete 
+              ? " This action cannot be undone and the file will be permanently removed."
+              : " The file will be moved to trash and scheduled for permanent deletion."}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

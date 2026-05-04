@@ -82,6 +82,20 @@ export async function deleteFile(fileId: string): Promise<FileResponse> {
   }
 }
 
+export async function deleteFileDirect(fileId: string): Promise<FileResponse> {
+  try {
+    const response = await apiClient.delete<ApiResponse<FileResponse>>(
+      API_ROUTES.FILES.DIRECT_DELETE(fileId)
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.message ?? "Failed to permanently delete file");
+    }
+    return response.data.data;
+  } catch (error) {
+    throw toAppError(error);
+  }
+}
+
 export async function restoreFile(fileId: string): Promise<FileResponse> {
   try {
     const response = await apiClient.post<ApiResponse<FileResponse>>(

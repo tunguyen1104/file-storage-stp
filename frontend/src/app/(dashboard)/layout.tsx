@@ -24,8 +24,8 @@ const DEFAULT_ROUTE_BY_ROLE = {
 } as const;
 
 const ALLOWED_ROUTES_BY_ROLE: Record<string, string[]> = {
-  SUPER_ADMIN: ["/tenants", "/users", "/files", "/search"],
-  TENANT_ADMIN: ["/users", "/files", "/search"],
+  SUPER_ADMIN: ["/tenants", "/users", "/files", "/search", "/audit-logs"],
+  TENANT_ADMIN: ["/users", "/files", "/search", "/security", "/audit-logs"],
   MEMBER: ["/files", "/search"],
 };
 
@@ -73,9 +73,9 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
+    <div className="flex h-screen overflow-hidden bg-gray-50 text-gray-900">
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-30 hidden border-r border-gray-200 bg-white md:block transition-all duration-300",
+        "fixed inset-y-0 left-0 z-30 hidden border-r border-gray-200 bg-white md:flex md:flex-col transition-all duration-300",
         isSidebarCollapsed ? "w-[80px]" : "w-64"
       )}>
         <DashboardSidebar 
@@ -87,7 +87,7 @@ export default function DashboardLayout({
       </aside>
 
       <div className={cn(
-        "flex min-h-screen flex-col transition-all duration-300",
+        "flex flex-1 flex-col overflow-hidden transition-all duration-300",
         isSidebarCollapsed ? "md:pl-[80px]" : "md:pl-64"
       )}>
         <header className="sticky top-0 md:hidden z-20 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 md:px-6">
@@ -134,7 +134,10 @@ export default function DashboardLayout({
           </Button>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        <main className={cn(
+          "flex-1 overflow-hidden",
+          !pathname.startsWith("/files") && "overflow-y-auto p-4 md:p-6"
+        )}>
           {children}
         </main>
       </div>

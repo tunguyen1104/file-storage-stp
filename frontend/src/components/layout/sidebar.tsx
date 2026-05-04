@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Building2,
   FolderOpen,
-  Search,
   Users,
   HardDrive,
   ChevronLeft,
@@ -12,6 +12,10 @@ import {
   LogOut,
   User,
   ChevronsUpDown,
+  Shield,
+  ClipboardList,
+  Trash2,
+  Share2,
 } from "lucide-react";
 
 import type { AuthUser } from "@/contexts/auth-context";
@@ -33,18 +37,46 @@ type NavItem = {
   icon: React.ComponentType<{ className?: string }>;
 };
 
-const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
+type NavSection = {
+  items: NavItem[];
+  separator?: boolean; // separator before this section
+};
+
+const NAV_SECTIONS_BY_ROLE: Record<Role, NavSection[]> = {
   SUPER_ADMIN: [
-    { href: "/tenants", label: "Tenant Management", icon: Users },
-    { href: "/users", label: "User Management", icon: HardDrive },
-    { href: "/files", label: "File Management", icon: FolderOpen },
+    {
+      items: [
+        { href: "/tenants", label: "Tenant Management", icon: Building2 },
+        { href: "/users", label: "User Management", icon: Users },
+        { href: "/files", label: "File Management", icon: FolderOpen },
+      ],
+    },
   ],
   TENANT_ADMIN: [
-    { href: "/users", label: "User Management", icon: Users },
-    { href: "/files", label: "File Management", icon: FolderOpen },
+    {
+      items: [
+        { href: "/users", label: "Team Members", icon: Users },
+        { href: "/security", label: "Security", icon: Shield },
+        { href: "/audit-logs", label: "Usage Logs", icon: ClipboardList },
+      ],
+    },
+    {
+      separator: true,
+      items: [
+        { href: "/files", label: "All Files", icon: FolderOpen },
+        { href: "/files?tab=trash", label: "Trash", icon: Trash2 },
+        { href: "/files?tab=shared", label: "Shared", icon: Share2 },
+      ],
+    },
   ],
   MEMBER: [
-    { href: "/files", label: "File Management", icon: FolderOpen },
+    {
+      items: [
+        { href: "/files", label: "All Files", icon: FolderOpen },
+        { href: "/files?tab=trash", label: "Trash", icon: Trash2 },
+        { href: "/files?tab=shared", label: "Shared", icon: Share2 },
+      ],
+    },
   ],
 };
 
@@ -66,10 +98,22 @@ export function DashboardSidebar({
   onToggleCollapse,
 }: DashboardSidebarProps) {
   const { logOut } = useAuth();
-  const navItems = NAV_ITEMS_BY_ROLE[user.role] ?? [];
+  const searchParams = useSearchParams();
+  const sections = NAV_SECTIONS_BY_ROLE[user.role] ?? [];
+
+  function isItemActive(href: string): boolean {
+    const base = href.split("?")[0];
+    if (href.includes("?tab=")) {
+      const tabValue = new URLSearchParams(href.slice(href.indexOf("?"))).get("tab");
+      return pathname === base && searchParams.get("tab") === tabValue;
+    }
+    // Plain path: active if matches or is a sub-path, AND no tab param
+    return (pathname === base || pathname.startsWith(`${base}/`)) && !searchParams.get("tab");
+  }
 
   return (
     <div className={cn("flex h-full flex-col bg-white border-r border-gray-200 transition-all duration-300 relative", className)}>
+      {/* Logo */}
       <div className={cn(
         "flex items-center py-6 px-6 relative",
         isCollapsed ? "justify-center px-0 pb-4" : "gap-2 pb-4"
@@ -84,17 +128,18 @@ export function DashboardSidebar({
         )}
       </div>
 
+      {/* Role label + collapse toggle */}
       <div className={cn(
         "flex items-center mt-2 mb-4",
         isCollapsed ? "justify-center px-0" : "px-6 justify-between"
       )}>
         {!isCollapsed && (
           <span className="text-xs font-bold text-gray-500 tracking-wider whitespace-nowrap">
-            {user.role.replace("_", " ")}
+            {user.role.replace(/_/g, " ")}
           </span>
         )}
         {onToggleCollapse && (
-          <button 
+          <button
             onClick={onToggleCollapse}
             className={cn(
               "text-gray-400 hover:text-gray-600 focus:outline-none",
@@ -106,32 +151,46 @@ export function DashboardSidebar({
         )}
       </div>
 
-      <nav className="flex-1 space-y-1 px-4 py-2 overflow-hidden">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-          const Icon = item.icon;
+      {/* Navigation */}
+      <nav className="flex-1 px-4 py-2 overflow-hidden space-y-1">
+        {sections.map((section, sIdx) => (
+          <div key={sIdx}>
+            {/* Separator line before section (if applicable) */}
+            {section.separator && !isCollapsed && (
+              <div className="my-3 border-t border-gray-100" />
+            )}
+            {section.separator && isCollapsed && (
+              <div className="my-3 border-t border-gray-100 mx-2" />
+            )}
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              title={isCollapsed ? item.label : undefined}
-              className={cn(
-                "flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition whitespace-nowrap",
-                isCollapsed ? "justify-center px-0 h-10 w-10 mx-auto" : "gap-3",
-                isActive
-                  ? "bg-[#F3E8FF] text-[#7C3AED]"
-                  : "text-[#7C3AED] hover:bg-[#F3E8FF]/50"
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {!isCollapsed && <span>{item.label}</span>}
-            </Link>
-          );
-        })}
+            {section.items.map((item) => {
+              const isActive = isItemActive(item.href);
+              const Icon = item.icon;
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  title={isCollapsed ? item.label : undefined}
+                  className={cn(
+                    "flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition whitespace-nowrap",
+                    isCollapsed ? "justify-center px-0 h-10 w-10 mx-auto" : "gap-3",
+                    isActive
+                      ? "bg-[#F3E8FF] text-[#7C3AED]"
+                      : "text-gray-600 hover:bg-[#F3E8FF]/50 hover:text-[#7C3AED]"
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {!isCollapsed && <span>{item.label}</span>}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
+      {/* Bottom user section */}
       <div className="p-4 border-t border-gray-200">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
