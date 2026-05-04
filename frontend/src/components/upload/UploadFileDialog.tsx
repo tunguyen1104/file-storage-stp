@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
 import { CloudUpload, File as FileIcon, Loader2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,8 @@ interface UploadFileDialogProps {
   onSuccess: () => void;
   /** Optional folder ID to upload into */
   folderId?: string;
+  /** Initial file passed from outside drag & drop */
+  initialFile?: File | null;
 }
 
 type UploadState = "idle" | "uploading" | "success" | "error";
@@ -44,12 +46,25 @@ export function UploadFileDialog({
   onOpenChange,
   onSuccess,
   folderId,
+  initialFile,
 }: UploadFileDialogProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      if (initialFile) {
+        setSelectedFile(initialFile);
+        setUploadState("idle");
+        setError(null);
+      } else {
+        reset();
+      }
+    }
+  }, [open, initialFile]);
 
   function reset() {
     setSelectedFile(null);

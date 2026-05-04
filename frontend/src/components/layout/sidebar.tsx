@@ -214,9 +214,11 @@ export function DashboardSidebar({
             </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[200px]" sideOffset={12}>
-            <DropdownMenuItem className="cursor-pointer gap-2">
-              <User className="h-4 w-4 text-gray-500" />
-              <span>Profile</span>
+            <DropdownMenuItem asChild className="cursor-pointer">
+              <Link href="/profile" className="flex items-center gap-2 w-full">
+                <User className="h-4 w-4 text-gray-500" />
+                <span>Profile</span>
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => void logOut()}>

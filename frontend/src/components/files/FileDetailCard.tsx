@@ -20,10 +20,29 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { downloadFile, getPresignedGetUrl, restoreFile } from "@/lib/api/file";
 import { FILE_STATUS } from "@/lib/constants";
 import type { FileMetadataResponse } from "@/types/file/file";
 import { cn } from "@/lib/utils";
+
+const PREVIEWABLE_MIME_TYPES = [
+  "application/pdf",
+  "text/csv",
+  "text/plain",
+  "video/mp4",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+];
+
+function isPreviewable(mimeType: string) {
+  if (mimeType.startsWith("image/")) return true;
+  return PREVIEWABLE_MIME_TYPES.includes(mimeType);
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
@@ -93,13 +112,14 @@ export function FileDetailCard({
   onDelete,
 }: FileDetailCardProps) {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   async function handlePreview() {
     if (!file) return;
     setActionLoading("preview");
     try {
       const { getUrl } = await getPresignedGetUrl(file.id);
-      window.open(getUrl, "_blank", "noopener,noreferrer");
+      setPreviewUrl(getUrl);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to get preview URL");
     } finally {
@@ -268,18 +288,20 @@ export function FileDetailCard({
                 Share
               </Button>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-2 w-full"
-              disabled={actionLoading !== null}
-              onClick={handlePreview}
-            >
-              {actionLoading === "preview"
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <Eye className="h-4 w-4" />}
-              Preview
-            </Button>
+            {isPreviewable(file.mimeType) && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2 w-full"
+                disabled={actionLoading !== null}
+                onClick={handlePreview}
+              >
+                {actionLoading === "preview"
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <Eye className="h-4 w-4" />}
+                Preview
+              </Button>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <Button
                 size="sm"
@@ -333,6 +355,23 @@ export function FileDetailCard({
           </div>
         )}
       </div>
+
+      <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
+        <DialogContent className="max-w-[90vw] w-full h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+          <DialogHeader className="p-4 border-b bg-white shrink-0">
+            <DialogTitle className="truncate pr-6">Preview: {file.originalName}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden bg-gray-100 relative">
+            {previewUrl && (
+              <iframe
+                src={previewUrl}
+                className="w-full h-full border-0 absolute inset-0"
+                title="File Preview"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

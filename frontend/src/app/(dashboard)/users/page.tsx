@@ -88,7 +88,7 @@ function TenantAdminDashboard() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<UserResponse | null>(null);
   const [deactivateUser, setDeactivateUser] = useState<UserResponse | null>(null);
-  
+
   // Security settings states
   const [ssoEnabled, setSsoEnabled] = useState(true);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
@@ -98,11 +98,11 @@ function TenantAdminDashboard() {
   const { data, isLoading, mutate } = useSWR(
     ["users", currentPage, debouncedSearch, filterByStatus],
     ([, page, q, status]) =>
-      listTenantUsers({ 
-        page, 
-        limit: 5, 
+      listTenantUsers({
+        page,
+        limit: 5,
         search: q || undefined,
-        isActive: status === "active" ? true : status === "offline" ? false : undefined
+        isActive: status === "active" ? true : status === "inactive" ? false : undefined
       })
   );
 
@@ -144,12 +144,12 @@ function TenantAdminDashboard() {
           <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
           <Input
             className="h-12 pl-10 border-0 shadow-sm bg-white focus-visible:ring-[#7C3AED] rounded-lg text-base w-full"
-            placeholder="Search files, tenants, or members..."
+            placeholder="Search member"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
           />
         </div>
-        <Button 
+        <Button
           className="h-12 bg-[#5B5CEF] hover:bg-[#4C4DE0] text-white px-6 font-medium rounded-lg text-base shadow-sm"
           onClick={() => setCreateOpen(true)}
         >
@@ -170,7 +170,7 @@ function TenantAdminDashboard() {
                 <p className="text-sm text-gray-500">Manage roles and workspace access for {totalElements} users</p>
               </div>
             </div>
-            
+
             <div className="w-[180px]">
               <Select value={filterByStatus} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger className="w-full h-10 border-gray-200 text-sm">
@@ -179,7 +179,7 @@ function TenantAdminDashboard() {
                 <SelectContent>
                   <SelectItem value="all">All statuses</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="offline">Offline</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -230,7 +230,7 @@ function TenantAdminDashboard() {
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="bg-gray-50 text-gray-500 border-gray-200 font-medium px-3 flex items-center justify-center w-fit">
-                            Offline
+                            Inactive
                           </Badge>
                         )}
                       </TableCell>
@@ -242,17 +242,17 @@ function TenantAdminDashboard() {
                       </TableCell>
                       <TableCell className="py-4 pr-6 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Button 
-                            variant="default" 
-                            size="sm" 
+                          <Button
+                            variant="default"
+                            size="sm"
                             className="h-8 bg-[#EF4444] hover:bg-[#DC2626] text-white px-3 text-xs font-semibold uppercase tracking-wider"
                             onClick={() => setDeactivateUser(member)}
                           >
                             Delete
                           </Button>
-                          <Button 
-                            variant="default" 
-                            size="sm" 
+                          <Button
+                            variant="default"
+                            size="sm"
                             className="h-8 bg-[#5B5CEF] hover:bg-[#4C4DE0] text-white px-4 text-xs font-semibold uppercase tracking-wider"
                             onClick={() => setEditUser(member)}
                           >
@@ -269,7 +269,7 @@ function TenantAdminDashboard() {
 
           <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between text-sm text-gray-500">
             <span>Showing {users.length} of {totalElements} members</span>
-            
+
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -366,7 +366,7 @@ function TenantAdminDashboard() {
               </div>
             </div>
 
-            <div 
+            <div
               onClick={() => router.push('/audit-logs')}
               className="mt-8 pt-4 border-t border-gray-100 flex items-center justify-between cursor-pointer group hover:bg-gray-50 -mx-6 px-6 -mb-6 pb-6"
             >

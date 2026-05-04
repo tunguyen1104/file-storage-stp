@@ -112,6 +112,8 @@ function FilesPageInner() {
   const [newFileMenuOpen, setNewFileMenuOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<FileMetadataResponse | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileMetadataResponse | null>(null);
+  const [droppedFile, setDroppedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Reset selected file, page, and search when tab changes
   useEffect(() => {
@@ -296,8 +298,16 @@ function FilesPageInner() {
               <div
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                 onDragLeave={() => setIsDragging(false)}
-                onDrop={(e) => { e.preventDefault(); setIsDragging(false); setUploadOpen(true); }}
-                onClick={() => setUploadOpen(true)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  const file = e.dataTransfer.files[0];
+                  if (file) {
+                    setDroppedFile(file);
+                    setUploadOpen(true);
+                  }
+                }}
+                onClick={() => fileInputRef.current?.click()}
                 className={cn(
                   "flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed py-8 cursor-pointer transition-all",
                   isDragging
@@ -316,6 +326,23 @@ function FilesPageInner() {
                   <p className="text-xs text-gray-400 mt-0.5">Support for PDF, Images, Zip and Docs up to 500MB</p>
                 </div>
               </div>
+            )}
+
+            {/* Hidden file input for outer drop zone */}
+            {!isTrash && (
+              <input
+                type="file"
+                className="hidden"
+                ref={fileInputRef}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setDroppedFile(file);
+                    setUploadOpen(true);
+                  }
+                  e.target.value = '';
+                }}
+              />
             )}
 
             {/* File list / grid */}
@@ -408,8 +435,12 @@ function FilesPageInner() {
       {!isTrash && (
         <UploadFileDialog
           open={uploadOpen}
-          onOpenChange={setUploadOpen}
+          onOpenChange={(open) => {
+            setUploadOpen(open);
+            if (!open) setDroppedFile(null);
+          }}
           onSuccess={handleSuccess}
+          initialFile={droppedFile}
         />
       )}
       <DeleteFileDialog

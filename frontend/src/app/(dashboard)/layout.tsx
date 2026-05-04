@@ -24,9 +24,9 @@ const DEFAULT_ROUTE_BY_ROLE = {
 } as const;
 
 const ALLOWED_ROUTES_BY_ROLE: Record<string, string[]> = {
-  SUPER_ADMIN: ["/tenants", "/users", "/files", "/search", "/audit-logs"],
-  TENANT_ADMIN: ["/users", "/files", "/search", "/security", "/audit-logs"],
-  MEMBER: ["/files", "/search"],
+  SUPER_ADMIN: ["/tenants", "/users", "/files", "/search", "/audit-logs", "/profile"],
+  TENANT_ADMIN: ["/users", "/files", "/search", "/security", "/audit-logs", "/profile"],
+  MEMBER: ["/files", "/search", "/profile"],
 };
 
 function toTitle(value: string) {
