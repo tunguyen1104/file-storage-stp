@@ -115,6 +115,20 @@ app:
       - audio/wav
       - audio/flac
       - audio/ogg
+      # Potentially risky — allowed but virus-scanned; frontend must warn users
+      - application/zip
+      - application/x-zip-compressed
+      - application/x-rar-compressed
+      - application/x-7z-compressed
+      - application/x-tar
+      - application/gzip
+      - application/x-msdownload
+      - application/x-executable
+      - application/x-msi
+      - application/x-deb
+      - application/x-rpm
+      - application/java-archive
+      - application/octet-stream
     virus-scan:
       bypass-scan-size-mb: ${VIRUS_SCAN_BYPASS_SIZE_MB:50}
       bypass-mime-types:
@@ -128,7 +142,8 @@ app:
   virus-scan:
     clamav:
       host: ${CLAMAV_HOST:localhost}
-      port: ${CLAMAV_PORT:3310}
-      timeout-ms: ${CLAMAV_TIMEOUT_MS:30000}
+      port: ${CLAMAV_PORT:3001}
+      timeout-ms: ${CLAMAV_TIMEOUT_MS:60000}
+      max-scan-file-size-bytes: ${CLAMAV_MAX_SCAN_FILE_SIZE_BYTES:209715200}
 server:
   port: 8081
