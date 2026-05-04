@@ -46,8 +46,10 @@ public class CompleteMultipartUploadService implements CompleteMultipartUploadUs
             throw new AppException(ErrorCode.PARTS_INCOMPLETE);
         }
 
-        // Convert to domain-safe descriptors for the storage port
+        // Convert to domain-safe descriptors for the storage port, sorted by partNumber
+        // S3/MinIO requires parts in ascending order — parallel uploads may arrive out of order
         List<ObjectStoragePort.PartDescriptor> partDescriptors = command.parts().stream()
+                .sorted(java.util.Comparator.comparingInt(CompleteMultipartUploadUseCase.PartInfo::partNumber))
                 .map(p -> new ObjectStoragePort.PartDescriptor(p.partNumber(), p.etag()))
                 .toList();
 
@@ -58,11 +60,6 @@ public class CompleteMultipartUploadService implements CompleteMultipartUploadUs
                 partDescriptors
         );
 
-        // Transition session to terminal state and evict Redis cache
-        session.setStatus(MultipartUploadStatus.COMPLETED);
-        sessionRepository.save(session);
-        cachePort.evictMultipartSession(session.getUploadId());
-
         var file = session.getFile();
         String storageKey = session.getObjectKey();
 
@@ -71,6 +68,11 @@ public class CompleteMultipartUploadService implements CompleteMultipartUploadUs
 
         // Re-detect real MIME type via Tika to prevent spoofing after assembly
         uploadStorageVerifier.verifyMimeOrFail(file, storageKey);
+
+        // Transition session to terminal state and evict Redis cache
+        session.setStatus(MultipartUploadStatus.COMPLETED);
+        sessionRepository.save(session);
+        cachePort.evictMultipartSession(session.getUploadId());
 
         // Route to ClamAV scan or activate directly if eligible for bypass
         FileStatus resultStatus = uploadStorageVerifier.routeToScanOrActivate(

@@ -189,7 +189,7 @@ Session: IN_PROGRESS → COMPLETED  (POST /complete thành công)
 ### Lưu ý
 
 - **Quota:** `SELECT FOR UPDATE` tại `init` tránh race condition. Chỉ cộng quota sau scan sạch bằng atomic UPDATE.
-- **Concurrent parts:** `CompletePartUploadService` dùng optimistic locking (`@Version`) tránh ghi đè JSONB.
+- **Concurrent parts:** `CompletePartUploadService` serialize cập nhật trên cùng `MultipartUploadSession` bằng pessimistic write lock (`SELECT FOR UPDATE`), nên các request complete part đồng thời sẽ chờ nhau thay vì ghi đè JSONB. `MultipartUploadSession` không dùng optimistic locking với `@Version`.
 - **MIME whitelist:** `FileUploadValidator.validateMimeType()` kiểm tra tại `InitMultipartUploadService` (early-exit). `UploadStorageVerifier.verifyMimeOrFail()` re-verify bằng Tika sau khi MinIO hoàn tất ghép file — chỉ download 8 KB đầu, không load cả file vào RAM.
 - **Size verify:** `UploadStorageVerifier.verifySizeOrFail()` gọi `getObjectMetadata` sau khi MinIO assemble — `sizeBytes` do MinIO đếm server-side, client không thể fake.
 - **ETag:** Lấy từ response header MinIO sau PUT chunk. Client gửi nguyên xi (kể cả dấu `"` bao quanh).
@@ -246,11 +246,8 @@ app:
       - audio/flac
       - audio/ogg
 
+    # Scan bypass — bound to UploadProperties.VirusScan (app.upload.virus-scan.*)
     virus-scan:
-      clamav:
-        host: localhost
-        port: 3310
-        timeout-ms: 30000
       # Files larger than this (MB) in a bypass-exempt MIME type skip ClamAV entirely
       bypass-scan-size-mb: 50
       bypass-mime-types:
@@ -261,6 +258,14 @@ app:
         - audio/wav
         - audio/flac
         - audio/ogg
+
+# ClamAV REST sidecar — bound to ClamAvProperties (app.virus-scan.clamav.*)
+app:
+  virus-scan:
+    clamav:
+      host: localhost
+      port: 3310
+      timeout-ms: 30000
 ```
 
 ---
