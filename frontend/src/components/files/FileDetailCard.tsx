@@ -3,25 +3,46 @@
 import { useState } from "react";
 import {
   Download,
-  Eye,
   Loader2,
   RotateCcw,
-  Calendar,
-  HardDrive,
-  User,
-  Hash,
-  FileType,
+  Share2,
+  Eye,
+  FileText,
+  FileImage,
+  FileVideo,
+  FileAudio,
+  FileArchive,
+  File as FileIcon,
+  Trash2,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { downloadFile, getPresignedGetUrl, restoreFile } from "@/lib/api/file";
 import { FILE_STATUS } from "@/lib/constants";
 import type { FileMetadataResponse } from "@/types/file/file";
+import { cn } from "@/lib/utils";
+
+const PREVIEWABLE_MIME_TYPES = [
+  "application/pdf",
+  "text/csv",
+  "text/plain",
+  "video/mp4",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+];
+
+function isPreviewable(mimeType: string) {
+  if (mimeType.startsWith("image/")) return true;
+  return PREVIEWABLE_MIME_TYPES.includes(mimeType);
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
@@ -32,21 +53,41 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
-function formatDateTime(iso: string | null): string {
+function formatRelative(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString();
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  const hours = Math.floor(mins / 60);
+  const days = Math.floor(hours / 24);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} mins ago`;
+  if (hours < 24) return `${hours} hours ago`;
+  return `${days} days ago`;
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  [FILE_STATUS.ACTIVE]: "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-400",
-  [FILE_STATUS.PENDING]: "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-400",
-  [FILE_STATUS.PENDING_DELETE]: "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-400",
-  [FILE_STATUS.DELETED]: "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400",
-  [FILE_STATUS.UPLOAD_FAILED]: "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400",
-};
+function renderFileIcon(mimeType: string, size = "h-12 w-12") {
+  const cls = cn(size);
+  if (mimeType.startsWith("image/")) return <FileImage className={cn(cls, "text-sky-500")} />;
+  if (mimeType.startsWith("video/")) return <FileVideo className={cn(cls, "text-purple-500")} />;
+  if (mimeType.startsWith("audio/")) return <FileAudio className={cn(cls, "text-orange-500")} />;
+  if (mimeType.includes("zip") || mimeType.includes("tar") || mimeType.includes("rar"))
+    return <FileArchive className={cn(cls, "text-amber-500")} />;
+  if (mimeType.includes("pdf") || mimeType.includes("document") || mimeType.startsWith("text/"))
+    return <FileText className={cn(cls, "text-red-500")} />;
+  return <FileIcon className={cn(cls, "text-gray-400")} />;
+}
 
-function statusLabel(status: string): string {
-  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+function getMimeLabel(mimeType: string): string {
+  if (mimeType.includes("pdf")) return "PDF FILE";
+  if (mimeType.includes("spreadsheet") || mimeType.includes("excel") || mimeType.includes("xlsx")) return "EXCEL FILE";
+  if (mimeType.includes("document") || mimeType.includes("word") || mimeType.includes("docx")) return "WORD FILE";
+  if (mimeType.includes("presentation") || mimeType.includes("powerpoint")) return "PRESENTATION FILE";
+  if (mimeType.startsWith("image/")) return "IMAGE FILE";
+  if (mimeType.startsWith("video/")) return "VIDEO FILE";
+  if (mimeType.startsWith("audio/")) return "AUDIO FILE";
+  if (mimeType.includes("zip") || mimeType.includes("tar")) return "ARCHIVE FILE";
+  const parts = mimeType.split("/");
+  return (parts[1] ?? mimeType).toUpperCase() + " FILE";
 }
 
 // ─── Props ───────────────────────────────────────────────────────
@@ -54,21 +95,31 @@ function statusLabel(status: string): string {
 interface FileDetailCardProps {
   file: FileMetadataResponse | null;
   isLoading?: boolean;
-  /** Called when a mutation (restore) succeeds so parent can refresh data */
+  /** "default" = All Files view (Download/Share/Preview), "trash" = Trash view (Delete/Restore) */
+  mode?: "default" | "trash";
+  /** Called when a mutation (restore/delete) succeeds so parent can refresh data */
   onMutate?: () => void;
+  onDelete?: (file: FileMetadataResponse) => void;
 }
 
 // ─── Component ───────────────────────────────────────────────────
 
-export function FileDetailCard({ file, isLoading, onMutate }: FileDetailCardProps) {
+export function FileDetailCard({
+  file,
+  isLoading,
+  mode = "default",
+  onMutate,
+  onDelete,
+}: FileDetailCardProps) {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   async function handlePreview() {
     if (!file) return;
     setActionLoading("preview");
     try {
       const { getUrl } = await getPresignedGetUrl(file.id);
-      window.open(getUrl, "_blank", "noopener,noreferrer");
+      setPreviewUrl(getUrl);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to get preview URL");
     } finally {
@@ -81,7 +132,6 @@ export function FileDetailCard({ file, isLoading, onMutate }: FileDetailCardProp
     setActionLoading("download");
     try {
       const { downloadUrl } = await downloadFile(file.id);
-      // Trigger browser download via hidden anchor
       const a = document.createElement("a");
       a.href = downloadUrl;
       a.download = file.originalName;
@@ -110,82 +160,116 @@ export function FileDetailCard({ file, isLoading, onMutate }: FileDetailCardProp
     }
   }
 
+  // ── Loading skeleton ──
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-48" />
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <Skeleton className="h-4 w-4 rounded" />
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="ml-auto h-4 w-24" />
+      <div className="flex flex-col h-full p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-5 w-28" />
+        </div>
+        <Skeleton className="h-36 w-full rounded-xl" />
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-4 w-20" />
+        <div className="grid grid-cols-2 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="space-y-1">
+              <Skeleton className="h-3 w-14" />
+              <Skeleton className="h-4 w-20" />
             </div>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
+  // ── Empty state ──
   if (!file) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center text-muted-foreground">
-          No file selected.
-        </CardContent>
-      </Card>
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+        <FileIcon className="h-12 w-12 text-gray-200" />
+        <p className="text-sm text-gray-400">Select a file to see details</p>
+      </div>
     );
   }
 
-  const isActive = file.status === FILE_STATUS.ACTIVE;
-  const isRestorable =
-    file.status === FILE_STATUS.PENDING_DELETE || file.status === FILE_STATUS.DELETED;
-
-  const detailRows: { icon: React.ReactNode; label: string; value: React.ReactNode }[] = [
-    { icon: <FileType className="h-4 w-4" />, label: "MIME Type", value: file.mimeType },
-    { icon: <HardDrive className="h-4 w-4" />, label: "Size", value: formatBytes(file.sizeBytes) },
-    { icon: <User className="h-4 w-4" />, label: "Uploaded By", value: file.uploadedBy?.fullName ?? "—" },
-    { icon: <Calendar className="h-4 w-4" />, label: "Created", value: formatDateTime(file.createdAt) },
-    { icon: <Calendar className="h-4 w-4" />, label: "Updated", value: formatDateTime(file.updatedAt) },
-    { icon: <Hash className="h-4 w-4" />, label: "MD5 Checksum", value: file.checksumMd5 ?? "—" },
+  const activityItems = [
+    {
+      actor: file.uploadedBy?.fullName ?? "Unknown",
+      action: "uploaded this file",
+      time: formatRelative(file.createdAt),
+      initial: (file.uploadedBy?.fullName ?? "U").charAt(0),
+    },
+    ...(file.updatedAt && file.updatedAt !== file.createdAt
+      ? [{ actor: "System", action: "updated this file", time: formatRelative(file.updatedAt), initial: "S" }]
+      : []),
   ];
 
-  if (file.deletedAt) {
-    detailRows.push({ icon: <Calendar className="h-4 w-4" />, label: "Deleted At", value: formatDateTime(file.deletedAt) });
-  }
-  if (file.scheduledDeleteAt) {
-    detailRows.push({ icon: <Calendar className="h-4 w-4" />, label: "Permanent Delete", value: formatDateTime(file.scheduledDeleteAt) });
-  }
-
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-4">
-        <div className="space-y-1.5 min-w-0">
-          <CardTitle className="truncate text-lg">{file.originalName}</CardTitle>
-          <Badge variant="outline" className={STATUS_STYLES[file.status] ?? ""}>
-            {statusLabel(file.status)}
-          </Badge>
+    <div className="flex flex-col h-full overflow-y-auto">
+      {/* ── Header ── */}
+      <div className="flex items-center px-5 pt-5 pb-4 border-b border-gray-100">
+        <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+          <span className="text-gray-400 text-base">ℹ</span>
+          File Details
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {isActive && (
-            <>
+      </div>
+
+      <div className="flex flex-col gap-4 px-5 py-4">
+        {/* ── Thumbnail ── */}
+        <div className="flex h-36 items-center justify-center rounded-xl bg-gray-50 border border-gray-100">
+          {renderFileIcon(file.mimeType, "h-14 w-14")}
+        </div>
+
+        {/* ── File name & type ── */}
+        <div>
+          <p className="font-semibold text-gray-900 break-all leading-snug">{file.originalName}</p>
+          <p className="mt-1 text-xs font-medium tracking-wider text-gray-400 uppercase">
+            {getMimeLabel(file.mimeType)}
+          </p>
+        </div>
+
+        {/* ── Metadata grid ── */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          <MetaCell label="SIZE" value={formatBytes(file.sizeBytes)} />
+          <MetaCell label="MODIFIED" value={formatRelative(file.updatedAt)} />
+          <MetaCell label="OWNER" value={file.uploadedBy?.fullName ?? "—"} />
+          <MetaCell label="LOCATION" value="My Files" />
+        </div>
+
+        {/* ── Activity ── */}
+        <div>
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <RotateCcw className="h-3.5 w-3.5 text-gray-400" />
+            Activity
+          </div>
+          <div className="space-y-3">
+            {activityItems.map((item, i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                <div className="mt-0.5 h-6 w-6 shrink-0 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#a855f7] flex items-center justify-center text-white text-xs font-bold">
+                  {item.initial}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-gray-600 leading-snug">
+                    <span className="font-semibold text-gray-800">{item.actor}</span>{" "}
+                    {item.action}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">{item.time}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Action buttons ── */}
+      <div className="mt-auto border-t border-gray-100 px-5 py-4 space-y-2">
+        {mode === "default" && (
+          <>
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 size="sm"
                 variant="outline"
-                className="gap-1.5"
-                disabled={actionLoading !== null}
-                onClick={handlePreview}
-              >
-                {actionLoading === "preview"
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <Eye className="h-4 w-4" />}
-                Preview
-              </Button>
-              <Button
-                size="sm"
-                className="gap-1.5"
+                className="gap-2 w-full"
                 disabled={actionLoading !== null}
                 onClick={handleDownload}
               >
@@ -194,13 +278,72 @@ export function FileDetailCard({ file, isLoading, onMutate }: FileDetailCardProp
                   : <Download className="h-4 w-4" />}
                 Download
               </Button>
-            </>
-          )}
-          {isRestorable && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2 w-full"
+                disabled
+              >
+                <Share2 className="h-4 w-4" />
+                Share
+              </Button>
+            </div>
+            {isPreviewable(file.mimeType) && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2 w-full"
+                disabled={actionLoading !== null}
+                onClick={handlePreview}
+              >
+                {actionLoading === "preview"
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <Eye className="h-4 w-4" />}
+                Preview
+              </Button>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2 w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                disabled={actionLoading !== null}
+                onClick={() => onDelete?.(file)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Remove
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2 w-full"
+                disabled
+              >
+                <Pencil className="h-4 w-4" />
+                Edit
+              </Button>
+            </div>
+          </>
+        )}
+
+        {mode === "trash" && (
+          <div className="grid grid-cols-2 gap-2">
             <Button
               size="sm"
               variant="outline"
-              className="gap-1.5"
+              className="gap-2 w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+              disabled={actionLoading !== null}
+              onClick={() => onDelete?.(file)}
+            >
+              {actionLoading === "delete"
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <Trash2 className="h-4 w-4" />}
+              Delete
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2 w-full border-[#7C3AED]/30 text-[#7C3AED] hover:bg-[#F3E8FF] hover:text-[#7C3AED]"
               disabled={actionLoading !== null}
               onClick={handleRestore}
             >
@@ -209,21 +352,37 @@ export function FileDetailCard({ file, isLoading, onMutate }: FileDetailCardProp
                 : <RotateCcw className="h-4 w-4" />}
               Restore
             </Button>
-          )}
-        </div>
-      </CardHeader>
-      <Separator />
-      <CardContent className="pt-4">
-        <dl className="space-y-3">
-          {detailRows.map((row) => (
-            <div key={row.label} className="flex items-center gap-3 text-sm">
-              <span className="text-muted-foreground shrink-0">{row.icon}</span>
-              <dt className="text-muted-foreground w-32 shrink-0">{row.label}</dt>
-              <dd className="truncate font-medium">{row.value}</dd>
-            </div>
-          ))}
-        </dl>
-      </CardContent>
-    </Card>
+          </div>
+        )}
+      </div>
+
+      <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
+        <DialogContent className="max-w-[90vw] w-full h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+          <DialogHeader className="p-4 border-b bg-white shrink-0">
+            <DialogTitle className="truncate pr-6">Preview: {file.originalName}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden bg-gray-100 relative">
+            {previewUrl && (
+              <iframe
+                src={previewUrl}
+                className="w-full h-full border-0 absolute inset-0"
+                title="File Preview"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ─── Helper sub-components ────────────────────────────────────────
+
+function MetaCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="space-y-0.5">
+      <p className="text-[10px] font-semibold tracking-wider text-gray-400 uppercase">{label}</p>
+      <p className="text-sm font-medium text-gray-800 truncate">{value}</p>
+    </div>
   );
 }

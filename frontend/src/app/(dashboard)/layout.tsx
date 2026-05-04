@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/use-auth";
+import { cn } from "@/lib/utils";
 
 const DEFAULT_ROUTE_BY_ROLE = {
   SUPER_ADMIN: "/tenants",
@@ -23,9 +24,9 @@ const DEFAULT_ROUTE_BY_ROLE = {
 } as const;
 
 const ALLOWED_ROUTES_BY_ROLE: Record<string, string[]> = {
-  SUPER_ADMIN: ["/tenants", "/users", "/files", "/search"],
-  TENANT_ADMIN: ["/users", "/files", "/search"],
-  MEMBER: ["/files", "/search"],
+  SUPER_ADMIN: ["/tenants", "/users", "/files", "/search", "/audit-logs", "/profile"],
+  TENANT_ADMIN: ["/users", "/files", "/search", "/security", "/audit-logs", "/profile"],
+  MEMBER: ["/files", "/search", "/profile"],
 };
 
 function toTitle(value: string) {
@@ -43,6 +44,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const { user, isLoading, logOut } = useAuth();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     if (isLoading) return;
@@ -71,13 +73,24 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-gray-200 bg-white md:block">
-        <DashboardSidebar user={user} pathname={pathname} />
+    <div className="flex h-screen overflow-hidden bg-gray-50 text-gray-900">
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-30 hidden border-r border-gray-200 bg-white md:flex md:flex-col transition-all duration-300",
+        isSidebarCollapsed ? "w-[80px]" : "w-64"
+      )}>
+        <DashboardSidebar 
+          user={user} 
+          pathname={pathname} 
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        />
       </aside>
 
-      <div className="flex min-h-screen flex-col md:pl-64">
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 md:px-6">
+      <div className={cn(
+        "flex flex-1 flex-col overflow-hidden transition-all duration-300",
+        isSidebarCollapsed ? "md:pl-[80px]" : "md:pl-64"
+      )}>
+        <header className="sticky top-0 md:hidden z-20 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 md:px-6">
           <div className="flex items-center gap-3">
             <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
               <SheetTrigger asChild>
@@ -121,7 +134,10 @@ export default function DashboardLayout({
           </Button>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        <main className={cn(
+          "flex-1 overflow-hidden",
+          !pathname.startsWith("/files") && "overflow-y-auto p-4 md:p-6"
+        )}>
           {children}
         </main>
       </div>
