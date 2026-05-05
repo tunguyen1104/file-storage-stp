@@ -129,7 +129,6 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
 
         // Step 2: PUT directly to MinIO (bypass BFF proxy)
         const startTime = Date.now();
-        let lastLoaded = 0;
 
         await minioClient.put(uploadUrl, item.file, {
           headers: { "Content-Type": item.file.type || "application/octet-stream" },
@@ -141,9 +140,6 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
             const speedBps = elapsed > 0 ? loaded / elapsed : 0;
             const remaining = evt.total - loaded;
             const etaSeconds = speedBps > 0 ? remaining / speedBps : undefined;
-            const delta = loaded - lastLoaded;
-            lastLoaded = loaded;
-            void delta; // used in speed calc above
             updateItem(item.id, {
               progress: Math.round((loaded / evt.total) * 100),
               speedBps,
@@ -181,7 +177,7 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
       try {
         let uploadId = item.uploadId;
         let fileId = item.fileId;
-        const totalParts = calcTotalParts(item.file.size);
+        const totalParts = item.totalParts ?? calcTotalParts(item.file.size);
         let completedParts: PartInfo[] = resumeFromParts ? [...resumeFromParts] : [];
 
         // Step 1: init (only if no existing session)
