@@ -130,12 +130,13 @@ class TenantControllerTest {
 
     @Test
     void listTenants_returns200() throws Exception {
+        UUID tenantId = UUID.randomUUID();
         TenantPageView pageView = new TenantPageView(
-                List.of(new TenantView(UUID.randomUUID(), "Acme", "acme", 100L, 10L, true, actorUserId, Instant.now(), Instant.now())),
+                List.of(new TenantView(tenantId, "Acme", "acme", 100L, 10L, true, 3L, actorUserId, Instant.now(), Instant.now())),
                 1, 20, 1, 1
         );
         PageResponse<TenantResponse> pageResponse = PageResponse.<TenantResponse>builder()
-                .data(List.of(new TenantResponse(UUID.randomUUID(), "Acme", "acme", 100L, 10L, true, actorUserId, Instant.now(), Instant.now())))
+                .data(List.of(new TenantResponse(tenantId, "Acme", "acme", 100L, 10L, true, 3L, actorUserId, Instant.now(), Instant.now())))
                 .currentPage(1)
                 .pageSize(20)
                 .totalElements(1)
@@ -148,6 +149,7 @@ class TenantControllerTest {
         mockMvc.perform(get("/api/v1/tenants"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.data[0].userCount").value(3))
                 .andExpect(jsonPath("$.data.totalElements").value(1));
     }
 

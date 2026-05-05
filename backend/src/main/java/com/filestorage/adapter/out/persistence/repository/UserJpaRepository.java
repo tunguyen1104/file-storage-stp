@@ -10,11 +10,19 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface UserJpaRepository extends JpaRepository<User, UUID>, JpaSpecificationExecutor<User> {
+
+    interface TenantUserCount {
+        UUID getTenantId();
+
+        long getUserCount();
+    }
 
     @Query("SELECT u FROM User u LEFT JOIN FETCH u.role LEFT JOIN FETCH u.tenant WHERE u.email = :email")
     Optional<User> findByEmailWithRoleAndTenant(@Param("email") String email);
@@ -33,6 +41,14 @@ public interface UserJpaRepository extends JpaRepository<User, UUID>, JpaSpecifi
     boolean existsByEmail(String email);
 
     boolean existsByEmailAndIdNot(String email, UUID id);
+
+    @Query("""
+            SELECT u.tenant.id AS tenantId, COUNT(u.id) AS userCount
+            FROM User u
+            WHERE u.tenant.id IN :tenantIds
+            GROUP BY u.tenant.id
+            """)
+    List<TenantUserCount> countUsersByTenantIds(@Param("tenantIds") Collection<UUID> tenantIds);
 
     /**
      * Atomically increments storageUsedBytes by {@code size} only if the result
