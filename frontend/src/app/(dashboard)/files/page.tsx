@@ -38,8 +38,8 @@ import {
 } from "@/components/ui/pagination";
 import { FileDetailCard } from "@/components/files/FileDetailCard";
 import { DeleteFileDialog } from "@/components/files/DeleteFileDialog";
-import { UploadFileDialog } from "@/components/upload/UploadFileDialog";
 import { NewFileMenu } from "@/components/files/NewFileMenu";
+import { useUpload } from "@/contexts/upload-context";
 import { listFiles, downloadFile, getPresignedGetUrl } from "@/lib/api/file";
 import { listFolderItems, getFolderBreadcrumbs } from "@/lib/api/folder";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -116,12 +116,11 @@ function FilesPageInner() {
   });
   const debouncedSearch = useDebounce(search, 400);
 
-  const [uploadOpen, setUploadOpen] = useState(false);
+  const { addFiles } = useUpload();
   const [newFileMenuOpen, setNewFileMenuOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<FileMetadataResponse | null>(null);
   const [selectedItem, setSelectedItem] = useState<any>(null); // FolderItem or FileMetadataResponse
   const [selectedFile, setSelectedFile] = useState<FileMetadataResponse | null>(null);
-  const [droppedFile, setDroppedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -384,7 +383,7 @@ function FilesPageInner() {
                     anchorRef={newFileButtonRef}
                     onUpload={() => {
                       setNewFileMenuOpen(false);
-                      setUploadOpen(true);
+                      fileInputRef.current?.click();
                     }}
                     onCreateFolder={() => {
                       setNewFileMenuOpen(false);
@@ -433,10 +432,9 @@ function FilesPageInner() {
                 onDrop={(e) => {
                   e.preventDefault();
                   setIsDragging(false);
-                  const file = e.dataTransfer.files[0];
-                  if (file) {
-                    setDroppedFile(file);
-                    setUploadOpen(true);
+                  const files = Array.from(e.dataTransfer.files);
+                  if (files.length > 0) {
+                    addFiles(files, currentFolderId ?? undefined);
                   }
                 }}
                 onClick={() => fileInputRef.current?.click()}
@@ -455,22 +453,22 @@ function FilesPageInner() {
                 </div>
                 <div className="text-center">
                   <p className="text-sm font-medium text-gray-700">Click or drag files to this area to upload</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Support for PDF, Images, Zip and Docs up to 500MB</p>
+                  <p className="text-xs text-gray-400 mt-0.5">All file types supported · Max 10 GB per file</p>
                 </div>
               </div>
             )}
 
-            {/* Hidden file input for outer drop zone */}
+            {/* Hidden file input for drop zone */}
             {!isTrash && (
               <input
                 type="file"
+                multiple
                 className="hidden"
                 ref={fileInputRef}
                 onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    setDroppedFile(file);
-                    setUploadOpen(true);
+                  const files = Array.from(e.target.files ?? []);
+                  if (files.length > 0) {
+                    addFiles(files, currentFolderId ?? undefined);
                   }
                   e.target.value = '';
                 }}
@@ -563,18 +561,6 @@ function FilesPageInner() {
       </div>
 
       {/* ── Dialogs ── */}
-      {!isTrash && (
-        <UploadFileDialog
-          open={uploadOpen}
-          onOpenChange={(open) => {
-            setUploadOpen(open);
-            if (!open) setDroppedFile(null);
-          }}
-          onSuccess={handleSuccess}
-          initialFile={droppedFile}
-          folderId={currentFolderId ?? undefined}
-        />
-      )}
       <CreateFolderDialog
         open={createFolderOpen}
         onOpenChange={setCreateFolderOpen}

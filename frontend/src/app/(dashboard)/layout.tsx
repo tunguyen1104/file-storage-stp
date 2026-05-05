@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { LogOut, Menu } from "lucide-react";
 
 import { DashboardSidebar } from "@/components/layout/sidebar";
+import { UploadProvider } from "@/contexts/upload-context";
+import { UploadFloatingWidget } from "@/components/upload/UploadFloatingWidget";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -73,6 +75,7 @@ export default function DashboardLayout({
   }
 
   return (
+    <UploadProvider>
     <div className="flex h-screen overflow-hidden bg-gray-50 text-gray-900">
       <aside className={cn(
         "fixed inset-y-0 left-0 z-30 hidden border-r border-gray-200 bg-white md:flex md:flex-col transition-all duration-300",
@@ -142,5 +145,7 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
+    <UploadFloatingWidget />
+    </UploadProvider>
   );
 }

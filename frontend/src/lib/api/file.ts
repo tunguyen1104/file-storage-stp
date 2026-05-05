@@ -43,31 +43,6 @@ export async function getFileMetadata(
   }
 }
 
-export async function uploadSingle(
-  file: File,
-  folderId?: string
-): Promise<FileResponse> {
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const response = await apiClient.post<ApiResponse<FileResponse>>(
-      API_ROUTES.FILES.UPLOAD_SINGLE,
-      formData,
-      {
-        headers: { "Content-Type": "multipart/form-data" },
-        params: folderId ? { folderId } : undefined,
-      }
-    );
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.message ?? "Failed to upload file");
-    }
-    return response.data.data;
-  } catch (error) {
-    throw toAppError(error);
-  }
-}
-
 export async function deleteFile(fileId: string): Promise<FileResponse> {
   try {
     const response = await apiClient.delete<ApiResponse<FileResponse>>(
