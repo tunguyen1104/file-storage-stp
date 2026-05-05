@@ -1,10 +1,14 @@
 package com.filestorage.adapter.in.rest.mapper;
 
+import com.filestorage.adapter.in.rest.dto.response.AdminFolderItemResponse;
 import com.filestorage.adapter.in.rest.dto.response.BreadcrumbResponse;
 import com.filestorage.adapter.in.rest.dto.response.FolderItemResponse;
 import com.filestorage.adapter.in.rest.dto.response.FolderResponse;
 import com.filestorage.adapter.in.rest.dto.response.PageResponse;
+import com.filestorage.adapter.in.rest.dto.response.UserSummaryResponse;
 import com.filestorage.domain.model.folder.BreadcrumbView;
+import com.filestorage.domain.model.folder.AdminFolderItemPageView;
+import com.filestorage.domain.model.folder.AdminFolderItemView;
 import com.filestorage.domain.model.folder.FolderItemPageView;
 import com.filestorage.domain.model.folder.FolderItemView;
 import com.filestorage.domain.model.folder.FolderView;
@@ -39,5 +43,32 @@ public interface FolderRestMapper {
                 .totalPages(pageView.totalPages())
                 .build();
     }
-}
 
+    default AdminFolderItemResponse toAdminFolderItemResponse(AdminFolderItemView view) {
+        return new AdminFolderItemResponse(
+                view.id(),
+                view.type() == null ? null : view.type().name().toLowerCase(),
+                view.name(),
+                view.tenantId(),
+                view.tenantName(),
+                view.parentId(),
+                view.parentName(),
+                view.sizeBytes(),
+                view.mimeType(),
+                view.status(),
+                new UserSummaryResponse(view.actorId(), view.actorFullName()),
+                view.createdAt(),
+                view.updatedAt()
+        );
+    }
+
+    default PageResponse<AdminFolderItemResponse> toAdminItemPageResponse(AdminFolderItemPageView pageView) {
+        return PageResponse.<AdminFolderItemResponse>builder()
+                .data(pageView.data().stream().map(this::toAdminFolderItemResponse).toList())
+                .currentPage(pageView.page())
+                .pageSize(pageView.limit())
+                .totalElements(pageView.total())
+                .totalPages(pageView.totalPages())
+                .build();
+    }
+}

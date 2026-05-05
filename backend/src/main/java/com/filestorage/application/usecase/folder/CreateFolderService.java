@@ -42,7 +42,7 @@ public class CreateFolderService implements CreateFolderUseCase {
         Folder folder = Folder.builder()
                 .tenant(actor.getTenant())
                 .parent(parent)
-                .owner(null)
+                .owner(actor)
                 .name(name)
                 .createdBy(actor)
                 .build();
@@ -62,4 +62,3 @@ public class CreateFolderService implements CreateFolderUseCase {
         return trimmed;
     }
 }
-
