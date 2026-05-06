@@ -7,7 +7,6 @@ import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.mapper.FileViewMapper;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
-import com.filestorage.adapter.out.persistence.repository.TenantJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.file.FileView;
@@ -29,7 +28,6 @@ public class UploadFileService implements UploadFileUseCase {
 
     private final FileJpaRepository fileRepository;
     private final FolderJpaRepository folderRepository;
-    private final TenantJpaRepository tenantRepository;
     private final UserJpaRepository userRepository;
     private final FileSupport fileSupport;
     private final FileViewMapper fileViewMapper;
@@ -50,7 +48,7 @@ public class UploadFileService implements UploadFileUseCase {
         UUID objectKeyId = UUID.randomUUID();
         String storageKey = objectStoragePort.buildStorageKey(tenant.getId().toString(), actor.getId().toString(), objectKeyId.toString(), extension);
 
-        enforceQuotas(actor, tenant, command.content().length);
+        enforceQuotas(actor, command.content().length);
 
         File pending = File.builder()
                 .folder(folder)
@@ -69,9 +67,7 @@ public class UploadFileService implements UploadFileUseCase {
             objectStoragePort.upload(storageKey, command.content(), command.contentType());
             pending.setStatus(FileStatus.ACTIVE);
             File saved = fileRepository.save(pending);
-            tenant.setStorageUsedBytes(safeAdd(tenant.getStorageUsedBytes(), command.content().length));
             actor.setStorageUsedBytes(safeAdd(actor.getStorageUsedBytes(), command.content().length));
-            tenantRepository.save(tenant);
             userRepository.save(actor);
             return fileViewMapper.toFileView(saved);
         } catch (RuntimeException ex) {
@@ -102,14 +98,10 @@ public class UploadFileService implements UploadFileUseCase {
                 .orElseThrow(() -> new AppException(ErrorCode.FOLDER_NOT_FOUND));
     }
 
-    private void enforceQuotas(User actor, Tenant tenant, int bytes) {
+    private void enforceQuotas(User actor, int bytes) {
         long newUserUsage = safeAdd(actor.getStorageUsedBytes(), bytes);
-        long newTenantUsage = safeAdd(tenant.getStorageUsedBytes(), bytes);
         if (newUserUsage > actor.getStorageQuotaBytes()) {
             throw new AppException(ErrorCode.USER_QUOTA_EXCEEDED);
-        }
-        if (newTenantUsage > tenant.getStorageQuotaBytes()) {
-            throw new AppException(ErrorCode.TENANT_QUOTA_EXCEEDED);
         }
     }
 
@@ -129,7 +121,5 @@ public class UploadFileService implements UploadFileUseCase {
         return Math.addExact(value, delta);
     }
 }
-
-
 
 

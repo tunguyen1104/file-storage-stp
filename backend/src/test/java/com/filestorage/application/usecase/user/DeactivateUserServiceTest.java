@@ -5,6 +5,7 @@ import com.filestorage.adapter.out.persistence.entity.Tenant;
 import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.mapper.UserViewMapper;
 import com.filestorage.adapter.out.persistence.repository.RefreshTokenJpaRepository;
+import com.filestorage.adapter.out.persistence.repository.TenantJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
 import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.port.in.user.DeactivateUserUseCase;
@@ -19,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
@@ -30,13 +32,15 @@ class DeactivateUserServiceTest {
     private UserJpaRepository userRepository;
     @Mock
     private RefreshTokenJpaRepository refreshTokenRepository;
+    @Mock
+    private TenantJpaRepository tenantRepository;
 
     private DeactivateUserService deactivateUserService;
 
     @BeforeEach
     void setUp() {
         UserViewMapper mapper = Mappers.getMapper(UserViewMapper.class);
-        deactivateUserService = new DeactivateUserService(userRepository, refreshTokenRepository, mapper);
+        deactivateUserService = new DeactivateUserService(userRepository, refreshTokenRepository, tenantRepository, mapper);
     }
 
     @Test
@@ -61,11 +65,14 @@ class DeactivateUserServiceTest {
         var result = deactivateUserService.execute(command);
 
         assertFalse(result.isActive());
+        assertFalse(target.isActive());
+        assertEquals(10L, target.getTenant().getStorageUsedBytes());
     }
 
     private User userEntity(UUID userId, UUID tenantId, RoleCode roleCode) {
         Tenant tenant = Tenant.builder().name("T").slug("t").isActive(true).build();
         tenant.setId(tenantId);
+        tenant.setStorageUsedBytes(100L);
 
         Role role = Role.builder().code(roleCode).name(roleCode.name()).build();
         role.setId(UUID.randomUUID());
@@ -84,4 +91,3 @@ class DeactivateUserServiceTest {
         return user;
     }
 }
-

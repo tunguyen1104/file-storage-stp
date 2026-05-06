@@ -100,7 +100,7 @@ class CreateUserServiceTest {
 
         when(userRepository.existsByEmail("u@example.com")).thenReturn(false);
         when(roleRepository.findByCode(RoleCode.MEMBER)).thenReturn(Optional.of(role));
-        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+        when(tenantRepository.findByIdForUpdate(tenantId)).thenReturn(Optional.of(tenant));
         when(userRepository.findById(actorId)).thenReturn(Optional.of(actor));
         when(Objects.requireNonNull(passwordEncoder.encode(any()))).thenReturn("encoded");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
@@ -117,6 +117,7 @@ class CreateUserServiceTest {
         var result = createUserService.execute(command);
         assertEquals("u@example.com", result.email());
         assertEquals(actorId, result.createdBy());
+        assertEquals(100L, tenant.getStorageUsedBytes());
 
         ArgumentCaptor<EmailEvent> captor = ArgumentCaptor.forClass(EmailEvent.class);
         verify(emailEventPublisher).publishInitialPassword(captor.capture());
@@ -143,7 +144,7 @@ class CreateUserServiceTest {
 
         when(userRepository.existsByEmail("u@example.com")).thenReturn(false);
         when(roleRepository.findByCode(RoleCode.MEMBER)).thenReturn(Optional.of(role));
-        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+        when(tenantRepository.findByIdForUpdate(tenantId)).thenReturn(Optional.of(tenant));
         when(userRepository.findById(actorId)).thenReturn(Optional.of(actor));
 
         var command = new CreateUserUseCase.CreateUserCommand(
@@ -173,7 +174,7 @@ class CreateUserServiceTest {
 
         when(userRepository.existsByEmail("u@example.com")).thenReturn(false);
         when(roleRepository.findByCode(RoleCode.MEMBER)).thenReturn(Optional.of(role));
-        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+        when(tenantRepository.findByIdForUpdate(tenantId)).thenReturn(Optional.of(tenant));
         when(userRepository.findById(actorId)).thenReturn(Optional.of(actor));
 
         var command = new CreateUserUseCase.CreateUserCommand(

@@ -53,7 +53,7 @@ public class CreateUserService implements CreateUserUseCase {
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
         UserWritePolicy.requireRoleAssignmentAllowed(role, command.actorRole());
 
-        Tenant tenant = tenantRepository.findById(
+        Tenant tenant = tenantRepository.findByIdForUpdate(
                         UserWritePolicy.resolveTenantForCreate(command.actorRole(), command.actorTenantId(), command.tenantId()))
                 .orElseThrow(() -> new AppException(ErrorCode.TENANT_NOT_FOUND));
 
@@ -61,6 +61,8 @@ public class CreateUserService implements CreateUserUseCase {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         long requestedQuota = getQuota(command, tenant);
+        long tenantUsed = tenant.getStorageUsedBytes() == null ? 0L : tenant.getStorageUsedBytes();
+        tenant.setStorageUsedBytes(Math.addExact(tenantUsed, requestedQuota));
 
         String rawPassword = passwordGenerator.generate();
         User created = User.builder()
@@ -76,6 +78,7 @@ public class CreateUserService implements CreateUserUseCase {
                 .build();
 
         User saved = userRepository.save(created);
+        tenantRepository.save(tenant);
         publishInitialPasswordEmail(saved, rawPassword);
         return userViewMapper.toUserView(saved);
     }

@@ -17,6 +17,7 @@ import com.filestorage.domain.model.user.UserView;
 import com.filestorage.domain.port.in.user.ChangeUserPasswordUseCase;
 import com.filestorage.domain.port.in.user.CreateUserUseCase;
 import com.filestorage.domain.port.in.user.DeactivateUserUseCase;
+import com.filestorage.domain.port.in.user.ActivateUserUseCase;
 import com.filestorage.domain.port.in.user.GetUserStorageUseCase;
 import com.filestorage.domain.port.in.user.GetUserUseCase;
 import com.filestorage.domain.port.in.user.ListTenantUsersUseCase;
@@ -73,6 +74,8 @@ class UserControllerTest {
     @Mock
     private DeactivateUserUseCase deactivateUserUseCase;
     @Mock
+    private ActivateUserUseCase activateUserUseCase;
+    @Mock
     private ChangeUserPasswordUseCase changeUserPasswordUseCase;
     @Mock
     private ListTenantUsersUseCase listTenantUsersUseCase;
@@ -106,6 +109,7 @@ class UserControllerTest {
                 createUserUseCase,
                 updateUserUseCase,
                 deactivateUserUseCase,
+                activateUserUseCase,
                 changeUserPasswordUseCase,
                 listTenantUsersUseCase,
                 userRestMapper
@@ -360,6 +364,35 @@ class UserControllerTest {
     }
 
     @Test
+    void activateUser_returns200() throws Exception {
+        UUID userId = UUID.randomUUID();
+        var view = sampleUserView(userId);
+        var response = new UserDetailResponse(
+                userId,
+                "u@example.com",
+                "User",
+                "MEMBER",
+                actorTenantId,
+                "Tenant A",
+                true,
+                100L,
+                20L,
+                "creator@example.com",
+                Instant.now(),
+                Instant.now(),
+                Instant.now(),
+                Instant.now()
+        );
+        when(activateUserUseCase.execute(any())).thenReturn(view);
+        when(userRestMapper.toUserDetailResponse(view)).thenReturn(response);
+
+        mockMvc.perform(patch("/api/v1/users/{userId}/activate", userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.isActive").value(true));
+    }
+
+    @Test
     void changePassword_returns204() throws Exception {
         UUID userId = UUID.randomUUID();
         doNothing().when(changeUserPasswordUseCase).execute(any());
@@ -484,4 +517,3 @@ class UserControllerTest {
         );
     }
 }
-

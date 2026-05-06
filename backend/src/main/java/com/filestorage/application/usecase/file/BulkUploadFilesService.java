@@ -7,7 +7,6 @@ import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.mapper.FileViewMapper;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
-import com.filestorage.adapter.out.persistence.repository.TenantJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.file.FileView;
@@ -32,7 +31,6 @@ public class BulkUploadFilesService implements BulkUploadFilesUseCase {
 
     private final FileJpaRepository fileRepository;
     private final FolderJpaRepository folderRepository;
-    private final TenantJpaRepository tenantRepository;
     private final UserJpaRepository userRepository;
     private final FileSupport fileSupport;
     private final FileViewMapper fileViewMapper;
@@ -49,7 +47,7 @@ public class BulkUploadFilesService implements BulkUploadFilesUseCase {
         Folder folder = resolveFolder(command.folderId(), tenant.getId());
 
         long totalBytes = totalBytes(command.items());
-        enforceQuotas(actor, tenant, totalBytes);
+        enforceQuotas(actor, totalBytes);
 
         List<File> pendingFiles = new ArrayList<>();
         for (UploadItem item : command.items()) {
@@ -90,9 +88,7 @@ public class BulkUploadFilesService implements BulkUploadFilesUseCase {
                 results.add(fileViewMapper.toFileView(saved));
             }
 
-            tenant.setStorageUsedBytes(safeAdd(tenant.getStorageUsedBytes(), totalBytes));
             actor.setStorageUsedBytes(safeAdd(actor.getStorageUsedBytes(), totalBytes));
-            tenantRepository.save(tenant);
             userRepository.save(actor);
             return results;
         } catch (RuntimeException ex) {
@@ -128,14 +124,10 @@ public class BulkUploadFilesService implements BulkUploadFilesUseCase {
                 .orElseThrow(() -> new AppException(ErrorCode.FOLDER_NOT_FOUND));
     }
 
-    private void enforceQuotas(User actor, Tenant tenant, long bytes) {
+    private void enforceQuotas(User actor, long bytes) {
         long newUserUsage = safeAdd(actor.getStorageUsedBytes(), bytes);
-        long newTenantUsage = safeAdd(tenant.getStorageUsedBytes(), bytes);
         if (newUserUsage > actor.getStorageQuotaBytes()) {
             throw new AppException(ErrorCode.USER_QUOTA_EXCEEDED);
-        }
-        if (newTenantUsage > tenant.getStorageQuotaBytes()) {
-            throw new AppException(ErrorCode.TENANT_QUOTA_EXCEEDED);
         }
     }
 
@@ -176,4 +168,3 @@ public class BulkUploadFilesService implements BulkUploadFilesUseCase {
         }
     }
 }
-

@@ -5,10 +5,12 @@ import com.filestorage.adapter.out.persistence.entity.Tenant;
 import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.mapper.UserViewMapper;
 import com.filestorage.adapter.out.persistence.repository.RoleJpaRepository;
+import com.filestorage.adapter.out.persistence.repository.TenantJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
 import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.port.in.user.UpdateUserUseCase;
 import com.filestorage.shared.exception.AppException;
+import com.filestorage.shared.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,109 +33,104 @@ class UpdateUserServiceTest {
     private UserJpaRepository userRepository;
     @Mock
     private RoleJpaRepository roleRepository;
+    @Mock
+    private TenantJpaRepository tenantRepository;
 
     private UpdateUserService updateUserService;
 
     @BeforeEach
     void setUp() {
         UserViewMapper mapper = Mappers.getMapper(UserViewMapper.class);
-        updateUserService = new UpdateUserService(userRepository, roleRepository, mapper);
+        updateUserService = new UpdateUserService(userRepository, roleRepository, tenantRepository, mapper);
     }
 
     @Test
     void tenantAdminCannotUpdateCrossTenantUser() {
-        User target = userEntity(UUID.randomUUID(), UUID.randomUUID(), RoleCode.MEMBER, 100L, 20L);
+        User target = userEntity(UUID.randomUUID(), UUID.randomUUID(), RoleCode.MEMBER, true, 100L, 20L);
         when(userRepository.findByIdWithRoleAndTenant(target.getId())).thenReturn(Optional.of(target));
 
         var command = new UpdateUserUseCase.UpdateUserCommand(
                 UUID.randomUUID(), UUID.randomUUID(), RoleCode.TENANT_ADMIN,
-                target.getId(), "Name", null, null
+                target.getId(), "Name", RoleCode.MEMBER, null
         );
 
         assertThrows(AppException.class, () -> updateUserService.execute(command));
     }
 
     @Test
-    void quotaCannotBeLowerThanUsed() {
+    void quotaCannotBeLowerThanUsedForInactiveUser() {
         UUID tenantId = UUID.randomUUID();
-        User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, 100L, 70L);
+        User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, false, 100L, 70L);
         when(userRepository.findByIdWithRoleAndTenant(target.getId())).thenReturn(Optional.of(target));
 
         var command = new UpdateUserUseCase.UpdateUserCommand(
                 UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN,
-                target.getId(), null, null, 50L
+                target.getId(), "User", RoleCode.MEMBER, 50L
         );
 
-        assertThrows(AppException.class, () -> updateUserService.execute(command));
+        AppException ex = assertThrows(AppException.class, () -> updateUserService.execute(command));
+        assertEquals(ErrorCode.QUOTA_BELOW_USED, ex.getError());
     }
 
     @Test
-    void updateSuccess() {
+    void activeUserQuotaIncreaseUpdatesTenantUsageByDelta() {
         UUID tenantId = UUID.randomUUID();
-        User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, 100L, 20L);
+        User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, true, 100L, 20L);
+        target.getTenant().setStorageQuotaBytes(1_000L);
+        target.getTenant().setStorageUsedBytes(400L);
         when(userRepository.findByIdWithRoleAndTenant(target.getId())).thenReturn(Optional.of(target));
+        when(roleRepository.findByCode(RoleCode.MEMBER)).thenReturn(Optional.of(target.getRole()));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var command = new UpdateUserUseCase.UpdateUserCommand(
                 UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN,
-                target.getId(), "New Name", null, 200L
+                target.getId(), "Updated User", RoleCode.MEMBER, 250L
         );
 
         var result = updateUserService.execute(command);
-        assertEquals("u@example.com", result.email());
-        assertEquals(200L, result.storageQuotaBytes());
+        assertEquals(250L, result.storageQuotaBytes());
+        assertEquals(550L, target.getTenant().getStorageUsedBytes());
     }
 
     @Test
-    void quotaCannotExceedTenantQuota() {
+    void activeUserQuotaIncreaseRejectsWhenTenantRemainingInsufficient() {
         UUID tenantId = UUID.randomUUID();
-        User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, 100L, 20L);
-        target.getTenant().setStorageQuotaBytes(150L);
-        when(userRepository.findByIdWithRoleAndTenant(target.getId())).thenReturn(Optional.of(target));
-
-        var command = new UpdateUserUseCase.UpdateUserCommand(
-                UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN,
-                target.getId(), null, null, 200L
-        );
-
-        assertThrows(AppException.class, () -> updateUserService.execute(command));
-    }
-
-    @Test
-    void quotaCannotExceedTenantRemainingQuota() {
-        UUID tenantId = UUID.randomUUID();
-        User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, 100L, 20L);
+        User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, true, 100L, 20L);
         target.getTenant().setStorageQuotaBytes(300L);
         target.getTenant().setStorageUsedBytes(260L);
         when(userRepository.findByIdWithRoleAndTenant(target.getId())).thenReturn(Optional.of(target));
+        when(roleRepository.findByCode(RoleCode.MEMBER)).thenReturn(Optional.of(target.getRole()));
 
         var command = new UpdateUserUseCase.UpdateUserCommand(
                 UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN,
-                target.getId(), null, null, 50L
+                target.getId(), "User", RoleCode.MEMBER, 200L
         );
 
-        assertThrows(AppException.class, () -> updateUserService.execute(command));
+        AppException ex = assertThrows(AppException.class, () -> updateUserService.execute(command));
+        assertEquals(ErrorCode.TENANT_QUOTA_EXCEEDED, ex.getError());
     }
 
     @Test
-    void quotaUsesRemainingQuotaExcludingTarget() {
+    void inactiveUserQuotaUpdateDoesNotChangeTenantUsage() {
         UUID tenantId = UUID.randomUUID();
-        User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, 100L, 20L);
+        User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, false, 100L, 20L);
         target.getTenant().setStorageQuotaBytes(300L);
-        target.getTenant().setStorageUsedBytes(260L);
+        target.getTenant().setStorageUsedBytes(120L);
         when(userRepository.findByIdWithRoleAndTenant(target.getId())).thenReturn(Optional.of(target));
+        when(roleRepository.findByCode(RoleCode.MEMBER)).thenReturn(Optional.of(target.getRole()));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var command = new UpdateUserUseCase.UpdateUserCommand(
                 UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN,
-                target.getId(), "Updated Name", null, 40L
+                target.getId(), "Updated", RoleCode.MEMBER, 250L
         );
 
         var result = updateUserService.execute(command);
-        assertEquals(40L, result.storageQuotaBytes());
+        assertEquals(250L, result.storageQuotaBytes());
+        assertEquals(120L, target.getTenant().getStorageUsedBytes());
     }
 
-    private User userEntity(UUID userId, UUID tenantId, RoleCode roleCode, long quota, long used) {
+    private User userEntity(UUID userId, UUID tenantId, RoleCode roleCode, boolean isActive, long quota, long used) {
         Tenant tenant = Tenant.builder().name("T").slug("t").isActive(true).build();
         tenant.setId(tenantId);
 
@@ -146,7 +143,7 @@ class UpdateUserServiceTest {
                 .passwordHash("hash")
                 .fullName("User")
                 .role(role)
-                .isActive(true)
+                .isActive(isActive)
                 .storageQuotaBytes(quota)
                 .storageUsedBytes(used)
                 .build();
@@ -154,4 +151,3 @@ class UpdateUserServiceTest {
         return user;
     }
 }
-

@@ -4,6 +4,7 @@ import com.filestorage.adapter.out.persistence.entity.Role;
 import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.mapper.UserViewMapper;
 import com.filestorage.adapter.out.persistence.repository.RoleJpaRepository;
+import com.filestorage.adapter.out.persistence.repository.TenantJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
 import com.filestorage.domain.model.user.UserView;
 import com.filestorage.domain.port.in.user.UpdateUserUseCase;
@@ -19,6 +20,7 @@ public class UpdateUserService implements UpdateUserUseCase {
 
     private final UserJpaRepository userRepository;
     private final RoleJpaRepository roleRepository;
+    private final TenantJpaRepository tenantRepository;
     private final UserViewMapper userViewMapper;
 
     @Override
@@ -36,20 +38,25 @@ public class UpdateUserService implements UpdateUserUseCase {
         UserWritePolicy.requireRoleAssignmentAllowed(newRole, command.actorRole());
         target.setRole(newRole);
 
-
         if (command.storageQuotaBytes() != null) {
-            long tenantQuota = target.getTenant().getStorageQuotaBytes() == null
-                    ? Long.MAX_VALUE
-                    : target.getTenant().getStorageQuotaBytes();
-            long tenantUsed = target.getTenant().getStorageUsedBytes() == null ? 0L : target.getTenant().getStorageUsedBytes();
-            long tenantRemainingQuota = tenantQuota - tenantUsed;
-            if (command.storageQuotaBytes() > tenantRemainingQuota) {
-                throw new AppException(ErrorCode.TENANT_QUOTA_EXCEEDED);
-            }
-
             long used = target.getStorageUsedBytes() == null ? 0L : target.getStorageUsedBytes();
             if (command.storageQuotaBytes() < used) {
                 throw new AppException(ErrorCode.QUOTA_BELOW_USED);
+            }
+
+            if (target.isActive()) {
+                long tenantQuota = target.getTenant().getStorageQuotaBytes() == null
+                        ? Long.MAX_VALUE
+                        : target.getTenant().getStorageQuotaBytes();
+                long tenantUsed = target.getTenant().getStorageUsedBytes() == null ? 0L : target.getTenant().getStorageUsedBytes();
+                long tenantRemainingQuota = tenantQuota - tenantUsed;
+                long oldQuota = target.getStorageQuotaBytes() == null ? 0L : target.getStorageQuotaBytes();
+                long delta = command.storageQuotaBytes() - oldQuota;
+                if (delta > 0 && delta > tenantRemainingQuota) {
+                    throw new AppException(ErrorCode.TENANT_QUOTA_EXCEEDED);
+                }
+                target.getTenant().setStorageUsedBytes(Math.max(Math.addExact(tenantUsed, delta), 0L));
+                tenantRepository.save(target.getTenant());
             }
             target.setStorageQuotaBytes(command.storageQuotaBytes());
         }
@@ -57,4 +64,3 @@ public class UpdateUserService implements UpdateUserUseCase {
         return userViewMapper.toUserView(userRepository.save(target));
     }
 }
-
