@@ -30,7 +30,10 @@ public interface FolderRestMapper {
                 view.parentId(),
                 view.sizeBytes(),
                 view.mimeType(),
-                view.createdAt()
+                view.status(),
+                toUserSummaryResponse(view.actorId(), view.actorFullName()),
+                view.createdAt(),
+                view.updatedAt()
         );
     }
 
@@ -56,10 +59,17 @@ public interface FolderRestMapper {
                 view.sizeBytes(),
                 view.mimeType(),
                 view.status(),
-                new UserSummaryResponse(view.actorId(), view.actorFullName()),
+                toUserSummaryResponse(view.actorId(), view.actorFullName()),
                 view.createdAt(),
                 view.updatedAt()
         );
+    }
+
+    private UserSummaryResponse toUserSummaryResponse(java.util.UUID actorId, String actorFullName) {
+        if (actorId == null && actorFullName == null) {
+            return null;
+        }
+        return new UserSummaryResponse(actorId, actorFullName);
     }
 
     default PageResponse<AdminFolderItemResponse> toAdminItemPageResponse(AdminFolderItemPageView pageView) {

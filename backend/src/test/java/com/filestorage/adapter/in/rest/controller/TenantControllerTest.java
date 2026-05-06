@@ -15,6 +15,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.support.ResourceBundleMessageSource;
@@ -32,6 +33,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -62,13 +64,13 @@ class TenantControllerTest {
     private TenantRestMapper tenantRestMapper;
 
     private UUID actorUserId;
+    private UUID actorTenantId;
 
     @BeforeEach
     void setUp() {
         actorUserId = UUID.randomUUID();
-        SecurityUser securityUser = new SecurityUser(actorUserId.toString(), UUID.randomUUID().toString(), "SUPER_ADMIN", "super@sys.local");
-        var auth = new UsernamePasswordAuthenticationToken(securityUser, null, securityUser.getAuthorities());
-        SecurityContextHolder.getContext().setAuthentication(auth);
+        actorTenantId = UUID.randomUUID();
+        authenticate("SUPER_ADMIN");
 
         var messageSource = new ResourceBundleMessageSource();
         messageSource.setBasename("messages");
@@ -154,6 +156,42 @@ class TenantControllerTest {
     }
 
     @Test
+    void getMyTenant_returnsOwnTenantWithUserCount() throws Exception {
+        authenticate("TENANT_ADMIN");
+        TenantView view = new TenantView(actorTenantId, "Acme", "acme", 100L, 10L, true, 3L, actorUserId, Instant.now(), Instant.now());
+        TenantResponse response = new TenantResponse(actorTenantId, "Acme", "acme", 100L, 10L, true, 3L, actorUserId, Instant.now(), Instant.now());
+
+        when(getTenantUseCase.execute(any())).thenReturn(view);
+        when(tenantRestMapper.toTenantResponse(view)).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/tenants/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(actorTenantId.toString()))
+                .andExpect(jsonPath("$.data.userCount").value(3));
+
+        ArgumentCaptor<GetTenantUseCase.GetTenantQuery> captor = ArgumentCaptor.forClass(GetTenantUseCase.GetTenantQuery.class);
+        verify(getTenantUseCase).execute(captor.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(actorTenantId, captor.getValue().actorTenantId());
+        org.junit.jupiter.api.Assertions.assertEquals(actorTenantId, captor.getValue().tenantId());
+    }
+
+    @Test
+    void getTenantById_returnsUserCount() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        TenantView view = new TenantView(tenantId, "Acme", "acme", 100L, 10L, true, 4L, actorUserId, Instant.now(), Instant.now());
+        TenantResponse response = new TenantResponse(tenantId, "Acme", "acme", 100L, 10L, true, 4L, actorUserId, Instant.now(), Instant.now());
+
+        when(getTenantUseCase.execute(any())).thenReturn(view);
+        when(tenantRestMapper.toTenantResponse(view)).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/tenants/{tenantId}", tenantId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.userCount").value(4));
+    }
+
+    @Test
     void getTenantById_notFound_returns404() throws Exception {
         UUID tenantId = UUID.randomUUID();
         doThrow(new AppException(ErrorCode.TENANT_NOT_FOUND)).when(getTenantUseCase).execute(any());
@@ -170,7 +208,11 @@ class TenantControllerTest {
 
         mockMvc.perform(patch("/api/v1/tenants/{tenantId}", tenantId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("storageQuotaBytes", 1))))
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "name", "Acme",
+                                "slug", "acme",
+                                "storageQuotaBytes", 1
+                        ))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(ErrorCode.QUOTA_BELOW_USED.getCode()));
     }
@@ -192,5 +234,11 @@ class TenantControllerTest {
         mockMvc.perform(get("/api/v1/tenants"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(ErrorCode.ACCESS_DENIED.getCode()));
+    }
+
+    private void authenticate(String role) {
+        SecurityUser securityUser = new SecurityUser(actorUserId.toString(), actorTenantId.toString(), role, "admin@sys.local");
+        var auth = new UsernamePasswordAuthenticationToken(securityUser, null, securityUser.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(auth);
     }
 }

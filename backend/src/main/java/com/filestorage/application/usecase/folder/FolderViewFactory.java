@@ -38,7 +38,11 @@ final class FolderViewFactory {
                 toParentId(folder),
                 0L,
                 null,
-                folder.getCreatedAt()
+                null,
+                folder.getCreatedBy() == null ? null : folder.getCreatedBy().getId(),
+                folder.getCreatedBy() == null ? null : folder.getCreatedBy().getFullName(),
+                folder.getCreatedAt(),
+                folder.getUpdatedAt()
         );
     }
 
@@ -50,7 +54,11 @@ final class FolderViewFactory {
                 file.getFolder() == null ? null : file.getFolder().getId(),
                 file.getSizeBytes() == null ? 0L : file.getSizeBytes(),
                 file.getMimeType(),
-                file.getCreatedAt()
+                file.getStatus(),
+                file.getUploadedBy() == null ? null : file.getUploadedBy().getId(),
+                file.getUploadedBy() == null ? null : file.getUploadedBy().getFullName(),
+                file.getCreatedAt(),
+                file.getUpdatedAt()
         );
     }
 
@@ -62,4 +70,3 @@ final class FolderViewFactory {
         return folder.getOwner() == null ? null : folder.getOwner().getId();
     }
 }
-

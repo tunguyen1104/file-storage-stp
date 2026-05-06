@@ -246,7 +246,7 @@ public class FileController {
                 parseRole(actor.getRole()),
                 fileId
         ));
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/files/{fileId}/restore")

@@ -2,6 +2,7 @@ package com.filestorage.adapter.out.storage;
 
 import com.filestorage.infrastructure.config.MinioProperties;
 import com.filestorage.infrastructure.config.StorageProperties;
+import io.minio.MinioAsyncClient;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,8 @@ class MinioStorageAdapterTest {
 
         StorageProperties storageProperties = new StorageProperties();
         MinioClient minioClient = Mockito.mock(MinioClient.class);
-        adapter = new MinioStorageAdapter(minioClient, minioClient, minioProperties, storageProperties);
+        MinioAsyncClient minioAsyncClient = Mockito.mock(MinioAsyncClient.class);
+        adapter = new MinioStorageAdapter(minioClient, minioClient, minioAsyncClient, minioProperties, storageProperties);
     }
 
     @Test
