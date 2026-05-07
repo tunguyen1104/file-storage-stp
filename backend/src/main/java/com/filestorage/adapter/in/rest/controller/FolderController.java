@@ -3,6 +3,7 @@ package com.filestorage.adapter.in.rest.controller;
 import com.filestorage.adapter.in.rest.dto.request.CreateFolderRequest;
 import com.filestorage.adapter.in.rest.dto.request.MoveFolderRequest;
 import com.filestorage.adapter.in.rest.dto.request.RenameFolderRequest;
+import com.filestorage.adapter.in.rest.dto.response.AdminFolderItemResponse;
 import com.filestorage.adapter.in.rest.dto.response.ApiResponse;
 import com.filestorage.adapter.in.rest.dto.response.BreadcrumbResponse;
 import com.filestorage.adapter.in.rest.dto.response.FolderItemResponse;
@@ -10,16 +11,20 @@ import com.filestorage.adapter.in.rest.dto.response.FolderResponse;
 import com.filestorage.adapter.in.rest.dto.response.PageResponse;
 import com.filestorage.adapter.in.rest.mapper.FolderRestMapper;
 import com.filestorage.adapter.in.rest.security.SecurityUser;
+import com.filestorage.domain.model.enums.AdminFolderItemSortBy;
+import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.enums.FolderItemType;
 import com.filestorage.domain.model.enums.FolderSortBy;
 import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.model.enums.SortDirection;
+import com.filestorage.domain.model.folder.AdminFolderItemPageView;
 import com.filestorage.domain.model.folder.FolderItemPageView;
 import com.filestorage.domain.model.folder.FolderView;
 import com.filestorage.domain.port.in.folder.CreateFolderUseCase;
 import com.filestorage.domain.port.in.folder.DeleteFolderUseCase;
 import com.filestorage.domain.port.in.folder.GetFolderBreadcrumbsUseCase;
 import com.filestorage.domain.port.in.folder.GetFolderUseCase;
+import com.filestorage.domain.port.in.folder.ListAllTenantFolderItemsUseCase;
 import com.filestorage.domain.port.in.folder.ListFolderChildrenUseCase;
 import com.filestorage.domain.port.in.folder.ListRootItemsUseCase;
 import com.filestorage.domain.port.in.folder.MoveFolderUseCase;
@@ -30,6 +35,7 @@ import com.filestorage.shared.util.SecurityContextUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -51,6 +57,7 @@ public class FolderController {
     private final CreateFolderUseCase createFolderUseCase;
     private final GetFolderUseCase getFolderUseCase;
     private final GetFolderBreadcrumbsUseCase getFolderBreadcrumbsUseCase;
+    private final ListAllTenantFolderItemsUseCase listAllTenantFolderItemsUseCase;
     private final ListFolderChildrenUseCase listFolderChildrenUseCase;
     private final ListRootItemsUseCase listRootItemsUseCase;
     private final RenameFolderUseCase renameFolderUseCase;
@@ -123,6 +130,40 @@ public class FolderController {
         ));
 
         return ResponseEntity.ok(ApiResponse.buildSuccess(folderRestMapper.toItemPageResponse(view)));
+    }
+
+    @GetMapping("/admin/items")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<PageResponse<AdminFolderItemResponse>>> listAdminItems(
+            @RequestParam(required = false) UUID tenantId,
+            @RequestParam(required = false) FolderItemType type,
+            @RequestParam(required = false) UUID parentId,
+            @RequestParam(required = false) FileStatus status,
+            @RequestParam(required = false) UUID createdBy,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(required = false) AdminFolderItemSortBy sortBy,
+            @RequestParam(required = false) SortDirection sortDirection
+    ) {
+        SecurityUser actor = currentUserOrThrow();
+        AdminFolderItemPageView view = listAllTenantFolderItemsUseCase.execute(new ListAllTenantFolderItemsUseCase.ListAllTenantFolderItemsQuery(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                tenantId,
+                type,
+                parentId,
+                status,
+                createdBy,
+                search,
+                page,
+                limit,
+                sortBy,
+                sortDirection
+        ));
+
+        return ResponseEntity.ok(ApiResponse.buildSuccess(folderRestMapper.toAdminItemPageResponse(view)));
     }
 
     @GetMapping("/root")
@@ -209,4 +250,3 @@ public class FolderController {
         }
     }
 }
-

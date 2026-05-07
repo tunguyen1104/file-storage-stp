@@ -45,6 +45,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -103,7 +104,7 @@ class FileControllerTest {
         var validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
 
-        when(fileRestMapper.toFileResponse(any())).thenAnswer(invocation -> {
+        lenient().when(fileRestMapper.toFileResponse(any())).thenAnswer(invocation -> {
             FileView view = invocation.getArgument(0);
             return new FileResponse(
                     view.id(),
@@ -125,7 +126,7 @@ class FileControllerTest {
             );
         });
 
-        when(fileRestMapper.toPageResponse(any())).thenAnswer(invocation -> {
+        lenient().when(fileRestMapper.toPageResponse(any())).thenAnswer(invocation -> {
             FilePageView view = invocation.getArgument(0);
             return PageResponse.<FileResponse>builder()
                     .data(view.data().stream().map(fileRestMapper::toFileResponse).toList())
@@ -136,7 +137,7 @@ class FileControllerTest {
                     .build();
         });
 
-        when(fileRestMapper.toFileMetadataResponse(any())).thenAnswer(invocation -> {
+        lenient().when(fileRestMapper.toFileMetadataResponse(any())).thenAnswer(invocation -> {
             FileView view = invocation.getArgument(0);
             return new FileMetadataResponse(
                     view.id(),
@@ -157,7 +158,7 @@ class FileControllerTest {
             );
         });
 
-        when(fileRestMapper.toMetadataPageResponse(any())).thenAnswer(invocation -> {
+        lenient().when(fileRestMapper.toMetadataPageResponse(any())).thenAnswer(invocation -> {
             FilePageView view = invocation.getArgument(0);
             return PageResponse.<FileMetadataResponse>builder()
                     .data(view.data().stream().map(fileRestMapper::toFileMetadataResponse).toList())

@@ -3,6 +3,7 @@ package com.filestorage.application.usecase.file;
 import com.filestorage.adapter.out.persistence.entity.File;
 import com.filestorage.adapter.out.persistence.mapper.FileViewMapper;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
+import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.file.FileView;
 import com.filestorage.domain.port.in.file.RestoreFileUseCase;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class RestoreFileService implements RestoreFileUseCase {
 
     private final FileJpaRepository fileRepository;
+    private final FolderJpaRepository folderRepository;
     private final FileSupport fileSupport;
     private final FileViewMapper fileViewMapper;
 
@@ -26,12 +28,21 @@ public class RestoreFileService implements RestoreFileUseCase {
         FileAccessPolicy.requireCanModify(file, actor.getId(), actor.getTenant().getId(), command.actorRole());
         FileStatePolicy.requirePendingDelete(file);
 
+        detachMissingFolder(file);
         file.setStatus(FileStatus.ACTIVE);
         file.setDeletedAt(null);
         file.setScheduledDeleteAt(null);
         return fileViewMapper.toFileView(fileRepository.save(file));
     }
 
+    private void detachMissingFolder(File file) {
+        if (file.getFolder() == null) {
+            return;
+        }
+        boolean folderExists = folderRepository.existsByIdAndTenantId(file.getFolder().getId(), file.getTenant().getId());
+        if (!folderExists) {
+            file.setFolder(null);
+        }
+    }
 }
-
 

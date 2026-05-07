@@ -53,7 +53,7 @@ public class CreateUserService implements CreateUserUseCase {
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
         UserWritePolicy.requireRoleAssignmentAllowed(role, command.actorRole());
 
-        Tenant tenant = tenantRepository.findById(
+        Tenant tenant = tenantRepository.findByIdForUpdate(
                         UserWritePolicy.resolveTenantForCreate(command.actorRole(), command.actorTenantId(), command.tenantId()))
                 .orElseThrow(() -> new AppException(ErrorCode.TENANT_NOT_FOUND));
 
@@ -61,6 +61,7 @@ public class CreateUserService implements CreateUserUseCase {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         long requestedQuota = getQuota(command, tenant);
+        tenant.setStorageUsedBytes(Math.addExact(tenant.getStorageUsedBytes(), requestedQuota));
 
         String rawPassword = passwordGenerator.generate();
         User created = User.builder()
@@ -76,15 +77,14 @@ public class CreateUserService implements CreateUserUseCase {
                 .build();
 
         User saved = userRepository.save(created);
+        tenantRepository.save(tenant);
         publishInitialPasswordEmail(saved, rawPassword);
         return userViewMapper.toUserView(saved);
     }
 
     private static long getQuota(CreateUserCommand command, Tenant tenant) {
         long requestedQuota = command.storageQuotaBytes() == null ? DEFAULT_USER_QUOTA_BYTES : command.storageQuotaBytes();
-        long tenantQuota = tenant.getStorageQuotaBytes() == null ? Long.MAX_VALUE : tenant.getStorageQuotaBytes();
-        long tenantUsed = tenant.getStorageUsedBytes() == null ? 0L : tenant.getStorageUsedBytes();
-        long tenantRemainingQuota = tenantQuota - tenantUsed;
+        long tenantRemainingQuota = Math.subtractExact(tenant.getStorageQuotaBytes(), tenant.getStorageUsedBytes());
         if (requestedQuota > tenantRemainingQuota) {
             throw new AppException(ErrorCode.TENANT_QUOTA_EXCEEDED);
         }

@@ -238,15 +238,15 @@ public class FileController {
     }
 
     @DeleteMapping("/files/{fileId}/direct")
-    public ResponseEntity<Void> hardDelete(@PathVariable UUID fileId) {
+    public ResponseEntity<ApiResponse<FileResponse>> hardDelete(@PathVariable UUID fileId) {
         SecurityUser actor = currentUserOrThrow();
-        directDeleteFileUseCase.execute(new DirectDeleteFileUseCase.DirectDeleteFileCommand(
+        FileView view = directDeleteFileUseCase.execute(new DirectDeleteFileUseCase.DirectDeleteFileCommand(
                 UUID.fromString(actor.getUserId()),
                 UUID.fromString(actor.getTenantId()),
                 parseRole(actor.getRole()),
                 fileId
         ));
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.buildSuccess(fileRestMapper.toFileResponse(view)));
     }
 
     @PostMapping("/files/{fileId}/restore")
@@ -361,4 +361,3 @@ public class FileController {
         return originalFilename.trim();
     }
 }
-

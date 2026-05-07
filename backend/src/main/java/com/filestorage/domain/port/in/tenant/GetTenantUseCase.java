@@ -11,9 +11,9 @@ public interface GetTenantUseCase {
 
     record GetTenantQuery(
             UUID actorUserId,
+            UUID actorTenantId,
             RoleCode actorRole,
             UUID tenantId
     ) {
     }
 }
-

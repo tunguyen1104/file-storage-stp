@@ -65,4 +65,3 @@ class FileSupport {
     record DownloadContext(File file, int ttlMinutes) {
     }
 }
-

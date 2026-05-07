@@ -8,6 +8,7 @@ import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.port.in.folder.DeleteFolderUseCase;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class DeleteFolderService implements DeleteFolderUseCase {
+
+    private static final List<FileStatus> FILE_STATUSES_ALLOWED_IN_DELETABLE_FOLDER = List.of(
+            FileStatus.PENDING_DELETE,
+            FileStatus.DELETED
+    );
 
     private final FolderJpaRepository folderRepository;
     private final FileJpaRepository fileRepository;
@@ -30,10 +36,11 @@ public class DeleteFolderService implements DeleteFolderUseCase {
 
         UUID folderId = folder.getId();
         if (folderRepository.existsByTenantIdAndParentId(actor.getTenant().getId(), folderId)
-                || fileRepository.existsByFolderIdAndStatus(folderId, FileStatus.ACTIVE)) {
+                || fileRepository.existsByFolderIdAndStatusNotIn(folderId, FILE_STATUSES_ALLOWED_IN_DELETABLE_FOLDER)) {
             throw new AppException(ErrorCode.FOLDER_NOT_EMPTY);
         }
 
+        fileRepository.clearFolderByFolderIdAndStatusIn(folderId, FILE_STATUSES_ALLOWED_IN_DELETABLE_FOLDER);
         folderRepository.delete(folder);
     }
 }

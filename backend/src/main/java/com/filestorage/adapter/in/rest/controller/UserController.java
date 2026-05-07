@@ -10,6 +10,7 @@ import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.port.in.user.ChangeUserPasswordUseCase;
 import com.filestorage.domain.port.in.user.CreateUserUseCase;
 import com.filestorage.domain.port.in.user.DeactivateUserUseCase;
+import com.filestorage.domain.port.in.user.ActivateUserUseCase;
 import com.filestorage.domain.port.in.user.GetUserStorageUseCase;
 import com.filestorage.domain.port.in.user.GetUserUseCase;
 import com.filestorage.domain.port.in.user.ListTenantUsersUseCase;
@@ -37,6 +38,7 @@ public class UserController {
     private final CreateUserUseCase createUserUseCase;
     private final UpdateUserUseCase updateUserUseCase;
     private final DeactivateUserUseCase deactivateUserUseCase;
+    private final ActivateUserUseCase activateUserUseCase;
     private final ChangeUserPasswordUseCase changeUserPasswordUseCase;
     private final ListTenantUsersUseCase listTenantUsersUseCase;
     private final UserRestMapper userRestMapper;
@@ -145,6 +147,20 @@ public class UserController {
     public ResponseEntity<ApiResponse<?>> deactivateUser(@PathVariable UUID userId) {
         SecurityUser actor = currentUserOrThrow();
         var result = deactivateUserUseCase.execute(new DeactivateUserUseCase.DeactivateUserCommand(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                userId
+        ));
+
+        return ResponseEntity.ok(ApiResponse.buildSuccess(userRestMapper.toUserDetailResponse(result)));
+    }
+
+    @PatchMapping("/{userId}/activate")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN')")
+    public ResponseEntity<ApiResponse<?>> activateUser(@PathVariable UUID userId) {
+        SecurityUser actor = currentUserOrThrow();
+        var result = activateUserUseCase.execute(new ActivateUserUseCase.ActivateUserCommand(
                 UUID.fromString(actor.getUserId()),
                 UUID.fromString(actor.getTenantId()),
                 parseRole(actor.getRole()),

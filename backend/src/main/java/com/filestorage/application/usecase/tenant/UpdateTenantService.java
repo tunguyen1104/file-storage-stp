@@ -22,7 +22,7 @@ public class UpdateTenantService implements UpdateTenantUseCase {
     @Transactional
     public TenantView execute(UpdateTenantCommand command) {
 
-        Tenant tenant = tenantRepository.findById(command.tenantId())
+        Tenant tenant = tenantRepository.findByIdForUpdate(command.tenantId())
                 .orElseThrow(() -> new AppException(ErrorCode.TENANT_NOT_FOUND));
 
         tenant.setName(command.name().trim());
@@ -35,8 +35,7 @@ public class UpdateTenantService implements UpdateTenantUseCase {
 
 
         if (command.storageQuotaBytes() != null) {
-            long used = tenant.getStorageUsedBytes() == null ? 0L : tenant.getStorageUsedBytes();
-            if (command.storageQuotaBytes() < used) {
+            if (command.storageQuotaBytes() < tenant.getStorageUsedBytes()) {
                 throw new AppException(ErrorCode.QUOTA_BELOW_USED);
             }
             tenant.setStorageQuotaBytes(command.storageQuotaBytes());
@@ -45,4 +44,3 @@ public class UpdateTenantService implements UpdateTenantUseCase {
         return tenantViewMapper.toTenantView(tenantRepository.save(tenant));
     }
 }
-

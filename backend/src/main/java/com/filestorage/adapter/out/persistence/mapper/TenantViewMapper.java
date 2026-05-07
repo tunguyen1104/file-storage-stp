@@ -12,10 +12,10 @@ public interface TenantViewMapper {
     @Mapping(target = "storageQuotaBytes", expression = "java(zeroIfNull(entity.getStorageQuotaBytes()))")
     @Mapping(target = "storageUsedBytes", expression = "java(zeroIfNull(entity.getStorageUsedBytes()))")
     @Mapping(target = "isActive", expression = "java(entity.isActive())")
+    @Mapping(target = "userCount", ignore = true)
     TenantView toTenantView(Tenant entity);
 
     default long zeroIfNull(Long value) {
         return value == null ? 0L : value;
     }
 }
-

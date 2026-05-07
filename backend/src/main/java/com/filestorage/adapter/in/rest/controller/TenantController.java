@@ -75,12 +75,28 @@ public class TenantController {
         return ResponseEntity.ok(ApiResponse.buildSuccess(tenantRestMapper.toPageResponse(result)));
     }
 
+    @GetMapping("/me")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN')")
+    public ResponseEntity<ApiResponse<?>> getMyTenant() {
+        SecurityUser actor = currentUserOrThrow();
+        UUID actorTenantId = currentTenantIdOrThrow(actor);
+        var result = getTenantUseCase.execute(new GetTenantUseCase.GetTenantQuery(
+                UUID.fromString(actor.getUserId()),
+                actorTenantId,
+                parseRole(actor.getRole()),
+                actorTenantId
+        ));
+
+        return ResponseEntity.ok(ApiResponse.buildSuccess(tenantRestMapper.toTenantResponse(result)));
+    }
+
     @GetMapping("/{tenantId}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<?>> getTenantById(@PathVariable UUID tenantId) {
         SecurityUser actor = currentUserOrThrow();
         var result = getTenantUseCase.execute(new GetTenantUseCase.GetTenantQuery(
                 UUID.fromString(actor.getUserId()),
+                currentTenantIdOrThrow(actor),
                 parseRole(actor.getRole()),
                 tenantId
         ));
@@ -142,5 +158,12 @@ public class TenantController {
             throw new AppException(ErrorCode.ACCESS_DENIED);
         }
     }
-}
 
+    private UUID currentTenantIdOrThrow(SecurityUser actor) {
+        try {
+            return UUID.fromString(actor.getTenantId());
+        } catch (IllegalArgumentException | NullPointerException ex) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+    }
+}

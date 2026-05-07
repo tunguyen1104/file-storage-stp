@@ -4,6 +4,7 @@ import com.filestorage.infrastructure.config.MinioProperties;
 import com.filestorage.infrastructure.config.StorageProperties;
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
+import io.minio.MinioAsyncClient;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,10 @@ class MinioStorageAdapterIntegrationTest {
                 .endpoint(endpoint)
                 .credentials(MINIO_USER, MINIO_PASSWORD)
                 .build();
+        MinioAsyncClient minioAsyncClient = MinioAsyncClient.builder()
+                .endpoint(endpoint)
+                .credentials(MINIO_USER, MINIO_PASSWORD)
+                .build();
 
         if (!minioClient.bucketExists(BucketExistsArgs.builder().bucket(BUCKET).build())) {
             minioClient.makeBucket(MakeBucketArgs.builder().bucket(BUCKET).build());
@@ -61,7 +66,7 @@ class MinioStorageAdapterIntegrationTest {
         StorageProperties storageProperties = new StorageProperties();
         storageProperties.setDefaultDownloadTtlMinutes(15);
 
-        adapter = new MinioStorageAdapter(minioClient, minioClient, minioProperties, storageProperties);
+        adapter = new MinioStorageAdapter(minioClient, minioClient, minioAsyncClient, minioProperties, storageProperties);
     }
 
     @Test

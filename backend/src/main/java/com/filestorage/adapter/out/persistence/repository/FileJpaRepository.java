@@ -4,6 +4,7 @@ import com.filestorage.adapter.out.persistence.entity.File;
 import com.filestorage.domain.model.enums.FileStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -19,6 +20,17 @@ public interface FileJpaRepository extends JpaRepository<File, UUID>, JpaSpecifi
 	java.util.Optional<File> findByIdAndTenantId(UUID id, UUID tenantId);
 
 	boolean existsByFolderIdAndStatus(UUID folderId, FileStatus status);
+
+	@Query("SELECT COUNT(f) > 0 FROM File f WHERE f.folder.id = :folderId AND f.status NOT IN :statuses")
+	boolean existsByFolderIdAndStatusNotIn(
+	        @Param("folderId") UUID folderId,
+	        @Param("statuses") List<FileStatus> statuses);
+
+	@Modifying(flushAutomatically = true)
+	@Query("UPDATE File f SET f.folder = null WHERE f.folder.id = :folderId AND f.status IN :statuses")
+	int clearFolderByFolderIdAndStatusIn(
+	        @Param("folderId") UUID folderId,
+	        @Param("statuses") List<FileStatus> statuses);
 
 	/**
 	 * Finds stale PENDING files for cleanup: those with the given status created before {@code cutoff}.
