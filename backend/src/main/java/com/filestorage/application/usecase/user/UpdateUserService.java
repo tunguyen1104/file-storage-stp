@@ -1,6 +1,7 @@
 package com.filestorage.application.usecase.user;
 
 import com.filestorage.adapter.out.persistence.entity.Role;
+import com.filestorage.adapter.out.persistence.entity.Tenant;
 import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.mapper.UserViewMapper;
 import com.filestorage.adapter.out.persistence.repository.RoleJpaRepository;
@@ -27,7 +28,7 @@ public class UpdateUserService implements UpdateUserUseCase {
     @Transactional
     public UserView execute(UpdateUserCommand command) {
 
-        User target = userRepository.findByIdWithRoleAndTenant(command.targetUserId())
+        User target = userRepository.findByIdForUpdate(command.targetUserId())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         UserWritePolicy.requireSameTenantForTenantAdmin(target, command.actorTenantId(), command.actorRole());
 
@@ -39,24 +40,23 @@ public class UpdateUserService implements UpdateUserUseCase {
         target.setRole(newRole);
 
         if (command.storageQuotaBytes() != null) {
-            long used = target.getStorageUsedBytes() == null ? 0L : target.getStorageUsedBytes();
-            if (command.storageQuotaBytes() < used) {
+            if (command.storageQuotaBytes() < target.getStorageUsedBytes()) {
                 throw new AppException(ErrorCode.QUOTA_BELOW_USED);
             }
 
             if (target.isActive()) {
-                long tenantQuota = target.getTenant().getStorageQuotaBytes() == null
-                        ? Long.MAX_VALUE
-                        : target.getTenant().getStorageQuotaBytes();
-                long tenantUsed = target.getTenant().getStorageUsedBytes() == null ? 0L : target.getTenant().getStorageUsedBytes();
-                long tenantRemainingQuota = tenantQuota - tenantUsed;
-                long oldQuota = target.getStorageQuotaBytes() == null ? 0L : target.getStorageQuotaBytes();
-                long delta = command.storageQuotaBytes() - oldQuota;
+                Tenant tenant = tenantRepository.findByIdForUpdate(target.getTenant().getId())
+                        .orElseThrow(() -> new AppException(ErrorCode.TENANT_NOT_FOUND));
+                target.setTenant(tenant);
+
+                long tenantUsed = tenant.getStorageUsedBytes();
+                long tenantRemainingQuota = Math.subtractExact(tenant.getStorageQuotaBytes(), tenantUsed);
+                long delta = Math.subtractExact(command.storageQuotaBytes(), target.getStorageQuotaBytes());
                 if (delta > 0 && delta > tenantRemainingQuota) {
                     throw new AppException(ErrorCode.TENANT_QUOTA_EXCEEDED);
                 }
-                target.getTenant().setStorageUsedBytes(Math.max(Math.addExact(tenantUsed, delta), 0L));
-                tenantRepository.save(target.getTenant());
+                tenant.setStorageUsedBytes(Math.addExact(tenantUsed, delta));
+                tenantRepository.save(tenant);
             }
             target.setStorageQuotaBytes(command.storageQuotaBytes());
         }

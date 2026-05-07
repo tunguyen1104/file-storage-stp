@@ -6,6 +6,8 @@ import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.model.user.UserPageView;
 import com.filestorage.domain.model.user.UserView;
 import com.filestorage.domain.port.in.user.ListUsersUseCase;
+import com.filestorage.shared.exception.AppException;
+import com.filestorage.shared.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -26,6 +28,9 @@ public class ListUsersService implements ListUsersUseCase {
     @Override
     @Transactional(readOnly = true)
     public UserPageView execute(ListUsersQuery query) {
+        if (query.actorRole() != RoleCode.SUPER_ADMIN) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
 
         UUID effectiveTenantId = resolveEffectiveTenantId(query.actorRole(), query.actorTenantId(), query.tenantId());
         int page = Math.max(1, query.page());
@@ -51,4 +56,3 @@ public class ListUsersService implements ListUsersUseCase {
         return actorTenantId;
     }
 }
-

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.List;
@@ -56,6 +57,7 @@ public interface UserJpaRepository extends JpaRepository<User, UUID>, JpaSpecifi
      * 0 if it was rejected because the quota would be exceeded.
      */
     @Modifying
+    @Transactional
     @Query("""
             UPDATE User u
             SET u.storageUsedBytes = u.storageUsedBytes + :size

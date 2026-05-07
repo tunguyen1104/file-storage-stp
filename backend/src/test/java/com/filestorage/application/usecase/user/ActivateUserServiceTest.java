@@ -48,7 +48,7 @@ class ActivateUserServiceTest {
         User target = userEntity(UUID.randomUUID(), tenantId, false, 100L, 40L);
         target.getTenant().setStorageUsedBytes(200L);
         target.getTenant().setStorageQuotaBytes(1_000L);
-        when(userRepository.findByIdWithRoleAndTenant(target.getId())).thenReturn(Optional.of(target));
+        when(userRepository.findByIdForUpdate(target.getId())).thenReturn(Optional.of(target));
         when(tenantRepository.findByIdForUpdate(tenantId)).thenReturn(Optional.of(target.getTenant()));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -67,7 +67,7 @@ class ActivateUserServiceTest {
         User target = userEntity(UUID.randomUUID(), tenantId, false, 200L, 10L);
         target.getTenant().setStorageUsedBytes(280L);
         target.getTenant().setStorageQuotaBytes(300L);
-        when(userRepository.findByIdWithRoleAndTenant(target.getId())).thenReturn(Optional.of(target));
+        when(userRepository.findByIdForUpdate(target.getId())).thenReturn(Optional.of(target));
         when(tenantRepository.findByIdForUpdate(tenantId)).thenReturn(Optional.of(target.getTenant()));
 
         var command = new ActivateUserUseCase.ActivateUserCommand(
@@ -83,7 +83,7 @@ class ActivateUserServiceTest {
         UUID tenantId = UUID.randomUUID();
         User target = userEntity(UUID.randomUUID(), tenantId, true, 100L, 10L);
         target.getTenant().setStorageUsedBytes(123L);
-        when(userRepository.findByIdWithRoleAndTenant(target.getId())).thenReturn(Optional.of(target));
+        when(userRepository.findByIdForUpdate(target.getId())).thenReturn(Optional.of(target));
 
         var command = new ActivateUserUseCase.ActivateUserCommand(
                 UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN, target.getId()

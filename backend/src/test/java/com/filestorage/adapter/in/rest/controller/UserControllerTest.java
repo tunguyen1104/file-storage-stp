@@ -303,6 +303,7 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "fullName", "Updated User",
+                                "roleCode", "MEMBER",
                                 "storageQuotaBytes", 200
                         ))))
                 .andExpect(status().isOk())

@@ -40,10 +40,10 @@ class UpdateTenantServiceTest {
         UUID tenantId = UUID.randomUUID();
         Tenant tenant = Tenant.builder().name("Acme").slug("acme").isActive(true).storageQuotaBytes(100L).storageUsedBytes(60L).build();
         tenant.setId(tenantId);
-        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+        when(tenantRepository.findByIdForUpdate(tenantId)).thenReturn(Optional.of(tenant));
 
         var command = new UpdateTenantUseCase.UpdateTenantCommand(
-                UUID.randomUUID(), RoleCode.SUPER_ADMIN, tenantId, null, null, 50L
+                UUID.randomUUID(), RoleCode.SUPER_ADMIN, tenantId, "Acme", "acme", 50L
         );
 
         assertThrows(AppException.class, () -> updateTenantService.execute(command));
@@ -54,7 +54,7 @@ class UpdateTenantServiceTest {
         UUID tenantId = UUID.randomUUID();
         Tenant tenant = Tenant.builder().name("Acme").slug("acme").isActive(true).storageQuotaBytes(100L).storageUsedBytes(10L).build();
         tenant.setId(tenantId);
-        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+        when(tenantRepository.findByIdForUpdate(tenantId)).thenReturn(Optional.of(tenant));
         when(tenantRepository.existsBySlugAndIdNot("acme-new", tenantId)).thenReturn(false);
         when(tenantRepository.save(any(Tenant.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -67,4 +67,3 @@ class UpdateTenantServiceTest {
         assertEquals(120L, result.storageQuotaBytes());
     }
 }
-

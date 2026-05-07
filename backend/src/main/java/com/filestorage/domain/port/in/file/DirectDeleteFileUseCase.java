@@ -1,12 +1,13 @@
 package com.filestorage.domain.port.in.file;
 
 import com.filestorage.domain.model.enums.RoleCode;
+import com.filestorage.domain.model.file.FileView;
 
 import java.util.UUID;
 
 public interface DirectDeleteFileUseCase {
 
-    void execute(DirectDeleteFileCommand command);
+    FileView execute(DirectDeleteFileCommand command);
 
     record DirectDeleteFileCommand(
             UUID actorUserId,
@@ -16,4 +17,3 @@ public interface DirectDeleteFileUseCase {
     ) {
     }
 }
-

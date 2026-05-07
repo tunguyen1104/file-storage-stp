@@ -22,7 +22,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -102,7 +101,7 @@ class CreateUserServiceTest {
         when(roleRepository.findByCode(RoleCode.MEMBER)).thenReturn(Optional.of(role));
         when(tenantRepository.findByIdForUpdate(tenantId)).thenReturn(Optional.of(tenant));
         when(userRepository.findById(actorId)).thenReturn(Optional.of(actor));
-        when(Objects.requireNonNull(passwordEncoder.encode(any()))).thenReturn("encoded");
+        when(passwordEncoder.encode(any())).thenReturn("encoded");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User saved = invocation.getArgument(0);
             saved.setId(UUID.randomUUID());

@@ -83,13 +83,16 @@ public class BulkUploadFilesService implements BulkUploadFilesUseCase {
                 UploadItem item = command.items().get(index);
                 objectStoragePort.upload(pending.getStorageKey(), item.content(), item.contentType());
                 uploadedKeys.add(pending.getStorageKey());
+            }
+
+            incrementUsageOrFail(actor, totalBytes);
+
+            for (File pending : pendingFiles) {
                 pending.setStatus(FileStatus.ACTIVE);
                 File saved = fileRepository.save(pending);
                 results.add(fileViewMapper.toFileView(saved));
             }
 
-            actor.setStorageUsedBytes(safeAdd(actor.getStorageUsedBytes(), totalBytes));
-            userRepository.save(actor);
             return results;
         } catch (RuntimeException ex) {
             cleanupUploadedObjects(uploadedKeys);
@@ -137,6 +140,13 @@ public class BulkUploadFilesService implements BulkUploadFilesUseCase {
             total = safeAdd(total, item.content().length);
         }
         return total;
+    }
+
+    private void incrementUsageOrFail(User actor, long bytes) {
+        int updated = userRepository.incrementStorageUsedIfQuotaAllows(actor.getId(), bytes);
+        if (updated == 0) {
+            throw new AppException(ErrorCode.USER_QUOTA_EXCEEDED);
+        }
     }
 
     private String resolveOriginalName(String originalName) {

@@ -47,7 +47,7 @@ class UpdateUserServiceTest {
     @Test
     void tenantAdminCannotUpdateCrossTenantUser() {
         User target = userEntity(UUID.randomUUID(), UUID.randomUUID(), RoleCode.MEMBER, true, 100L, 20L);
-        when(userRepository.findByIdWithRoleAndTenant(target.getId())).thenReturn(Optional.of(target));
+        when(userRepository.findByIdForUpdate(target.getId())).thenReturn(Optional.of(target));
 
         var command = new UpdateUserUseCase.UpdateUserCommand(
                 UUID.randomUUID(), UUID.randomUUID(), RoleCode.TENANT_ADMIN,
@@ -61,7 +61,8 @@ class UpdateUserServiceTest {
     void quotaCannotBeLowerThanUsedForInactiveUser() {
         UUID tenantId = UUID.randomUUID();
         User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, false, 100L, 70L);
-        when(userRepository.findByIdWithRoleAndTenant(target.getId())).thenReturn(Optional.of(target));
+        when(userRepository.findByIdForUpdate(target.getId())).thenReturn(Optional.of(target));
+        when(roleRepository.findByCode(RoleCode.MEMBER)).thenReturn(Optional.of(target.getRole()));
 
         var command = new UpdateUserUseCase.UpdateUserCommand(
                 UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN,
@@ -78,7 +79,8 @@ class UpdateUserServiceTest {
         User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, true, 100L, 20L);
         target.getTenant().setStorageQuotaBytes(1_000L);
         target.getTenant().setStorageUsedBytes(400L);
-        when(userRepository.findByIdWithRoleAndTenant(target.getId())).thenReturn(Optional.of(target));
+        when(userRepository.findByIdForUpdate(target.getId())).thenReturn(Optional.of(target));
+        when(tenantRepository.findByIdForUpdate(tenantId)).thenReturn(Optional.of(target.getTenant()));
         when(roleRepository.findByCode(RoleCode.MEMBER)).thenReturn(Optional.of(target.getRole()));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -98,7 +100,8 @@ class UpdateUserServiceTest {
         User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, true, 100L, 20L);
         target.getTenant().setStorageQuotaBytes(300L);
         target.getTenant().setStorageUsedBytes(260L);
-        when(userRepository.findByIdWithRoleAndTenant(target.getId())).thenReturn(Optional.of(target));
+        when(userRepository.findByIdForUpdate(target.getId())).thenReturn(Optional.of(target));
+        when(tenantRepository.findByIdForUpdate(tenantId)).thenReturn(Optional.of(target.getTenant()));
         when(roleRepository.findByCode(RoleCode.MEMBER)).thenReturn(Optional.of(target.getRole()));
 
         var command = new UpdateUserUseCase.UpdateUserCommand(
@@ -116,7 +119,7 @@ class UpdateUserServiceTest {
         User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, false, 100L, 20L);
         target.getTenant().setStorageQuotaBytes(300L);
         target.getTenant().setStorageUsedBytes(120L);
-        when(userRepository.findByIdWithRoleAndTenant(target.getId())).thenReturn(Optional.of(target));
+        when(userRepository.findByIdForUpdate(target.getId())).thenReturn(Optional.of(target));
         when(roleRepository.findByCode(RoleCode.MEMBER)).thenReturn(Optional.of(target.getRole()));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -128,6 +131,24 @@ class UpdateUserServiceTest {
         var result = updateUserService.execute(command);
         assertEquals(250L, result.storageQuotaBytes());
         assertEquals(120L, target.getTenant().getStorageUsedBytes());
+    }
+
+    @Test
+    void quotaReductionUsesLockedUserUsage() {
+        UUID tenantId = UUID.randomUUID();
+        User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, true, 100L, 90L);
+        target.getTenant().setStorageQuotaBytes(300L);
+        target.getTenant().setStorageUsedBytes(100L);
+        when(userRepository.findByIdForUpdate(target.getId())).thenReturn(Optional.of(target));
+        when(roleRepository.findByCode(RoleCode.MEMBER)).thenReturn(Optional.of(target.getRole()));
+
+        var command = new UpdateUserUseCase.UpdateUserCommand(
+                UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN,
+                target.getId(), "User", RoleCode.MEMBER, 80L
+        );
+
+        AppException ex = assertThrows(AppException.class, () -> updateUserService.execute(command));
+        assertEquals(ErrorCode.QUOTA_BELOW_USED, ex.getError());
     }
 
     private User userEntity(UUID userId, UUID tenantId, RoleCode roleCode, boolean isActive, long quota, long used) {

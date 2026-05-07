@@ -61,8 +61,7 @@ public class CreateUserService implements CreateUserUseCase {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         long requestedQuota = getQuota(command, tenant);
-        long tenantUsed = tenant.getStorageUsedBytes() == null ? 0L : tenant.getStorageUsedBytes();
-        tenant.setStorageUsedBytes(Math.addExact(tenantUsed, requestedQuota));
+        tenant.setStorageUsedBytes(Math.addExact(tenant.getStorageUsedBytes(), requestedQuota));
 
         String rawPassword = passwordGenerator.generate();
         User created = User.builder()
@@ -85,9 +84,7 @@ public class CreateUserService implements CreateUserUseCase {
 
     private static long getQuota(CreateUserCommand command, Tenant tenant) {
         long requestedQuota = command.storageQuotaBytes() == null ? DEFAULT_USER_QUOTA_BYTES : command.storageQuotaBytes();
-        long tenantQuota = tenant.getStorageQuotaBytes() == null ? Long.MAX_VALUE : tenant.getStorageQuotaBytes();
-        long tenantUsed = tenant.getStorageUsedBytes() == null ? 0L : tenant.getStorageUsedBytes();
-        long tenantRemainingQuota = tenantQuota - tenantUsed;
+        long tenantRemainingQuota = Math.subtractExact(tenant.getStorageQuotaBytes(), tenant.getStorageUsedBytes());
         if (requestedQuota > tenantRemainingQuota) {
             throw new AppException(ErrorCode.TENANT_QUOTA_EXCEEDED);
         }

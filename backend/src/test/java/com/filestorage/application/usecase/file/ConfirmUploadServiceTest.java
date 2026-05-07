@@ -58,7 +58,6 @@ class ConfirmUploadServiceTest {
 
         when(fileRepository.findByIdAndTenantId(fileId, tenantId)).thenReturn(Optional.of(file));
         when(objectStoragePort.objectExists(file.getStorageKey())).thenReturn(true);
-        when(fileRepository.save(any())).thenReturn(file);
         // verifySizeOrFail and verifyMimeOrFail are no-ops (mock default)
         when(uploadStorageVerifier.routeToScanOrActivate(eq(file), eq(tenantId), eq(userId)))
                 .thenReturn(FileStatus.SCANNING);
@@ -81,7 +80,6 @@ class ConfirmUploadServiceTest {
 
         when(fileRepository.findByIdAndTenantId(fileId, tenantId)).thenReturn(Optional.of(file));
         when(objectStoragePort.objectExists(file.getStorageKey())).thenReturn(true);
-        when(fileRepository.save(any())).thenReturn(file);
         when(uploadStorageVerifier.routeToScanOrActivate(eq(file), eq(tenantId), eq(userId)))
                 .thenReturn(FileStatus.ACTIVE);
 
@@ -139,7 +137,6 @@ class ConfirmUploadServiceTest {
 
         when(fileRepository.findByIdAndTenantId(fileId, tenantId)).thenReturn(Optional.of(file));
         when(objectStoragePort.objectExists(file.getStorageKey())).thenReturn(true);
-        when(fileRepository.save(any())).thenReturn(file);
         when(uploadStorageVerifier.routeToScanOrActivate(any(), any(), any()))
                 .thenReturn(FileStatus.SCANNING);
 
@@ -196,7 +193,6 @@ class ConfirmUploadServiceTest {
 
         when(fileRepository.findByIdAndTenantId(fileId, tenantId)).thenReturn(Optional.of(file));
         when(objectStoragePort.objectExists(file.getStorageKey())).thenReturn(true);
-        when(fileRepository.save(any())).thenReturn(file);
         doThrow(new AppException(ErrorCode.FILE_METADATA_MISMATCH))
                 .when(uploadStorageVerifier).verifySizeOrFail(eq(file), anyString());
 
@@ -216,7 +212,6 @@ class ConfirmUploadServiceTest {
 
         when(fileRepository.findByIdAndTenantId(fileId, tenantId)).thenReturn(Optional.of(file));
         when(objectStoragePort.objectExists(file.getStorageKey())).thenReturn(true);
-        when(fileRepository.save(any())).thenReturn(file);
         doThrow(new AppException(ErrorCode.UNSUPPORTED_FILE_TYPE))
                 .when(uploadStorageVerifier).verifyMimeOrFail(eq(file), anyString());
 

@@ -5,6 +5,8 @@ import com.filestorage.adapter.out.persistence.mapper.FileViewMapper;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
 import com.filestorage.domain.model.file.FileView;
 import com.filestorage.domain.port.in.file.RenameFileUseCase;
+import com.filestorage.shared.exception.AppException;
+import com.filestorage.shared.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,10 +27,12 @@ public class RenameFileService implements RenameFileUseCase {
         FileAccessPolicy.requireCanModify(file, actor.getId(), actor.getTenant().getId(), command.actorRole());
         FileStatePolicy.requireActive(file);
 
-        file.setOriginalName(command.originalName());
+        if (command.originalName() == null || command.originalName().isBlank()) {
+            throw new AppException(ErrorCode.INVALID_PAYLOAD);
+        }
+        file.setOriginalName(command.originalName().trim());
         return fileViewMapper.toFileView(fileRepository.save(file));
     }
 
 
 }
-

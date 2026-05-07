@@ -24,7 +24,7 @@ public class ActivateUserService implements ActivateUserUseCase {
     @Override
     @Transactional
     public UserView execute(ActivateUserCommand command) {
-        User target = userRepository.findByIdWithRoleAndTenant(command.targetUserId())
+        User target = userRepository.findByIdForUpdate(command.targetUserId())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         UserWritePolicy.requireSameTenantForTenantAdmin(target, command.actorTenantId(), command.actorRole());
 
@@ -34,12 +34,15 @@ public class ActivateUserService implements ActivateUserUseCase {
 
         Tenant tenant = tenantRepository.findByIdForUpdate(target.getTenant().getId())
                 .orElseThrow(() -> new AppException(ErrorCode.TENANT_NOT_FOUND));
-        long quota = target.getStorageQuotaBytes() == null ? 0L : target.getStorageQuotaBytes();
-        long used = target.getStorageUsedBytes() == null ? 0L : target.getStorageUsedBytes();
-        long quotaToReserve = Math.max(quota - used, 0L);
-        long tenantQuota = tenant.getStorageQuotaBytes() == null ? Long.MAX_VALUE : tenant.getStorageQuotaBytes();
-        long tenantUsed = tenant.getStorageUsedBytes() == null ? 0L : tenant.getStorageUsedBytes();
-        long tenantRemaining = tenantQuota - tenantUsed;
+        long quota = target.getStorageQuotaBytes();
+        long used = target.getStorageUsedBytes();
+        if (quota < used) {
+            throw new AppException(ErrorCode.QUOTA_BELOW_USED);
+        }
+
+        long quotaToReserve = Math.subtractExact(quota, used);
+        long tenantUsed = tenant.getStorageUsedBytes();
+        long tenantRemaining = Math.subtractExact(tenant.getStorageQuotaBytes(), tenantUsed);
         if (quotaToReserve > tenantRemaining) {
             throw new AppException(ErrorCode.TENANT_QUOTA_EXCEEDED);
         }

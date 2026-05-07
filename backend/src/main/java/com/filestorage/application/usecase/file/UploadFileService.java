@@ -65,10 +65,9 @@ public class UploadFileService implements UploadFileUseCase {
 
         try {
             objectStoragePort.upload(storageKey, command.content(), command.contentType());
+            incrementUsageOrFail(actor, command.content().length, pending);
             pending.setStatus(FileStatus.ACTIVE);
             File saved = fileRepository.save(pending);
-            actor.setStorageUsedBytes(safeAdd(actor.getStorageUsedBytes(), command.content().length));
-            userRepository.save(actor);
             return fileViewMapper.toFileView(saved);
         } catch (RuntimeException ex) {
             pending.setStatus(FileStatus.UPLOAD_FAILED);
@@ -105,6 +104,16 @@ public class UploadFileService implements UploadFileUseCase {
         }
     }
 
+    private void incrementUsageOrFail(User actor, long bytes, File pending) {
+        int updated = userRepository.incrementStorageUsedIfQuotaAllows(actor.getId(), bytes);
+        if (updated == 0) {
+            pending.setStatus(FileStatus.UPLOAD_FAILED);
+            fileRepository.save(pending);
+            objectStoragePort.deleteObjectIfExists(pending.getStorageKey());
+            throw new AppException(ErrorCode.USER_QUOTA_EXCEEDED);
+        }
+    }
+
     private String resolveOriginalName(String originalName) {
         return originalName.trim();
     }
@@ -121,5 +130,3 @@ public class UploadFileService implements UploadFileUseCase {
         return Math.addExact(value, delta);
     }
 }
-
-

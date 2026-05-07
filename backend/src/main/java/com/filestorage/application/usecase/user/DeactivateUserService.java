@@ -1,6 +1,7 @@
 package com.filestorage.application.usecase.user;
 
 import com.filestorage.adapter.out.persistence.entity.User;
+import com.filestorage.adapter.out.persistence.entity.Tenant;
 import com.filestorage.adapter.out.persistence.mapper.UserViewMapper;
 import com.filestorage.adapter.out.persistence.repository.RefreshTokenJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.TenantJpaRepository;
@@ -26,20 +27,22 @@ public class DeactivateUserService implements DeactivateUserUseCase {
     @Transactional
     public UserView execute(DeactivateUserCommand command) {
 
-        User target = userRepository.findByIdWithRoleAndTenant(command.targetUserId())
+        User target = userRepository.findByIdForUpdate(command.targetUserId())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         UserWritePolicy.requireSameTenantForTenantAdmin(target, command.actorTenantId(), command.actorRole());
         UserWritePolicy.requireNotSelfDeactivation(command.actorUserId(), target.getId(), command.actorRole());
 
         if (target.isActive()) {
-            long quota = target.getStorageQuotaBytes() == null ? 0L : target.getStorageQuotaBytes();
-            long used = target.getStorageUsedBytes() == null ? 0L : target.getStorageUsedBytes();
-            long unusedQuota = Math.max(quota - used, 0L);
-            long tenantUsed = target.getTenant().getStorageUsedBytes() == null ? 0L : target.getTenant().getStorageUsedBytes();
-            target.getTenant().setStorageUsedBytes(Math.max(tenantUsed - unusedQuota, 0L));
+            Tenant tenant = tenantRepository.findByIdForUpdate(target.getTenant().getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.TENANT_NOT_FOUND));
+
+            long quota = target.getStorageQuotaBytes();
+            long used = target.getStorageUsedBytes();
+            long unusedQuota = Math.subtractExact(quota, used);
+            tenant.setStorageUsedBytes(Math.subtractExact(tenant.getStorageUsedBytes(), unusedQuota));
             target.setActive(false);
-            tenantRepository.save(target.getTenant());
+            tenantRepository.save(tenant);
             userRepository.save(target);
         }
         refreshTokenRepository.deleteByUserId(target.getId());

@@ -48,7 +48,7 @@ class DeactivateUserServiceTest {
         UUID userId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
         User target = userEntity(userId, tenantId, RoleCode.TENANT_ADMIN);
-        when(userRepository.findByIdWithRoleAndTenant(userId)).thenReturn(Optional.of(target));
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(target));
 
         var command = new DeactivateUserUseCase.DeactivateUserCommand(userId, tenantId, RoleCode.TENANT_ADMIN, userId);
         assertThrows(AppException.class, () -> deactivateUserService.execute(command));
@@ -59,7 +59,8 @@ class DeactivateUserServiceTest {
         UUID userId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
         User target = userEntity(userId, tenantId, RoleCode.MEMBER);
-        when(userRepository.findByIdWithRoleAndTenant(userId)).thenReturn(Optional.of(target));
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(target));
+        when(tenantRepository.findByIdForUpdate(tenantId)).thenReturn(Optional.of(target.getTenant()));
 
         var command = new DeactivateUserUseCase.DeactivateUserCommand(UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN, userId);
         var result = deactivateUserService.execute(command);
