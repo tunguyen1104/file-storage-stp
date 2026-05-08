@@ -48,29 +48,6 @@ const SKIP_RESPONSE_HEADERS = new Set([
 const MAX_LOGOUT_RETRIES = 2;
 
 /**
- * Ensure CSRF token cookie exists. If not, generate and set one.
- */
-async function ensureCsrfToken(
-  response: NextResponse
-): Promise<string> {
-  const cookieStore = await cookies();
-  let csrfToken = cookieStore.get(CSRF_COOKIE_NAME)?.value;
-
-  if (!csrfToken) {
-    csrfToken = generateCsrfToken();
-    response.cookies.set(CSRF_COOKIE_NAME, csrfToken, {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/",
-      maxAge: 60 * 60 * 24,
-    });
-  }
-
-  return csrfToken;
-}
-
-/**
  * Parse a Set-Cookie header string and remap backend cookie names
  * (access-token, refresh-token) to camelCase (accessToken, refreshToken).
  */
@@ -149,6 +126,14 @@ export async function proxyToBackend(
   const accessToken = cookieStore.get("accessToken")?.value;
   const refreshToken = cookieStore.get("refreshToken")?.value;
 
+  // Generate the CSRF token early so it can be forwarded to the backend
+  // on the very first request (before any prior response has set the cookie).
+  let csrfToken = cookieStore.get(CSRF_COOKIE_NAME)?.value;
+  const isNewCsrfToken = !csrfToken;
+  if (isNewCsrfToken) {
+    csrfToken = generateCsrfToken();
+  }
+
   // ── Build backend URL safely ───────────────────────────
   const url = new URL(pathname, BACKEND_URL);
   url.search = search;
@@ -173,8 +158,14 @@ export async function proxyToBackend(
   const cookieParts: string[] = [];
   if (accessToken) cookieParts.push(`access-token=${accessToken}`);
   if (refreshToken) cookieParts.push(`refresh-token=${refreshToken}`);
+  if (csrfToken) cookieParts.push(`${CSRF_COOKIE_NAME}=${csrfToken}`);
   if (cookieParts.length > 0) {
     headers.set("Cookie", cookieParts.join("; "));
+  }
+
+  // Forward CSRF token in header for backend double-submit validation
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method) && csrfToken) {
+    headers.set(CSRF_HEADER_NAME, csrfToken);
   }
 
   // ── Build fetch options ──────────────────────────────────
@@ -218,8 +209,19 @@ export async function proxyToBackend(
       response.headers.append("Set-Cookie", remapSetCookieHeader(cookie));
     }
 
-    // Ensure CSRF token cookie is set
-    await ensureCsrfToken(response);
+    // Use headers.append (not response.cookies.set) to avoid the ResponseCookies
+    // API doing a delete-then-rewrite of ALL Set-Cookie headers, which can drop
+    // the auth cookies already appended above.
+    if (isNewCsrfToken && csrfToken) {
+      const parts = [
+        `${CSRF_COOKIE_NAME}=${csrfToken}`,
+        `Path=/`,
+        `SameSite=Strict`,
+        `Max-Age=${60 * 60 * 24}`,
+      ];
+      if (process.env.NODE_ENV === "production") parts.push(`Secure`);
+      response.headers.append("Set-Cookie", parts.join("; "));
+    }
 
     // Always clear cookies on logout
     if (pathname === "/api/v1/auth/logout") {
