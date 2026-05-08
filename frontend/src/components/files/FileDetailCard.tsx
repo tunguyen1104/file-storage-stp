@@ -15,17 +15,12 @@ import {
   File as FileIcon,
   Trash2,
   Pencil,
+  MoveRight,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { downloadFile, getPresignedGetUrl, restoreFile } from "@/lib/api/file";
 import { FILE_STATUS } from "@/lib/constants";
 import type { FileMetadataResponse } from "@/types/file/file";
@@ -100,6 +95,7 @@ interface FileDetailCardProps {
   /** Called when a mutation (restore/delete) succeeds so parent can refresh data */
   onMutate?: () => void;
   onDelete?: (file: FileMetadataResponse) => void;
+  onMove?: (file: FileMetadataResponse) => void;
 }
 
 // ─── Component ───────────────────────────────────────────────────
@@ -110,16 +106,16 @@ export function FileDetailCard({
   mode = "default",
   onMutate,
   onDelete,
+  onMove,
 }: FileDetailCardProps) {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   async function handlePreview() {
     if (!file) return;
     setActionLoading("preview");
     try {
       const { getUrl } = await getPresignedGetUrl(file.id);
-      setPreviewUrl(getUrl);
+      window.open(getUrl, "_blank", "noopener,noreferrer");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to get preview URL");
     } finally {
@@ -317,10 +313,11 @@ export function FileDetailCard({
                 size="sm"
                 variant="outline"
                 className="gap-2 w-full"
-                disabled
+                disabled={actionLoading !== null}
+                onClick={() => onMove?.(file)}
               >
-                <Pencil className="h-4 w-4" />
-                Edit
+                <MoveRight className="h-4 w-4" />
+                Move
               </Button>
             </div>
           </>
@@ -356,22 +353,6 @@ export function FileDetailCard({
         )}
       </div>
 
-      <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
-        <DialogContent className="max-w-[90vw] w-full h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
-          <DialogHeader className="p-4 border-b bg-white shrink-0">
-            <DialogTitle className="truncate pr-6">Preview: {file.originalName}</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-hidden bg-gray-100 relative">
-            {previewUrl && (
-              <iframe
-                src={previewUrl}
-                className="w-full h-full border-0 absolute inset-0"
-                title="File Preview"
-              />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

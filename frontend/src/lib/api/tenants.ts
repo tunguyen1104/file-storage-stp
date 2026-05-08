@@ -97,3 +97,17 @@ export async function deactivateTenant(tenantId: string): Promise<void> {
     throw toAppError(error);
   }
 }
+
+export async function getTenantMe(): Promise<TenantResponse> {
+  try {
+    const response = await apiClient.get<ApiResponse<TenantResponse>>(
+      API_ROUTES.TENANTS.ME
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.message ?? "Failed to fetch current tenant");
+    }
+    return response.data.data;
+  } catch (error) {
+    throw toAppError(error);
+  }
+}

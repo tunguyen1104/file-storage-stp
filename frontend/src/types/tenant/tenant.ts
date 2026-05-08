@@ -3,6 +3,7 @@ export type TenantResponse = {
   name: string;
   slug: string;
   isActive: boolean;
+  userCount: number;
   storageQuotaBytes: number;
   storageUsedBytes: number;
   createdBy: string | null;

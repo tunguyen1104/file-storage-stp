@@ -74,11 +74,13 @@ apiClient.interceptors.response.use(
       try {
         // Use apiClient so the CSRF token header is automatically attached
         await apiClient.post(API_ROUTES.AUTH.REFRESH, {});
-      } catch (refreshError) {
-        // Force logout on any refresh failure
+      } catch (refreshError: any) {
+        // Force logout on refresh failure if it's a client error (e.g. 401/403)
+        // or if we can't determine the status (to be safe, though network errors ideally shouldn't log out)
+        const isNetworkError = refreshError?.status >= 500 || refreshError?.message?.includes("Network Error");
         if (
           typeof window !== "undefined" &&
-          axios.isAxiosError(refreshError)
+          !isNetworkError
         ) {
           window.dispatchEvent(new Event("auth:logout"));
         }

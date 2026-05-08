@@ -59,6 +59,7 @@ export const API_ROUTES = {
     DOWNLOAD: (id: string) => `${API_PREFIX}/files/${id}/download`,
     STATUS: (id: string) => `${API_PREFIX}/files/${id}/status`,
     CONFIRM_UPLOAD: (id: string) => `${API_PREFIX}/files/${id}/confirm-upload`,
+    MOVE: (id: string) => `${API_PREFIX}/files/${id}/move`,
   },
   UPLOADS: {
     PRESIGNED_INIT: `${API_PREFIX}/uploads/presigned`,
@@ -69,6 +70,7 @@ export const API_ROUTES = {
       `${API_PREFIX}/uploads/multipart/${uploadId}/parts/${partNumber}/complete`,
     MULTIPART_COMPLETE: (uploadId: string) => `${API_PREFIX}/uploads/multipart/${uploadId}/complete`,
     MULTIPART_ABORT: (uploadId: string) => `${API_PREFIX}/uploads/multipart/${uploadId}`,
+    BULK: `${API_PREFIX}/uploads/bulk`,
   },
   FOLDERS: {
     ROOT: `${API_PREFIX}/folders/root`,
@@ -77,11 +79,13 @@ export const API_ROUTES = {
     BY_ID: (id: string) => `${API_PREFIX}/folders/${id}`,
     BREADCRUMBS: (id: string) => `${API_PREFIX}/folders/${id}/breadcrumbs`,
     MOVE: (id: string) => `${API_PREFIX}/folders/${id}/move`,
+    ADMIN_ITEMS: `${API_PREFIX}/folders/admin/items`,
   },
   TENANTS: {
     LIST: `${API_PREFIX}/tenants`,
     BY_ID: (id: string) => `${API_PREFIX}/tenants/${id}`,
     OPTIONS: `${API_PREFIX}/tenants/options`,
+    ME: `${API_PREFIX}/tenants/me`,
   },
   USERS: {
     LIST: `${API_PREFIX}/users`,
@@ -89,6 +93,7 @@ export const API_ROUTES = {
     BY_ID: (id: string) => `${API_PREFIX}/users/${id}`,
     PASSWORD: (id: string) => `${API_PREFIX}/users/${id}/password`,
     STORAGE: (id: string) => `${API_PREFIX}/users/${id}/storage`,
+    ACTIVATE: (id: string) => `${API_PREFIX}/users/${id}/activate`,
   },
   AUDIT_LOGS: `${API_PREFIX}/audit-logs`,
   SEARCH: `${API_PREFIX}/search`,

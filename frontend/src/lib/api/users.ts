@@ -127,3 +127,17 @@ export async function changeUserPassword(
     throw toAppError(error);
   }
 }
+
+export async function activateUser(userId: string): Promise<UserResponse> {
+  try {
+    const response = await apiClient.patch<ApiResponse<UserResponse>>(
+      API_ROUTES.USERS.ACTIVATE(userId)
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.message ?? "Failed to activate user");
+    }
+    return response.data.data;
+  } catch (error) {
+    throw toAppError(error);
+  }
+}

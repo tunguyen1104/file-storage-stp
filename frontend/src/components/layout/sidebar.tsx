@@ -49,6 +49,7 @@ const NAV_SECTIONS_BY_ROLE: Record<Role, NavSection[]> = {
         { href: "/tenants", label: "Tenant Management", icon: Building2 },
         { href: "/users", label: "User Management", icon: Users },
         { href: "/files", label: "File Management", icon: FolderOpen },
+        { href: "/admin-files", label: "Admin Files", icon: HardDrive },
       ],
     },
   ],

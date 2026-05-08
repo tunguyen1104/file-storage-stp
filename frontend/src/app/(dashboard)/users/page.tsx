@@ -40,6 +40,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { listUsers, listTenantUsers } from "@/lib/api/users";
+import { getTenantMe } from "@/lib/api/tenants";
 import { useAuth } from "@/hooks/use-auth";
 import { useDebounce } from "@/hooks/use-debounce";
 import { ROLES } from "@/lib/constants";
@@ -47,8 +48,9 @@ import {
   CreateUserDialog,
   EditUserDialog,
   DeactivateUserDialog,
+  ActivateUserDialog,
 } from "@/components/users/user-dialogs";
-import { formatStorageGb } from "@/lib/utils/storage";
+import { formatBytes } from "@/lib/utils/storage";
 import type { UserResponse } from "@/types/user/user";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -88,6 +90,7 @@ function TenantAdminDashboard() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<UserResponse | null>(null);
   const [deactivateUser, setDeactivateUser] = useState<UserResponse | null>(null);
+  const [activateUser, setActivateUser] = useState<UserResponse | null>(null);
 
   // Security settings states
   const [ssoEnabled, setSsoEnabled] = useState(true);
@@ -105,6 +108,11 @@ function TenantAdminDashboard() {
         isActive: status === "active" ? true : status === "inactive" ? false : undefined
       })
   );
+
+  const { data: tenantMe } = useSWR("tenantMe", getTenantMe);
+  const storageUsedBytes = tenantMe?.storageUsedBytes ?? 0;
+  const storageQuotaBytes = tenantMe?.storageQuotaBytes ?? 1; // avoid division by zero
+  const storagePercent = tenantMe ? Math.min(100, Math.round((storageUsedBytes / storageQuotaBytes) * 100)) : 0;
 
   const users = data?.data ?? [];
   const totalPages = data?.totalPages ?? 1;
@@ -242,14 +250,25 @@ function TenantAdminDashboard() {
                       </TableCell>
                       <TableCell className="py-4 pr-6 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="default"
-                            size="sm"
-                            className="h-8 bg-[#EF4444] hover:bg-[#DC2626] text-white px-3 text-xs font-semibold uppercase tracking-wider"
-                            onClick={() => setDeactivateUser(member)}
-                          >
-                            Delete
-                          </Button>
+                          {member.isActive ? (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="h-8 bg-[#EF4444] hover:bg-[#DC2626] text-white px-3 text-xs font-semibold uppercase tracking-wider"
+                              onClick={() => setDeactivateUser(member)}
+                            >
+                              Delete
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="h-8 bg-green-500 hover:bg-green-600 text-white px-3 text-xs font-semibold uppercase tracking-wider"
+                              onClick={() => setActivateUser(member)}
+                            >
+                              Active
+                            </Button>
+                          )}
                           <Button
                             variant="default"
                             size="sm"
@@ -306,26 +325,14 @@ function TenantAdminDashboard() {
 
             <div className="mt-8 flex items-end justify-between">
               <div>
-                <span className="text-3xl font-bold text-gray-900 leading-none">512.4GB</span>
-                <span className="text-sm text-gray-500 ml-1">used of 1TB</span>
+                <span className="text-3xl font-bold text-gray-900 leading-none">{formatBytes(storageUsedBytes)}</span>
+                <span className="text-sm text-gray-500 ml-1">used of {formatBytes(storageQuotaBytes)}</span>
               </div>
-              <span className="text-[#5B5CEF] font-medium text-sm mb-1">50%</span>
+              <span className="text-[#5B5CEF] font-medium text-sm mb-1">{storagePercent}%</span>
             </div>
 
             <div className="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden mt-3 relative">
-              <div className="h-full bg-[#5B5CEF] rounded-full w-[50%]"></div>
-            </div>
-
-            <div className="flex justify-between mt-6 pt-6 border-t border-gray-100">
-              <div className="flex flex-col">
-                <span className="text-xs font-bold text-gray-900">Documents</span>
-                <span className="text-xs text-gray-500">342.1 GB</span>
-              </div>
-              <div className="w-px bg-gray-200 h-8 self-center"></div>
-              <div className="flex flex-col">
-                <span className="text-xs font-bold text-gray-900">Media Assets</span>
-                <span className="text-xs text-gray-500">170.3 GB</span>
-              </div>
+              <div className="h-full bg-[#5B5CEF] rounded-full transition-all duration-500" style={{ width: `${storagePercent}%` }}></div>
             </div>
           </div>
 
@@ -398,7 +405,20 @@ function TenantAdminDashboard() {
         user={deactivateUser}
         open={deactivateUser !== null}
         onOpenChange={(open: boolean) => { if (!open) setDeactivateUser(null); }}
-        onSuccess={handleSuccess}
+        onSuccess={() => {
+          setDeactivateUser(null);
+          handleSuccess();
+        }}
+      />
+
+      <ActivateUserDialog
+        user={activateUser}
+        open={activateUser !== null}
+        onOpenChange={(open) => !open && setActivateUser(null)}
+        onSuccess={() => {
+          setActivateUser(null);
+          handleSuccess();
+        }}
       />
     </div>
   );
@@ -498,7 +518,7 @@ function SuperAdminView() {
                       {member.tenantName ?? <span className="italic text-muted-foreground/60">System</span>}
                     </TableCell>
                     <TableCell className="tabular-nums text-muted-foreground">
-                      {formatStorageGb(member.storageQuotaBytes)}
+                      {formatBytes(member.storageQuotaBytes)}
                     </TableCell>
                     <TableCell>
                       <Badge

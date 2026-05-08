@@ -1,12 +1,5 @@
-// src/lib/schemas/tenant.schema.ts
 import { z } from "zod";
-
-const storageQuotaBytesField = z
-  .string()
-  .refine((val) => !val || (/^\d+$/.test(val) && BigInt(val) > BigInt(0)), {
-    message: "Must be a positive whole number",
-  })
-  .optional();
+import { STORAGE_UNITS } from "@/lib/utils/storage";
 
 export const createTenantSchema = z.object({
   name: z.string().min(1, "Name is required").max(255),
@@ -18,7 +11,8 @@ export const createTenantSchema = z.object({
       /^[a-z0-9-]+$/,
       "Slug can only contain lowercase letters, numbers, and hyphens"
     ),
-  storageQuotaBytes: storageQuotaBytesField,
+  storageQuotaValue: z.string().optional(),
+  storageQuotaUnit: z.enum(STORAGE_UNITS).optional(),
 });
 
 export type CreateTenantInput = z.infer<typeof createTenantSchema>;
@@ -34,7 +28,8 @@ export const updateTenantSchema = z.object({
       "Slug can only contain lowercase letters, numbers, and hyphens"
     )
     .optional(),
-  storageQuotaBytes: storageQuotaBytesField,
+  storageQuotaValue: z.string().optional(),
+  storageQuotaUnit: z.enum(STORAGE_UNITS).optional(),
 });
 
 export type UpdateTenantInput = z.infer<typeof updateTenantSchema>;

@@ -43,6 +43,14 @@ import {
   type UpdateTenantInput,
 } from "@/lib/schemas/tenant.schema";
 import type { TenantResponse } from "@/types/tenant/tenant";
+import { parseBytes, convertToBytes } from "@/lib/utils/storage";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // ─── Create Tenant Dialog ────────────────────────────────────────
 
@@ -59,7 +67,7 @@ export function CreateTenantDialog({
 }: CreateTenantDialogProps) {
   const form = useForm<CreateTenantInput>({
     resolver: zodResolver(createTenantSchema),
-    defaultValues: { name: "", slug: "", storageQuotaBytes: "" },
+    defaultValues: { name: "", slug: "", storageQuotaValue: "", storageQuotaUnit: "GB" },
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -86,7 +94,9 @@ export function CreateTenantDialog({
       await createTenant({
         name: values.name,
         slug: values.slug,
-        storageQuotaBytes: values.storageQuotaBytes || undefined,
+        storageQuotaBytes: values.storageQuotaValue
+          ? convertToBytes(Number(values.storageQuotaValue), values.storageQuotaUnit || "GB").toString()
+          : undefined,
       });
       toast.success("Tenant created successfully");
       form.reset();
@@ -148,25 +158,47 @@ export function CreateTenantDialog({
 
             <FormField
               control={form.control}
-              name="storageQuotaBytes"
+              name="storageQuotaValue"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
                     <span className="flex items-center gap-1.5">
                       <HardDrive className="h-3.5 w-3.5" />
-                      Storage Quota (Bytes)
+                      Storage Quota
                     </span>
                   </FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min="1"
-                      step="1"
-                      placeholder="e.g. 107374182400"
-                      {...field}
-                      value={field.value ?? ""}
+                  <div className="flex gap-2">
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="e.g. 5"
+                        {...field}
+                        value={field.value ?? ""}
+                        className="flex-1"
+                      />
+                    </FormControl>
+                    <FormField
+                      control={form.control}
+                      name="storageQuotaUnit"
+                      render={({ field: unitField }) => (
+                        <Select onValueChange={unitField.onChange} value={unitField.value}>
+                          <FormControl>
+                            <SelectTrigger className="w-[100px]">
+                              <SelectValue placeholder="Unit" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="KB">KB</SelectItem>
+                            <SelectItem value="MB">MB</SelectItem>
+                            <SelectItem value="GB">GB</SelectItem>
+                            <SelectItem value="TB">TB</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                     />
-                  </FormControl>
+                  </div>
                   <FormDescription>Leave empty to use the system default</FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -204,13 +236,16 @@ export function EditTenantDialog({
   onOpenChange,
   onSuccess,
 }: EditTenantDialogProps) {
+  const initialQuota = tenant?.storageQuotaBytes ? parseBytes(tenant.storageQuotaBytes) : null;
+
   const form = useForm<UpdateTenantInput>({
     resolver: zodResolver(updateTenantSchema),
     values: tenant
       ? {
           name: tenant.name,
           slug: tenant.slug,
-          storageQuotaBytes: tenant.storageQuotaBytes?.toString() ?? "",
+          storageQuotaValue: initialQuota ? initialQuota.value.toString() : "",
+          storageQuotaUnit: initialQuota ? initialQuota.unit : "GB",
         }
       : undefined,
   });
@@ -221,10 +256,14 @@ export function EditTenantDialog({
     if (!tenant) return;
     setIsSubmitting(true);
     try {
+      const newQuotaBytes = values.storageQuotaValue
+        ? convertToBytes(Number(values.storageQuotaValue), values.storageQuotaUnit || "GB")
+        : undefined;
+
       await updateTenant(tenant.id, {
         name: values.name,
         slug: values.slug,
-        storageQuotaBytes: values.storageQuotaBytes || undefined,
+        storageQuotaBytes: newQuotaBytes !== tenant.storageQuotaBytes ? newQuotaBytes?.toString() : undefined,
       });
       toast.success("Tenant updated successfully");
       onOpenChange(false);
@@ -281,25 +320,47 @@ export function EditTenantDialog({
 
             <FormField
               control={form.control}
-              name="storageQuotaBytes"
+              name="storageQuotaValue"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
                     <span className="flex items-center gap-1.5">
                       <HardDrive className="h-3.5 w-3.5" />
-                      Storage Quota (Bytes)
+                      Storage Quota
                     </span>
                   </FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min="1"
-                      step="1"
-                      placeholder="e.g. 107374182400"
-                      {...field}
-                      value={field.value ?? ""}
+                  <div className="flex gap-2">
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="e.g. 5"
+                        {...field}
+                        value={field.value ?? ""}
+                        className="flex-1"
+                      />
+                    </FormControl>
+                    <FormField
+                      control={form.control}
+                      name="storageQuotaUnit"
+                      render={({ field: unitField }) => (
+                        <Select onValueChange={unitField.onChange} value={unitField.value}>
+                          <FormControl>
+                            <SelectTrigger className="w-[100px]">
+                              <SelectValue placeholder="Unit" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="KB">KB</SelectItem>
+                            <SelectItem value="MB">MB</SelectItem>
+                            <SelectItem value="GB">GB</SelectItem>
+                            <SelectItem value="TB">TB</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                     />
-                  </FormControl>
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}

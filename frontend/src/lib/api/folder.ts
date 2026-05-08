@@ -7,6 +7,7 @@ import type {
   FolderMetadataResponse,
   ListFolderParams,
   FolderBreadcrumb,
+  AdminListFolderParams,
 } from "@/types/folder/folder";
 
 export async function listFolderItems(
@@ -125,6 +126,35 @@ export async function deleteFolder(folderId: string): Promise<void> {
     // Status 204 typically doesn't have a data payload to check `success` on,
     // but our apiClient might wrap it or the backend might return 200 with an empty body.
     // If backend uses 204, apiClient.delete resolves without error.
+  } catch (error) {
+    throw toAppError(error);
+  }
+}
+
+export async function getAdminFolderItems(
+  params?: AdminListFolderParams
+): Promise<PageResponse<FolderItem>> {
+  try {
+    const cleanParams: Record<string, string | number> = {};
+    if (params?.tenantId) cleanParams.tenantId = params.tenantId;
+    if (params?.type) cleanParams.type = params.type;
+    if (params?.parentId) cleanParams.parentId = params.parentId;
+    if (params?.status) cleanParams.status = params.status;
+    if (params?.createdBy) cleanParams.createdBy = params.createdBy;
+    if (params?.search) cleanParams.search = params.search;
+    if (params?.page) cleanParams.page = params.page;
+    if (params?.limit) cleanParams.limit = params.limit;
+    if (params?.sortBy) cleanParams.sortBy = params.sortBy;
+    if (params?.sortDirection) cleanParams.sortDirection = params.sortDirection;
+
+    const response = await apiClient.get<ApiResponse<PageResponse<FolderItem>>>(
+      API_ROUTES.FOLDERS.ADMIN_ITEMS,
+      { params: cleanParams }
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.message ?? "Failed to fetch admin folders");
+    }
+    return response.data.data;
   } catch (error) {
     throw toAppError(error);
   }
