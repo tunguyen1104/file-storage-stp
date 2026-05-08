@@ -196,7 +196,11 @@ export async function proxyToBackend(
     const backendRes = await fetch(backendUrl, init);
     const responseBody = await backendRes.arrayBuffer();
 
-    const response = new NextResponse(responseBody, {
+    // 204 No Content (and similar) statuses cannot have a body in Next.js Response constructor
+    const isNoContent = backendRes.status === 204 || backendRes.status === 205 || backendRes.status === 304;
+    const bodyToPass = isNoContent ? null : responseBody;
+
+    const response = new NextResponse(bodyToPass, {
       status: backendRes.status,
       statusText: backendRes.statusText,
     });

@@ -57,15 +57,9 @@ export async function deleteFile(fileId: string): Promise<FileResponse> {
   }
 }
 
-export async function deleteFileDirect(fileId: string): Promise<FileResponse> {
+export async function deleteFileDirect(fileId: string): Promise<void> {
   try {
-    const response = await apiClient.delete<ApiResponse<FileResponse>>(
-      API_ROUTES.FILES.DIRECT_DELETE(fileId)
-    );
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.message ?? "Failed to permanently delete file");
-    }
-    return response.data.data;
+    await apiClient.delete(API_ROUTES.FILES.DIRECT_DELETE(fileId));
   } catch (error) {
     throw toAppError(error);
   }
@@ -114,6 +108,21 @@ export async function downloadFile(
     );
     if (!response.data.success || !response.data.data) {
       throw new Error(response.data.message ?? "Failed to get download URL");
+    }
+    return response.data.data;
+  } catch (error) {
+    throw toAppError(error);
+  }
+}
+
+export async function moveFile(fileId: string, folderId: string | null): Promise<FileResponse> {
+  try {
+    const response = await apiClient.patch<ApiResponse<FileResponse>>(
+      API_ROUTES.FILES.MOVE(fileId),
+      { folderId }
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.message ?? "Failed to move file");
     }
     return response.data.data;
   } catch (error) {

@@ -44,7 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createUser, updateUser, deactivateUser } from "@/lib/api/users";
+import { createUser, updateUser, deactivateUser, activateUser } from "@/lib/api/users";
 import {
   createUserSchema,
   updateUserSchema,
@@ -54,6 +54,7 @@ import {
 import { ROLES, type Role } from "@/lib/constants";
 import { TenantSelect } from "@/components/tenants/TenantSelect";
 import type { UserResponse } from "@/types/user/user";
+import { parseBytes, convertToBytes } from "@/lib/utils/storage";
 
 // ─── Create User Dialog ──────────────────────────────────────────
 
@@ -77,7 +78,8 @@ export function CreateUserDialog({
       fullName: "",
       roleCode: undefined,
       tenantId: "",
-      storageQuotaBytes: "",
+      storageQuotaValue: "",
+      storageQuotaUnit: "GB",
     },
   });
 
@@ -101,7 +103,9 @@ export function CreateUserDialog({
         fullName: values.fullName,
         roleCode: values.roleCode,
         tenantId: values.tenantId || undefined,
-        storageQuotaBytes: values.storageQuotaBytes || undefined,
+        storageQuotaBytes: values.storageQuotaValue
+          ? convertToBytes(Number(values.storageQuotaValue), values.storageQuotaUnit || "GB").toString()
+          : undefined,
       });
       toast.success("User created successfully");
       form.reset();
@@ -198,25 +202,47 @@ export function CreateUserDialog({
 
             <FormField
               control={form.control}
-              name="storageQuotaBytes"
+              name="storageQuotaValue"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
                     <span className="flex items-center gap-1.5">
                       <HardDrive className="h-3.5 w-3.5" />
-                      Storage Quota (Bytes)
+                      Storage Quota
                     </span>
                   </FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min="1"
-                      step="1"
-                      placeholder="e.g. 10737418240"
-                      {...field}
-                      value={field.value ?? ""}
+                  <div className="flex gap-2">
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="e.g. 5"
+                        {...field}
+                        value={field.value ?? ""}
+                        className="flex-1"
+                      />
+                    </FormControl>
+                    <FormField
+                      control={form.control}
+                      name="storageQuotaUnit"
+                      render={({ field: unitField }) => (
+                        <Select onValueChange={unitField.onChange} value={unitField.value}>
+                          <FormControl>
+                            <SelectTrigger className="w-[100px]">
+                              <SelectValue placeholder="Unit" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="KB">KB</SelectItem>
+                            <SelectItem value="MB">MB</SelectItem>
+                            <SelectItem value="GB">GB</SelectItem>
+                            <SelectItem value="TB">TB</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                     />
-                  </FormControl>
+                  </div>
                   <FormDescription>Leave empty to use the default quota</FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -254,13 +280,16 @@ export function EditUserDialog({
   onOpenChange,
   onSuccess,
 }: EditUserDialogProps) {
+  const initialQuota = user?.storageQuotaBytes ? parseBytes(user.storageQuotaBytes) : null;
+
   const form = useForm<UpdateUserInput>({
     resolver: zodResolver(updateUserSchema),
     values: user
       ? {
           fullName: user.fullName,
           roleCode: user.role as Role,
-          storageQuotaBytes: user.storageQuotaBytes?.toString() ?? "",
+          storageQuotaValue: initialQuota ? initialQuota.value.toString() : "",
+          storageQuotaUnit: initialQuota ? initialQuota.unit : "GB",
         }
       : undefined,
   });
@@ -271,13 +300,14 @@ export function EditUserDialog({
     if (!user) return;
     setIsSubmitting(true);
     try {
+      const newQuotaBytes = values.storageQuotaValue
+        ? convertToBytes(Number(values.storageQuotaValue), values.storageQuotaUnit || "GB")
+        : undefined;
+
       await updateUser(user.id, {
         fullName: values.fullName !== user.fullName ? values.fullName : undefined,
         roleCode: values.roleCode !== (user.role as Role) ? values.roleCode : undefined,
-        storageQuotaBytes:
-          (values.storageQuotaBytes || undefined) !== user.storageQuotaBytes?.toString()
-            ? values.storageQuotaBytes || undefined
-            : undefined,
+        storageQuotaBytes: newQuotaBytes !== user.storageQuotaBytes ? newQuotaBytes?.toString() : undefined,
       });
       toast.success("User updated successfully");
       onOpenChange(false);
@@ -349,25 +379,47 @@ export function EditUserDialog({
 
             <FormField
               control={form.control}
-              name="storageQuotaBytes"
+              name="storageQuotaValue"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
                     <span className="flex items-center gap-1.5">
                       <HardDrive className="h-3.5 w-3.5" />
-                      Storage Quota (Bytes)
+                      Storage Quota
                     </span>
                   </FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min="1"
-                      step="1"
-                      placeholder="e.g. 10737418240"
-                      {...field}
-                      value={field.value ?? ""}
+                  <div className="flex gap-2">
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="e.g. 5"
+                        {...field}
+                        value={field.value ?? ""}
+                        className="flex-1"
+                      />
+                    </FormControl>
+                    <FormField
+                      control={form.control}
+                      name="storageQuotaUnit"
+                      render={({ field: unitField }) => (
+                        <Select onValueChange={unitField.onChange} value={unitField.value}>
+                          <FormControl>
+                            <SelectTrigger className="w-[100px]">
+                              <SelectValue placeholder="Unit" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="KB">KB</SelectItem>
+                            <SelectItem value="MB">MB</SelectItem>
+                            <SelectItem value="GB">GB</SelectItem>
+                            <SelectItem value="TB">TB</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                     />
-                  </FormControl>
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
@@ -441,6 +493,63 @@ export function DeactivateUserDialog({
           >
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Deactivate
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+// ─── Activate User Dialog ────────────────────────────────────────
+
+export function ActivateUserDialog({
+  user,
+  open,
+  onOpenChange,
+  onSuccess,
+}: {
+  user: UserResponse | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleActivate() {
+    if (!user) return;
+    setIsSubmitting(true);
+    try {
+      await activateUser(user.id);
+      toast.success(`User "${user.fullName}" activated`);
+      onOpenChange(false);
+      onSuccess();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to activate user");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Activate User</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to activate{" "}
+            <span className="font-semibold">{user?.fullName}</span> ({user?.email})?
+            The user will regain access immediately.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleActivate}
+            disabled={isSubmitting}
+            className="bg-[#5B5CEF] hover:bg-[#4C4DE0] text-white"
+          >
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Activate
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

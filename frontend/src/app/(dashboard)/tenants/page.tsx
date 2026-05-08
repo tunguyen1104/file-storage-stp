@@ -39,7 +39,7 @@ import {
 } from "@/components/tenants/tenant-dialogs";
 import type { TenantResponse } from "@/types/tenant/tenant";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
-import { formatStorageGb } from "@/lib/utils/storage";
+import { formatBytes } from "@/lib/utils/storage";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function TenantsPage() {
@@ -206,7 +206,7 @@ export default function TenantsPage() {
                       <TableCell className="py-4">
                         <div className="flex flex-col gap-1.5 w-[140px]">
                           <span className="text-sm font-semibold text-gray-700">
-                            {formatStorageGb(tenant.storageUsedBytes)}
+                            {formatBytes(tenant.storageUsedBytes)}
                           </span>
                           <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
                             <div 

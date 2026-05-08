@@ -74,10 +74,10 @@ function LoginForm() {
         {/* Header/Logo */}
         <div className="flex items-center justify-center mb-8">
           <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-10 h-10 bg-[#7C3AED] rounded-xl text-white">
+            <div className="flex items-center justify-center w-10 h-10 bg-primary rounded-xl text-white">
               <HardDrive className="w-6 h-6" />
             </div>
-            <span className="text-xl font-bold text-[#7C3AED]">DocuKeep</span>
+            <span className="text-xl font-bold text-primary">DocuKeep</span>
           </div>
         </div>
 
@@ -129,7 +129,7 @@ function LoginForm() {
                               type="email"
                               placeholder="name@example.com"
                               autoComplete="email"
-                              className="pl-10 h-11 border-gray-300 focus-visible:ring-[#7C3AED]"
+                              className="pl-10 h-11 border-gray-300 focus-visible:ring-primary"
                               {...field}
                             />
                           </div>
@@ -148,7 +148,7 @@ function LoginForm() {
                           <FormLabel className="text-sm font-semibold text-slate-700">Mật khẩu</FormLabel>
                           <Link
                             href="/forgot-password"
-                            className="text-xs text-[#7C3AED] hover:underline"
+                            className="text-xs text-primary hover:underline"
                             tabIndex={-1}
                           >
                             Quên mật khẩu?
@@ -162,7 +162,7 @@ function LoginForm() {
                             <PasswordInput
                               placeholder="••••••••"
                               autoComplete="current-password"
-                              className="h-11 border-gray-300 focus-visible:ring-[#7C3AED] !pl-10"
+                              className="h-11 border-gray-300 focus-visible:ring-primary !pl-10"
                               {...field}
                             />
                           </div>
@@ -173,7 +173,7 @@ function LoginForm() {
                   />
                   
                   <div className="flex items-center space-x-2">
-                    <Checkbox id="remember" className="border-gray-300 text-[#7C3AED] focus-visible:ring-[#7C3AED]" />
+                    <Checkbox id="remember" className="border-gray-300 text-primary focus-visible:ring-primary" />
                     <label
                       htmlFor="remember"
                       className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-slate-600"
@@ -185,7 +185,7 @@ function LoginForm() {
 
                 <Button
                   type="submit"
-                  className="w-full h-11 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-semibold transition-colors rounded-lg mt-6"
+                  className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-semibold transition-all duration-300 rounded-lg mt-6 shadow-md hover:shadow-lg"
                   disabled={form.formState.isSubmitting}
                 >
                   {form.formState.isSubmitting ? (
@@ -210,7 +210,7 @@ function LoginForm() {
       </div>
 
       {/* Right Column - Purple Banner */}
-      <div className="hidden lg:flex flex-col w-1/2 bg-[#7C3AED] p-16 text-white relative overflow-hidden flex-1">
+      <div className="hidden lg:flex flex-col w-1/2 bg-primary p-16 text-white relative overflow-hidden flex-1">
         {/* Abstract Background Elements (Circles) */}
         <div className="absolute -top-[10%] -right-[10%] w-[50%] h-[50%] rounded-full border border-white/10" />
         <div className="absolute top-[20%] -right-[20%] w-[60%] h-[60%] rounded-full border border-white/10" />
@@ -227,33 +227,33 @@ function LoginForm() {
           </p>
 
           <div className="space-y-6">
-            <div className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-2xl p-6 flex gap-4 items-start">
-              <div className="mt-1">
-                <Zap className="w-6 h-6 text-white" />
+            <div className="bg-white rounded-2xl p-6 flex gap-4 items-start shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+              <div className="mt-1 bg-primary/10 p-3 rounded-xl">
+                <Zap className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg mb-1">Tốc độ vượt trội</h3>
-                <p className="text-white/70 text-sm leading-relaxed">Tải lên và tải về tệp tin với tốc độ ánh sáng nhờ hạ tầng CDN toàn cầu của chúng tôi.</p>
+                <h3 className="font-semibold text-lg mb-1 text-slate-900">Tốc độ vượt trội</h3>
+                <p className="text-slate-600 text-sm leading-relaxed">Tải lên và tải về tệp tin với tốc độ ánh sáng nhờ hạ tầng CDN toàn cầu của chúng tôi.</p>
               </div>
             </div>
 
-            <div className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-2xl p-6 flex gap-4 items-start">
-              <div className="mt-1">
-                <HardDrive className="w-6 h-6 text-white" />
+            <div className="bg-white rounded-2xl p-6 flex gap-4 items-start shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+              <div className="mt-1 bg-primary/10 p-3 rounded-xl">
+                <HardDrive className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg mb-1">Dung lượng không giới hạn</h3>
-                <p className="text-white/70 text-sm leading-relaxed">Mở rộng không gian lưu trữ của bạn bất cứ lúc nào với các gói cước linh hoạt.</p>
+                <h3 className="font-semibold text-lg mb-1 text-slate-900">Dung lượng không giới hạn</h3>
+                <p className="text-slate-600 text-sm leading-relaxed">Mở rộng không gian lưu trữ của bạn bất cứ lúc nào với các gói cước linh hoạt.</p>
               </div>
             </div>
 
-            <div className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-2xl p-6 flex gap-4 items-start">
-              <div className="mt-1">
-                <ShieldCheck className="w-6 h-6 text-white" />
+            <div className="bg-white rounded-2xl p-6 flex gap-4 items-start shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+              <div className="mt-1 bg-primary/10 p-3 rounded-xl">
+                <ShieldCheck className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg mb-1">Bảo mật đa lớp</h3>
-                <p className="text-white/70 text-sm leading-relaxed">Dữ liệu của bạn được mã hóa ngay từ khi rời khỏi thiết bị và bảo vệ bởi xác thực 2 lớp.</p>
+                <h3 className="font-semibold text-lg mb-1 text-slate-900">Bảo mật đa lớp</h3>
+                <p className="text-slate-600 text-sm leading-relaxed">Dữ liệu của bạn được mã hóa ngay từ khi rời khỏi thiết bị và bảo vệ bởi xác thực 2 lớp.</p>
               </div>
             </div>
           </div>
@@ -279,7 +279,7 @@ export default function LoginPage() {
     <Suspense
       fallback={
         <div className="flex flex-col items-center justify-center min-h-screen gap-3">
-          <Loader2 className="w-10 h-10 animate-spin text-[#7C3AED]" />
+          <Loader2 className="w-10 h-10 animate-spin text-primary" />
           <p className="text-sm font-medium text-gray-500">Loading workspace...</p>
         </div>
       }

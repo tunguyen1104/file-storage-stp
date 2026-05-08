@@ -13,6 +13,7 @@ import {
   Trash2,
   ChevronRight,
   X,
+  MoveRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,8 @@ interface NewFileMenuProps {
   onCreateFolder?: () => void;
   /** Called when Edit is clicked; only provided when inside a folder */
   onEditFolder?: () => void;
+  /** Called when Move is clicked; only provided when inside a folder */
+  onMoveFolder?: () => void;
   /** Called when Remove is clicked; only provided when inside a folder */
   onRemoveFolder?: () => void;
 }
@@ -43,6 +46,7 @@ export function NewFileMenu({
   onUpload,
   onCreateFolder,
   onEditFolder,
+  onMoveFolder,
   onRemoveFolder,
 }: NewFileMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -89,6 +93,7 @@ export function NewFileMenu({
   ];
 
   const modifyItems: MenuItem[] = [
+    ...(onMoveFolder ? [{ icon: MoveRight, label: "Move", hasArrow: false, onClick: onMoveFolder }] : []),
     ...(onEditFolder ? [{ icon: Pencil, label: "Edit", hasArrow: false, onClick: onEditFolder }] : []),
     ...(onRemoveFolder ? [{ icon: Trash2, label: "Remove", hasArrow: false, danger: true, onClick: onRemoveFolder }] : []),
   ];

@@ -46,6 +46,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { CreateFolderDialog } from "@/components/folders/CreateFolderDialog";
 import { RenameFolderDialog } from "@/components/folders/RenameFolderDialog";
 import { DeleteFolderDialog } from "@/components/folders/DeleteFolderDialog";
+import { MoveItemDialog } from "@/components/files/MoveItemDialog";
 import {
   DEFAULT_PAGE_SIZE,
   FILE_STATUS,
@@ -127,6 +128,8 @@ function FilesPageInner() {
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [renameFolderOpen, setRenameFolderOpen] = useState(false);
   const [deleteFolderOpen, setDeleteFolderOpen] = useState(false);
+  const [moveFolderOpen, setMoveFolderOpen] = useState(false);
+  const [moveFileOpen, setMoveFileOpen] = useState(false);
 
   useEffect(() => {
     setSelectedFile(null);
@@ -176,6 +179,10 @@ function FilesPageInner() {
   const totalPages = data?.totalPages ?? 1;
   // Current folder name derived from breadcrumbs (used by RenameFolderDialog)
   const currentFolderName = breadcrumbs?.find((c) => c.id === currentFolderId)?.name ?? "";
+  
+  const currentFolderParentId = breadcrumbs && breadcrumbs.length >= 2 
+    ? breadcrumbs[breadcrumbs.length - 2].id === "root" ? null : breadcrumbs[breadcrumbs.length - 2].id
+    : null;
 
   function handleSuccess() {
     mutate();
@@ -204,13 +211,13 @@ function FilesPageInner() {
           originalName: item.name ?? item.originalName,
           mimeType: item.mimeType ?? "application/octet-stream",
           sizeBytes: item.sizeBytes ?? 0,
-          status: "ACTIVE" as any,
+          status: item.status ?? "ACTIVE",
           folderId: item.parentId ?? null,
           tenantId: null,
           checksumMd5: null,
           thumbnailKey: null,
           isIndexed: false,
-          uploadedBy: item.uploadedBy ?? { id: "", fullName: "—" },
+          uploadedBy: item.actor ?? { id: "", fullName: "—" },
           deletedAt: null,
           scheduledDeleteAt: null,
           createdAt: item.createdAt,
@@ -393,6 +400,10 @@ function FilesPageInner() {
                       setNewFileMenuOpen(false);
                       setRenameFolderOpen(true);
                     } : undefined}
+                    onMoveFolder={currentFolderId ? () => {
+                      setNewFileMenuOpen(false);
+                      setMoveFolderOpen(true);
+                    } : undefined}
                     onRemoveFolder={currentFolderId ? () => {
                       setNewFileMenuOpen(false);
                       setDeleteFolderOpen(true);
@@ -554,6 +565,7 @@ function FilesPageInner() {
                 mode={isTrash ? "trash" : "default"}
                 onMutate={handleSuccess}
                 onDelete={(f) => setDeleteTarget(f)}
+                onMove={() => setMoveFileOpen(true)}
               />
             </>
           )}
@@ -597,6 +609,36 @@ function FilesPageInner() {
           }}
         />
       )}
+      <MoveItemDialog
+        open={moveFolderOpen}
+        onOpenChange={setMoveFolderOpen}
+        item={currentFolderId ? {
+          id: currentFolderId,
+          name: currentFolderName,
+          type: "FOLDER",
+          parentId: currentFolderParentId
+        } : null}
+        onSuccess={() => {
+          setCurrentFolderId(currentFolderParentId);
+          setCurrentPage(1);
+          mutate();
+          mutateBreadcrumbs();
+        }}
+      />
+      <MoveItemDialog
+        open={moveFileOpen}
+        onOpenChange={setMoveFileOpen}
+        item={selectedFile ? {
+          id: selectedFile.id,
+          name: selectedFile.originalName,
+          type: "FILE",
+          parentId: selectedFile.folderId
+        } : null}
+        onSuccess={() => {
+          setSelectedFile(null);
+          mutate();
+        }}
+      />
       <DeleteFileDialog
         file={deleteTarget}
         open={deleteTarget !== null}

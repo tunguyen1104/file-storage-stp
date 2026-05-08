@@ -3,6 +3,7 @@ import { apiClient } from "@/lib/api-client";
 import { API_ROUTES } from "@/lib/constants";
 import { toAppError } from "@/lib/api/core/api-error";
 import type { ApiResponse } from "@/types/api.types";
+import type { FileResponse } from "@/types/file/file";
 import type {
   PresignedInitResponse,
   MultipartInitResponse,
@@ -188,6 +189,42 @@ export async function getMultipartSession(
     );
     if (!response.data.success || !response.data.data) {
       throw new Error(response.data.message ?? "Failed to get multipart session");
+    }
+    return response.data.data;
+  } catch (error) {
+    throw toAppError(error);
+  }
+}
+
+// ─── Bulk Upload (Standard) ───────────────────────────────────────────────────
+
+/**
+ * Upload multiple files in a single multipart form-data request.
+ * Useful for small files where presigned/chunked overhead is unnecessary.
+ */
+export async function uploadBulk(
+  files: File[],
+  folderId?: string
+): Promise<FileResponse[]> {
+  try {
+    const formData = new FormData();
+    files.forEach((f) => formData.append("files", f));
+    if (folderId) {
+      formData.append("folderId", folderId);
+    }
+
+    const response = await apiClient.post<ApiResponse<FileResponse[]>>(
+      API_ROUTES.UPLOADS.BULK,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.message ?? "Failed to upload bulk files");
     }
     return response.data.data;
   } catch (error) {

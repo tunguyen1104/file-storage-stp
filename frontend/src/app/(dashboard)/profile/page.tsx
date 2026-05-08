@@ -5,11 +5,12 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import useSWR from "swr";
+import { useRouter } from "next/navigation";
 import { Camera, KeyRound, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/use-auth";
-import { getUserById, getUserStorage, updateUser } from "@/lib/api/users";
+import { getUserById, updateUser } from "@/lib/api/users";
 import { toAppError } from "@/lib/api/core/api-error";
 import type { Role } from "@/lib/constants";
 
@@ -34,6 +35,7 @@ const profileSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export default function ProfilePage() {
+  const router = useRouter();
   const { user } = useAuth();
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -42,11 +44,6 @@ export default function ProfilePage() {
   const { data: profile, mutate: mutateProfile, isLoading: isLoadingProfile } = useSWR(
     user?.id ? ["userProfile", user.id] : null,
     () => getUserById(user!.id)
-  );
-  
-  const { data: storage, isLoading: isLoadingStorage } = useSWR(
-    user?.id ? ["userStorage", user.id] : null,
-    () => getUserStorage(user!.id)
   );
 
   const {
@@ -88,14 +85,15 @@ export default function ProfilePage() {
   }
 
   function handleCancel() {
-    if (profile) {
+    if (isDirty && profile) {
       reset({
         fullName: profile.fullName,
       });
     }
+    router.back();
   }
 
-  if (isLoadingProfile || isLoadingStorage) {
+  if (isLoadingProfile) {
     return (
       <div className="flex h-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
@@ -103,9 +101,12 @@ export default function ProfilePage() {
     );
   }
 
-  const usagePercent = storage?.usagePercent ?? 0;
-  const storageUsedStr = formatBytes(storage?.storageUsedBytes ?? 0);
-  const storageQuotaStr = formatBytes(storage?.storageQuotaBytes ?? 0);
+  const storageUsedBytes = profile?.storageUsedBytes ?? 0;
+  const storageQuotaBytes = profile?.storageQuotaBytes ?? 0;
+  const usagePercent = storageQuotaBytes > 0 ? (storageUsedBytes / storageQuotaBytes) * 100 : 0;
+
+  const storageUsedStr = formatBytes(storageUsedBytes);
+  const storageQuotaStr = formatBytes(storageQuotaBytes);
 
   return (
     <div className="container mx-auto p-6 max-w-4xl h-full overflow-y-auto">
@@ -137,7 +138,7 @@ export default function ProfilePage() {
               variant="outline" 
               className="text-gray-600 font-medium"
               onClick={handleCancel}
-              disabled={!isDirty || isSaving}
+              disabled={isSaving}
             >
               Cancel
             </Button>
@@ -192,6 +193,16 @@ export default function ProfilePage() {
                   </svg>
                 </div>
               </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="tenant" className="text-sm font-semibold text-gray-700">Tenant</Label>
+              <Input 
+                id="tenant" 
+                value={profile?.tenantName || "N/A"} 
+                disabled 
+                className="bg-gray-50/80 text-gray-500 cursor-not-allowed"
+              />
             </div>
             
             <div className="space-y-2">
