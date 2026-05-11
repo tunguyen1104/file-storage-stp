@@ -27,7 +27,7 @@ export function UploadFloatingWidget() {
   ).length;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-80 rounded-xl border bg-background shadow-2xl overflow-hidden">
+    <div className="fixed bottom-4 right-4 z-50 w-96 rounded-xl border bg-background shadow-2xl overflow-hidden">
       {/* Header */}
       <div
         className="flex cursor-pointer select-none items-center justify-between bg-muted/50 px-4 py-3"

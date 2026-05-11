@@ -72,8 +72,9 @@ export default function ProfilePage() {
     setIsSaving(true);
     try {
       await updateUser(user.id, {
-        ...data,
+        fullName: data.fullName,
         roleCode: profile.role as Role,
+        storageQuotaBytes: profile.storageQuotaBytes?.toString() || "",
       });
       toast.success("Profile updated successfully");
       await mutateProfile();

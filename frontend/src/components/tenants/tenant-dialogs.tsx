@@ -96,7 +96,7 @@ export function CreateTenantDialog({
         slug: values.slug,
         storageQuotaBytes: values.storageQuotaValue
           ? convertToBytes(Number(values.storageQuotaValue), values.storageQuotaUnit || "GB").toString()
-          : undefined,
+          : "",
       });
       toast.success("Tenant created successfully");
       form.reset();
@@ -263,7 +263,7 @@ export function EditTenantDialog({
       await updateTenant(tenant.id, {
         name: values.name,
         slug: values.slug,
-        storageQuotaBytes: newQuotaBytes !== tenant.storageQuotaBytes ? newQuotaBytes?.toString() : undefined,
+        storageQuotaBytes: newQuotaBytes ? newQuotaBytes.toString() : "",
       });
       toast.success("Tenant updated successfully");
       onOpenChange(false);

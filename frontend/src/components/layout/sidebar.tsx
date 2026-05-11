@@ -66,7 +66,7 @@ const NAV_SECTIONS_BY_ROLE: Record<Role, NavSection[]> = {
       items: [
         { href: "/files", label: "All Files", icon: FolderOpen },
         { href: "/files?tab=trash", label: "Trash", icon: Trash2 },
-        { href: "/files?tab=shared", label: "Shared", icon: Share2 },
+        { href: "/shared", label: "Shared", icon: Share2 },
       ],
     },
   ],
@@ -75,7 +75,7 @@ const NAV_SECTIONS_BY_ROLE: Record<Role, NavSection[]> = {
       items: [
         { href: "/files", label: "All Files", icon: FolderOpen },
         { href: "/files?tab=trash", label: "Trash", icon: Trash2 },
-        { href: "/files?tab=shared", label: "Shared", icon: Share2 },
+        { href: "/shared", label: "Shared", icon: Share2 },
       ],
     },
   ],

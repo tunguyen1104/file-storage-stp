@@ -85,7 +85,7 @@ export function UploadQueueItem({
           <p
             className={cn(
               "font-medium truncate leading-tight",
-              compact ? "max-w-[140px]" : "max-w-[260px]"
+              compact ? "max-w-[180px]" : "max-w-[260px]"
             )}
             title={item.file.name}
           >
@@ -157,7 +157,7 @@ export function UploadQueueItem({
 
       {/* Error message */}
       {isError && item.errorMessage && (
-        <p className="text-xs text-destructive mt-0.5 truncate">{item.errorMessage}</p>
+        <p className="text-xs text-destructive mt-0.5 line-clamp-2 break-words">{item.errorMessage}</p>
       )}
     </div>
   );
