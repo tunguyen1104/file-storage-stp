@@ -3,17 +3,8 @@
 import { useEffect, useRef } from "react";
 import {
   Folder,
-  FileText,
-  Monitor,
-  LayoutGrid,
   Upload,
-  Copy,
-  Send,
-  Pencil,
-  Trash2,
-  ChevronRight,
   X,
-  MoveRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,12 +14,6 @@ interface NewFileMenuProps {
   anchorRef?: React.RefObject<HTMLElement | null>;
   onUpload?: () => void;
   onCreateFolder?: () => void;
-  /** Called when Edit is clicked; only provided when inside a folder */
-  onEditFolder?: () => void;
-  /** Called when Move is clicked; only provided when inside a folder */
-  onMoveFolder?: () => void;
-  /** Called when Remove is clicked; only provided when inside a folder */
-  onRemoveFolder?: () => void;
 }
 
 type MenuItem = {
@@ -45,9 +30,6 @@ export function NewFileMenu({
   anchorRef,
   onUpload,
   onCreateFolder,
-  onEditFolder,
-  onMoveFolder,
-  onRemoveFolder,
 }: NewFileMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -79,23 +61,9 @@ export function NewFileMenu({
 
   if (!open) return null;
 
-  const createItems: MenuItem[] = [
-    { icon: Folder, label: "Folder", hasArrow: false, onClick: onCreateFolder },
-    { icon: FileText, label: "Document" },
-    { icon: Monitor, label: "Presentation" },
-    { icon: LayoutGrid, label: "Spreadsheet" },
-  ];
-
-  const addItems: MenuItem[] = [
-    { icon: Upload, label: "Upload", onClick: onUpload },
-    { icon: Copy, label: "Transfer a copy" },
-    { icon: Send, label: "Send file request" },
-  ];
-
-  const modifyItems: MenuItem[] = [
-    ...(onMoveFolder ? [{ icon: MoveRight, label: "Move", hasArrow: false, onClick: onMoveFolder }] : []),
-    ...(onEditFolder ? [{ icon: Pencil, label: "Edit", hasArrow: false, onClick: onEditFolder }] : []),
-    ...(onRemoveFolder ? [{ icon: Trash2, label: "Remove", hasArrow: false, danger: true, onClick: onRemoveFolder }] : []),
+  const menuItems: MenuItem[] = [
+    { icon: Folder, label: "Folder", onClick: onCreateFolder },
+    { icon: Upload, label: "File", onClick: onUpload },
   ];
 
   return (
@@ -118,14 +86,8 @@ export function NewFileMenu({
         </button>
       </div>
 
-      {/* CREATE section */}
-      <MenuSection label="CREATE" items={createItems} />
-
-      {/* ADD section */}
-      <MenuSection label="ADD" items={addItems} />
-
-      {/* MODIFY section — only shown when inside a folder */}
-      {modifyItems.length > 0 && <MenuSection label="MODIFY" items={modifyItems} />}
+      {/* Options */}
+      <MenuSection label="CREATE" items={menuItems} />
 
       <div className="h-2" />
     </div>
@@ -162,7 +124,6 @@ function MenuSection({
           >
             <Icon className="h-4 w-4 shrink-0" />
             <span className="flex-1">{item.label}</span>
-            {item.hasArrow && <ChevronRight className="h-4 w-4 text-gray-400" />}
           </button>
         );
       })}

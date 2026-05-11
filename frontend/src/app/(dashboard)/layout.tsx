@@ -26,9 +26,9 @@ const DEFAULT_ROUTE_BY_ROLE = {
 } as const;
 
 const ALLOWED_ROUTES_BY_ROLE: Record<string, string[]> = {
-  SUPER_ADMIN: ["/tenants", "/users", "/files", "/search", "/audit-logs", "/profile"],
-  TENANT_ADMIN: ["/users", "/files", "/search", "/security", "/audit-logs", "/profile"],
-  MEMBER: ["/files", "/search", "/profile"],
+  SUPER_ADMIN: ["/tenants", "/users", "/files", "/admin-files", "/search", "/audit-logs", "/profile"],
+  TENANT_ADMIN: ["/users", "/files", "/shared", "/search", "/security", "/audit-logs", "/profile"],
+  MEMBER: ["/files", "/shared", "/search", "/profile"],
 };
 
 function toTitle(value: string) {
@@ -139,7 +139,7 @@ export default function DashboardLayout({
 
         <main className={cn(
           "flex-1 overflow-hidden",
-          !pathname.startsWith("/files") && "overflow-y-auto p-4 md:p-6"
+          !pathname.startsWith("/files") && !pathname.startsWith("/shared") && "overflow-y-auto p-4 md:p-6"
         )}>
           {children}
         </main>

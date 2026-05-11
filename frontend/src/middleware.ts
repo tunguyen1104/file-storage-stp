@@ -38,12 +38,13 @@ const ROLE_ROUTE_MAP: Record<string, string[]> = {
   ],
   TENANT_ADMIN: [
     "/files",
+    "/shared",
     "/search",
     "/audit-logs",
     "/users",
     "/unauthorized",
   ],
-  MEMBER: ["/files", "/upload", "/search", "/unauthorized"],
+  MEMBER: ["/files", "/shared", "/upload", "/search", "/unauthorized"],
 };
 
 /**

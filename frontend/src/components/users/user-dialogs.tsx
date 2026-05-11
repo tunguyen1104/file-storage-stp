@@ -105,7 +105,7 @@ export function CreateUserDialog({
         tenantId: values.tenantId || undefined,
         storageQuotaBytes: values.storageQuotaValue
           ? convertToBytes(Number(values.storageQuotaValue), values.storageQuotaUnit || "GB").toString()
-          : undefined,
+          : "",
       });
       toast.success("User created successfully");
       form.reset();
@@ -171,7 +171,9 @@ export function CreateUserDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value={ROLES.SUPER_ADMIN}>Super Admin</SelectItem>
+                      {isSuperAdmin && (
+                        <SelectItem value={ROLES.SUPER_ADMIN}>Super Admin</SelectItem>
+                      )}
                       <SelectItem value={ROLES.TENANT_ADMIN}>Tenant Admin</SelectItem>
                       <SelectItem value={ROLES.MEMBER}>Member</SelectItem>
                     </SelectContent>
@@ -271,6 +273,7 @@ interface EditUserDialogProps {
   user: UserResponse | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  isSuperAdmin?: boolean;
   onSuccess: () => void;
 }
 
@@ -278,6 +281,7 @@ export function EditUserDialog({
   user,
   open,
   onOpenChange,
+  isSuperAdmin = false,
   onSuccess,
 }: EditUserDialogProps) {
   const initialQuota = user?.storageQuotaBytes ? parseBytes(user.storageQuotaBytes) : null;
@@ -305,9 +309,9 @@ export function EditUserDialog({
         : undefined;
 
       await updateUser(user.id, {
-        fullName: values.fullName !== user.fullName ? values.fullName : undefined,
-        roleCode: values.roleCode !== (user.role as Role) ? values.roleCode : undefined,
-        storageQuotaBytes: newQuotaBytes !== user.storageQuotaBytes ? newQuotaBytes?.toString() : undefined,
+        fullName: values.fullName,
+        roleCode: values.roleCode,
+        storageQuotaBytes: newQuotaBytes ? newQuotaBytes.toString() : "",
       });
       toast.success("User updated successfully");
       onOpenChange(false);
@@ -367,7 +371,9 @@ export function EditUserDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value={ROLES.SUPER_ADMIN}>Super Admin</SelectItem>
+                      {isSuperAdmin && (
+                        <SelectItem value={ROLES.SUPER_ADMIN}>Super Admin</SelectItem>
+                      )}
                       <SelectItem value={ROLES.TENANT_ADMIN}>Tenant Admin</SelectItem>
                       <SelectItem value={ROLES.MEMBER}>Member</SelectItem>
                     </SelectContent>

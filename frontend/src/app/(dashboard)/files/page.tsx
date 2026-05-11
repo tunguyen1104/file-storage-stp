@@ -18,11 +18,19 @@ import {
   FileVideo,
   FileAudio,
   File as FileIcon,
-  Star,
   ChevronRight,
   Home,
-  X,
   Folder as FolderIcon,
+  ArrowUp,
+  ArrowDown,
+  UserCircle2,
+  Download,
+  Pencil,
+  Share2,
+  MoveRight,
+  Info,
+  Trash2,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -36,17 +44,19 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { FileDetailCard } from "@/components/files/FileDetailCard";
+import { FileActionMenu } from "@/components/files/FileActionMenu";
 import { DeleteFileDialog } from "@/components/files/DeleteFileDialog";
+import { RenameFileDialog } from "@/components/files/RenameFileDialog";
 import { NewFileMenu } from "@/components/files/NewFileMenu";
 import { useUpload } from "@/contexts/upload-context";
-import { listFiles, downloadFile, getPresignedGetUrl } from "@/lib/api/file";
+import { listFiles, downloadFile, getPresignedGetUrl, restoreFile, deleteFileDirect } from "@/lib/api/file";
 import { listFolderItems, getFolderBreadcrumbs } from "@/lib/api/folder";
 import { useDebounce } from "@/hooks/use-debounce";
 import { CreateFolderDialog } from "@/components/folders/CreateFolderDialog";
 import { RenameFolderDialog } from "@/components/folders/RenameFolderDialog";
 import { DeleteFolderDialog } from "@/components/folders/DeleteFolderDialog";
 import { MoveItemDialog } from "@/components/files/MoveItemDialog";
+import { ItemInfoDialog } from "@/components/files/ItemInfoDialog";
 import {
   DEFAULT_PAGE_SIZE,
   FILE_STATUS,
@@ -55,7 +65,7 @@ import {
 } from "@/lib/constants";
 import type { FileSortBy, SortDirection } from "@/lib/constants";
 import type { FileMetadataResponse } from "@/types/file/file";
-import type { FolderItem } from "@/types/folder/folder";
+
 import { cn } from "@/lib/utils";
 
 // ─── File icon helpers ───────────────────────────────────────────
@@ -111,7 +121,7 @@ function FilesPageInner() {
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
-  const [sort] = useState<{ sortBy: FileSortBy; sortDirection: SortDirection }>({
+  const [sort, setSort] = useState<{ sortBy: FileSortBy; sortDirection: SortDirection }>({
     sortBy: FILE_SORT_BY.CREATED_AT,
     sortDirection: SORT_DIRECTION.DESC,
   });
@@ -119,21 +129,46 @@ function FilesPageInner() {
 
   const { addFiles } = useUpload();
   const [newFileMenuOpen, setNewFileMenuOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<FileMetadataResponse | null>(null);
-  const [selectedItem, setSelectedItem] = useState<any>(null); // FolderItem or FileMetadataResponse
-  const [selectedFile, setSelectedFile] = useState<FileMetadataResponse | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
-  const [renameFolderOpen, setRenameFolderOpen] = useState(false);
-  const [deleteFolderOpen, setDeleteFolderOpen] = useState(false);
-  const [moveFolderOpen, setMoveFolderOpen] = useState(false);
-  const [moveFileOpen, setMoveFileOpen] = useState(false);
+  
+  // Dialog states for row actions
+  const [folderToRename, setFolderToRename] = useState<{ id: string; name: string } | null>(null);
+  const [folderToDelete, setFolderToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [itemToMove, setItemToMove] = useState<{ id: string; name: string; type: "FOLDER" | "FILE"; parentId: string | null } | null>(null);
+  const [fileToDelete, setFileToDelete] = useState<any>(null); // FileMetadataResponse
+  const [fileToRename, setFileToRename] = useState<{ id: string; name: string } | null>(null);
+  const [itemToShowInfo, setItemToShowInfo] = useState<{ id: string; type: "folder" | "file" } | null>(null);
+
+  // ── Context menu state ──
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: any } | null>(null);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, item: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const menuW = 224; // ~w-56
+    const menuH = isTrash ? 120 : 280;
+    const x = e.clientX + menuW > window.innerWidth ? e.clientX - menuW : e.clientX;
+    const y = e.clientY + menuH > window.innerHeight ? e.clientY - menuH : e.clientY;
+    setContextMenu({ x, y, item });
+  }, [isTrash]);
+
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
   useEffect(() => {
-    setSelectedFile(null);
-    setSelectedItem(null);
+    if (!contextMenu) return;
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeContextMenu(); };
+    window.addEventListener("keydown", handleKey);
+    window.addEventListener("click", closeContextMenu);
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      window.removeEventListener("click", closeContextMenu);
+    };
+  }, [contextMenu, closeContextMenu]);
+
+  useEffect(() => {
     setCurrentPage(1);
     setSearch("");
     setCurrentFolderId(null);
@@ -187,45 +222,106 @@ function FilesPageInner() {
   function handleSuccess() {
     mutate();
     mutateBreadcrumbs();
-    setDeleteTarget(null);
-    setSelectedFile(null);
-    setSelectedItem(null);
+    setFileToDelete(null);
+    setFolderToDelete(null);
+    setFolderToRename(null);
+    setItemToMove(null);
   }
 
   function handleItemSelect(item: any) {
     if (item.type === "folder") {
       setCurrentFolderId(item.id);
       setCurrentPage(1);
-      setSelectedItem(null);
-      setSelectedFile(null);
     } else {
-      if (selectedItem?.id === item.id) {
-        // Deselect
-        setSelectedItem(null);
-        setSelectedFile(null);
-      } else {
-        // Map FolderItem → FileMetadataResponse shape instantly (no API call)
-        setSelectedItem(item);
-        setSelectedFile({
-          id: item.id,
-          originalName: item.name ?? item.originalName,
-          mimeType: item.mimeType ?? "application/octet-stream",
-          sizeBytes: item.sizeBytes ?? 0,
-          status: item.status ?? "ACTIVE",
-          folderId: item.parentId ?? null,
-          tenantId: null,
-          checksumMd5: null,
-          thumbnailKey: null,
-          isIndexed: false,
-          uploadedBy: item.actor ?? { id: "", fullName: "—" },
-          deletedAt: null,
-          scheduledDeleteAt: null,
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt ?? item.createdAt,
-        });
-      }
+      // Just preview the file
+      handlePreview({
+        id: item.id,
+        originalName: item.name ?? item.originalName,
+        mimeType: item.mimeType ?? "application/octet-stream",
+        sizeBytes: item.sizeBytes ?? 0,
+        status: item.status ?? "ACTIVE",
+        folderId: item.parentId ?? null,
+        tenantId: null,
+        checksumMd5: null,
+        thumbnailKey: null,
+        isIndexed: false,
+        uploadedBy: item.actor ?? { id: "", fullName: "—" },
+        deletedAt: null,
+        scheduledDeleteAt: null,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt ?? item.createdAt,
+      });
     }
   }
+
+  const handleSort = (newSortBy: FileSortBy) => {
+    setSort(prev => {
+      if (prev.sortBy === newSortBy) {
+        return { ...prev, sortDirection: prev.sortDirection === SORT_DIRECTION.ASC ? SORT_DIRECTION.DESC : SORT_DIRECTION.ASC };
+      }
+      return { sortBy: newSortBy, sortDirection: SORT_DIRECTION.DESC };
+    });
+    setCurrentPage(1);
+  };
+
+  const handleAction = async (e: React.MouseEvent, action: string, item: any) => {
+    e.stopPropagation();
+    const itemName = item.name || item.originalName;
+    const isFolder = item.type === "folder" || !item.mimeType;
+
+    switch (action) {
+      case "download":
+        if (isFolder) toast("Folder download coming soon");
+        else handleDownload({ id: item.id, originalName: itemName } as FileMetadataResponse);
+        break;
+      case "rename":
+        if (isFolder) setFolderToRename({ id: item.id, name: itemName });
+        else setFileToRename({ id: item.id, name: itemName });
+        break;
+      case "copy":
+        toast("Make a copy coming soon");
+        break;
+      case "share":
+        toast("Share coming soon");
+        break;
+      case "move":
+        setItemToMove({
+          id: item.id,
+          name: itemName,
+          type: isFolder ? "FOLDER" : "FILE",
+          parentId: item.parentId ?? item.folderId ?? null
+        });
+        break;
+      case "info":
+        setItemToShowInfo({
+          id: item.id,
+          type: isFolder ? "folder" : "file",
+        });
+        break;
+      case "delete":
+        if (isFolder) setFolderToDelete({ id: item.id, name: itemName });
+        else setFileToDelete(item);
+        break;
+      case "restore":
+        try {
+          await restoreFile(item.id);
+          toast.success(`Đã khôi phục "${itemName}"`);
+          mutate();
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Khôi phục thất bại");
+        }
+        break;
+      case "delete-permanent":
+        try {
+          await deleteFileDirect(item.id);
+          toast.success(`Đã xóa vĩnh viễn "${itemName}"`);
+          mutate();
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Xóa thất bại");
+        }
+        break;
+    }
+  };
 
   const handleDownload = useCallback(async (file: FileMetadataResponse) => {
     try {
@@ -245,9 +341,17 @@ function FilesPageInner() {
   const handlePreview = useCallback(async (file: FileMetadataResponse) => {
     try {
       const { getUrl } = await getPresignedGetUrl(file.id);
+
+      // Verify the file actually exists in storage before opening
+      const check = await fetch(getUrl, { method: "HEAD" });
+      if (!check.ok) {
+        toast.error("Tệp không tồn tại trên hệ thống lưu trữ. Có thể tệp đã bị xóa.");
+        return;
+      }
+
       window.open(getUrl, "_blank", "noopener,noreferrer");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to get preview URL");
+      toast.error(err instanceof Error ? err.message : "Không thể xem trước tệp");
     }
   }, []);
 
@@ -275,10 +379,7 @@ function FilesPageInner() {
       {/* ── Main content area ── */}
       <div className="flex flex-1 overflow-hidden min-h-0">
         {/* ─────────── File list column ─────────── */}
-        <div className={cn(
-          "flex flex-col overflow-hidden transition-all duration-300 min-w-0",
-          selectedFile ? "flex-1" : "flex-1"
-        )}>
+        <div className="flex flex-col flex-1 overflow-hidden transition-all duration-300 min-w-0">
           {/* Breadcrumb + toolbar */}
           <div className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3 shrink-0">
             <div className="flex items-center gap-1.5 text-sm overflow-x-auto whitespace-nowrap hide-scrollbar">
@@ -396,18 +497,6 @@ function FilesPageInner() {
                       setNewFileMenuOpen(false);
                       setCreateFolderOpen(true);
                     }}
-                    onEditFolder={currentFolderId ? () => {
-                      setNewFileMenuOpen(false);
-                      setRenameFolderOpen(true);
-                    } : undefined}
-                    onMoveFolder={currentFolderId ? () => {
-                      setNewFileMenuOpen(false);
-                      setMoveFolderOpen(true);
-                    } : undefined}
-                    onRemoveFolder={currentFolderId ? () => {
-                      setNewFileMenuOpen(false);
-                      setDeleteFolderOpen(true);
-                    } : undefined}
                   />
                 </div>
               )}
@@ -453,7 +542,7 @@ function FilesPageInner() {
                   "flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed py-8 cursor-pointer transition-all",
                   isDragging
                     ? "border-[#7C3AED] bg-[#F3E8FF]/40"
-                    : "border-gray-200 bg-white hover:border-[#7C3AED]/50 hover:bg-gray-50"
+                    : "border-gray-200 bg-white hover:border-[#7C3AED]/50 hover:bg-gray-100"
                 )}
               >
                 <div className={cn(
@@ -490,16 +579,22 @@ function FilesPageInner() {
               <FileListView
                 items={items}
                 isLoading={isLoading}
-                selectedItemId={selectedItem?.id}
+                sort={sort}
+                onSort={handleSort}
                 onSelect={handleItemSelect}
+                onAction={handleAction}
+                onContextMenu={handleContextMenu}
+                isTrash={isTrash}
                 emptyMessage={emptyLabel}
               />
             ) : (
               <FileGridView
                 items={items}
                 isLoading={isLoading}
-                selectedItemId={selectedItem?.id}
                 onSelect={handleItemSelect}
+                onAction={handleAction}
+                onContextMenu={handleContextMenu}
+                isTrash={isTrash}
                 emptyMessage={emptyLabel}
               />
             )}
@@ -540,37 +635,91 @@ function FilesPageInner() {
             )}
           </div>
         </div>
-
-        {/* ─────────── File Detail Panel (slides in when file selected) ─────────── */}
-        <div className={cn(
-          "flex flex-col border-l border-gray-200 bg-white overflow-hidden transition-all duration-300",
-          selectedFile
-            ? "w-72 xl:w-80 opacity-100"
-            : "w-0 opacity-0 border-l-0"
-        )}>
-          {selectedFile && (
-            <>
-              {/* Close button */}
-              <div className="absolute" style={{ right: 0, top: 0 }} />
-              <div className="relative">
-                <button
-                  onClick={() => setSelectedFile(null)}
-                  className="absolute right-4 top-4 z-10 flex h-6 w-6 items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <FileDetailCard
-                file={selectedFile}
-                mode={isTrash ? "trash" : "default"}
-                onMutate={handleSuccess}
-                onDelete={(f) => setDeleteTarget(f)}
-                onMove={() => setMoveFileOpen(true)}
-              />
-            </>
-          )}
-        </div>
       </div>
+
+      {/* ── Right-click context menu overlay ── */}
+      {contextMenu && (
+        <div
+          className="fixed inset-0 z-50"
+          onClick={closeContextMenu}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <div
+            className="absolute w-56 rounded-lg border border-gray-200 bg-white py-1.5 shadow-xl"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {isTrash ? (
+              <>
+                <button
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
+                  onClick={(e) => { closeContextMenu(); handleAction(e, "restore", contextMenu.item); }}
+                >
+                  <RotateCcw className="h-4 w-4 text-gray-500" />
+                  Khôi phục
+                </button>
+                <div className="my-1 border-t border-gray-100" />
+                <button
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-red-600 hover:bg-red-50 cursor-pointer"
+                  onClick={(e) => { closeContextMenu(); handleAction(e, "delete-permanent", contextMenu.item); }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Xóa vĩnh viễn
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
+                  onClick={(e) => { closeContextMenu(); handleAction(e, "download", contextMenu.item); }}
+                >
+                  <Download className="h-4 w-4 text-gray-500" />
+                  Tải xuống
+                </button>
+                <button
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
+                  onClick={(e) => { closeContextMenu(); handleAction(e, "rename", contextMenu.item); }}
+                >
+                  <Pencil className="h-4 w-4 text-gray-500" />
+                  Đổi tên
+                </button>
+                <div className="my-1 border-t border-gray-100" />
+                <button
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
+                  onClick={(e) => { closeContextMenu(); handleAction(e, "share", contextMenu.item); }}
+                >
+                  <Share2 className="h-4 w-4 text-gray-500" />
+                  Chia sẻ
+                </button>
+                <button
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
+                  onClick={(e) => { closeContextMenu(); handleAction(e, "move", contextMenu.item); }}
+                >
+                  <MoveRight className="h-4 w-4 text-gray-500" />
+                  Di chuyển
+                </button>
+                <button
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
+                  onClick={(e) => { closeContextMenu(); handleAction(e, "info", contextMenu.item); }}
+                >
+                  <Info className="h-4 w-4 text-gray-500" />
+                  {contextMenu.item.type === "folder" || !contextMenu.item.mimeType
+                    ? "Thông tin về thư mục"
+                    : "Thông tin về tệp"}
+                </button>
+                <div className="my-1 border-t border-gray-100" />
+                <button
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
+                  onClick={(e) => { closeContextMenu(); handleAction(e, "delete", contextMenu.item); }}
+                >
+                  <Trash2 className="h-4 w-4 text-gray-500" />
+                  Chuyển vào thùng rác
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Dialogs ── */}
       <CreateFolderDialog
@@ -579,74 +728,90 @@ function FilesPageInner() {
         parentId={currentFolderId}
         onSuccess={handleSuccess}
       />
-      {currentFolderId && (
+      {folderToRename && (
         <RenameFolderDialog
-          open={renameFolderOpen}
-          onOpenChange={setRenameFolderOpen}
-          folderId={currentFolderId}
-          currentName={currentFolderName}
+          open={!!folderToRename}
+          onOpenChange={(open) => !open && setFolderToRename(null)}
+          folderId={folderToRename.id}
+          currentName={folderToRename.name}
           onSuccess={handleSuccess}
         />
       )}
-      {currentFolderId && (
+      {fileToRename && (
+        <RenameFileDialog
+          open={!!fileToRename}
+          onOpenChange={(open) => !open && setFileToRename(null)}
+          fileId={fileToRename.id}
+          currentName={fileToRename.name}
+          onSuccess={handleSuccess}
+        />
+      )}
+      {folderToDelete && (
         <DeleteFolderDialog
-          open={deleteFolderOpen}
-          onOpenChange={setDeleteFolderOpen}
-          folderId={currentFolderId}
-          folderName={currentFolderName}
-          onSuccess={() => {
-            // Navigate to parent folder (one level up via breadcrumbs)
-            const parentCrumb = breadcrumbs
-              ? breadcrumbs[breadcrumbs.length - 2]
-              : null;
-            const parentId =
-              parentCrumb && parentCrumb.name !== "root"
-                ? parentCrumb.id
-                : null;
-            setCurrentFolderId(parentId);
-            setCurrentPage(1);
-            mutate();
-          }}
+          open={!!folderToDelete}
+          onOpenChange={(open) => !open && setFolderToDelete(null)}
+          folderId={folderToDelete.id}
+          folderName={folderToDelete.name}
+          onSuccess={handleSuccess}
         />
       )}
       <MoveItemDialog
-        open={moveFolderOpen}
-        onOpenChange={setMoveFolderOpen}
-        item={currentFolderId ? {
-          id: currentFolderId,
-          name: currentFolderName,
-          type: "FOLDER",
-          parentId: currentFolderParentId
-        } : null}
-        onSuccess={() => {
-          setCurrentFolderId(currentFolderParentId);
-          setCurrentPage(1);
-          mutate();
-          mutateBreadcrumbs();
-        }}
-      />
-      <MoveItemDialog
-        open={moveFileOpen}
-        onOpenChange={setMoveFileOpen}
-        item={selectedFile ? {
-          id: selectedFile.id,
-          name: selectedFile.originalName,
-          type: "FILE",
-          parentId: selectedFile.folderId
-        } : null}
-        onSuccess={() => {
-          setSelectedFile(null);
-          mutate();
-        }}
+        open={!!itemToMove}
+        onOpenChange={(open) => !open && setItemToMove(null)}
+        item={itemToMove}
+        onSuccess={handleSuccess}
       />
       <DeleteFileDialog
-        file={deleteTarget}
-        open={deleteTarget !== null}
-        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        file={fileToDelete}
+        open={!!fileToDelete}
+        onOpenChange={(open) => !open && setFileToDelete(null)}
         onSuccess={handleSuccess}
         isDirectDelete={isTrash}
       />
+      <ItemInfoDialog
+        open={!!itemToShowInfo}
+        onOpenChange={(open) => !open && setItemToShowInfo(null)}
+        itemId={itemToShowInfo?.id ?? null}
+        itemType={itemToShowInfo?.type ?? "file"}
+      />
     </div>
+  );
+}
+
+// ─── Sortable Header helper ─────────────────────────────────────
+
+function SortHeader({
+  label,
+  sortKey,
+  currentSort,
+  onSort,
+  className,
+}: {
+  label: string;
+  sortKey: FileSortBy;
+  currentSort: { sortBy: FileSortBy; sortDirection: SortDirection };
+  onSort: (key: FileSortBy) => void;
+  className?: string;
+}) {
+  const isActive = currentSort.sortBy === sortKey;
+  return (
+    <th
+      className={cn(
+        "px-4 py-3 text-left text-xs font-semibold select-none cursor-pointer transition-colors",
+        isActive ? "text-[#7C3AED]" : "text-gray-500 hover:text-gray-700",
+        className
+      )}
+      onClick={() => onSort(sortKey)}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        {isActive && (
+          currentSort.sortDirection === SORT_DIRECTION.ASC
+            ? <ArrowUp className="h-3 w-3" />
+            : <ArrowDown className="h-3 w-3" />
+        )}
+      </div>
+    </th>
   );
 }
 
@@ -655,35 +820,52 @@ function FilesPageInner() {
 function FileListView({
   items,
   isLoading,
-  selectedItemId,
+  sort,
+  onSort,
   onSelect,
+  onAction,
+  onContextMenu,
+  isTrash,
   emptyMessage,
 }: {
   items: any[];
   isLoading: boolean;
-  selectedItemId: string | undefined;
+  sort: { sortBy: FileSortBy; sortDirection: SortDirection };
+  onSort: (key: FileSortBy) => void;
   onSelect: (item: any) => void;
+  onAction: (e: React.MouseEvent, action: string, item: any) => void;
+  onContextMenu: (e: React.MouseEvent, item: any) => void;
+  isTrash: boolean;
   emptyMessage: string;
 }) {
   if (isLoading) {
     return (
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm table-fixed">
+          <colgroup>
+            <col className="w-[45%]" />
+            <col className="w-[18%]" />
+            <col className="w-[20%]" />
+            <col className="w-[12%]" />
+            <col className="w-[5%]" />
+          </colgroup>
           <thead className="border-b border-gray-100 bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Name</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Date modified</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Type</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500">Size</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Tên</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden md:table-cell">Chủ sở hữu</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell">Đã chỉnh sửa</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Kích thước</th>
+              <th className="w-10" />
             </tr>
           </thead>
           <tbody>
             {Array.from({ length: 6 }).map((_, i) => (
               <tr key={i} className="border-b border-gray-50">
-                <td className="px-4 py-3"><div className="h-4 w-40 animate-pulse rounded bg-gray-100" /></td>
-                <td className="px-4 py-3"><div className="h-4 w-28 animate-pulse rounded bg-gray-100" /></td>
-                <td className="px-4 py-3"><div className="h-4 w-16 animate-pulse rounded bg-gray-100" /></td>
-                <td className="px-4 py-3 text-right"><div className="ml-auto h-4 w-14 animate-pulse rounded bg-gray-100" /></td>
+                <td className="px-4 py-2.5"><div className="h-4 w-40 animate-pulse rounded bg-gray-100" /></td>
+                <td className="px-4 py-2.5 hidden md:table-cell"><div className="h-4 w-24 animate-pulse rounded bg-gray-100" /></td>
+                <td className="px-4 py-2.5 hidden sm:table-cell"><div className="h-4 w-28 animate-pulse rounded bg-gray-100" /></td>
+                <td className="px-4 py-2.5"><div className="h-4 w-14 animate-pulse rounded bg-gray-100" /></td>
+                <td className="px-1 py-2.5"><div className="h-4 w-4 animate-pulse rounded bg-gray-100 mx-auto" /></td>
               </tr>
             ))}
           </tbody>
@@ -703,43 +885,51 @@ function FileListView({
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-      <table className="w-full text-sm">
-        <thead className="border-b border-gray-100 bg-gray-50">
+      <table className="w-full text-sm table-fixed" style={{ cursor: "pointer" }}>
+        <colgroup>
+          <col className="w-[45%]" />
+          <col className="w-[18%]" />
+          <col className="w-[20%]" />
+          <col className="w-[12%]" />
+          <col className="w-[5%]" />
+        </colgroup>
+        <thead className="border-b border-gray-100 bg-gray-50" style={{ cursor: "default" }}>
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Name</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell">Date modified</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden md:table-cell">Type</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500">Size</th>
+            <SortHeader label="Tên" sortKey={FILE_SORT_BY.ORIGINAL_NAME} currentSort={sort} onSort={onSort} />
+            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden md:table-cell">Chủ sở hữu</th>
+            <SortHeader label="Đã chỉnh sửa" sortKey={FILE_SORT_BY.CREATED_AT} currentSort={sort} onSort={onSort} className="hidden sm:table-cell" />
+            <SortHeader label="Kích thước" sortKey={FILE_SORT_BY.SIZE_BYTES} currentSort={sort} onSort={onSort} />
+            <th className="w-10" />
           </tr>
         </thead>
         <tbody>
           {items.map((item) => {
-            const isSelected = selectedItemId === item.id;
             const name = item.name || item.originalName;
             const date = item.updatedAt || item.createdAt;
+            const owner = item.actor?.fullName || item.uploadedBy?.fullName || "—";
             return (
               <tr
                 key={item.id}
                 onClick={() => onSelect(item)}
-                className={cn(
-                  "group border-b border-gray-50 cursor-pointer transition-colors",
-                  isSelected
-                    ? "bg-[#F3E8FF]"
-                    : "hover:bg-gray-50"
-                )}
+                onContextMenu={(e) => onContextMenu(e, item)}
+                className="group border-b border-gray-50 transition-colors hover:bg-gray-100"
+                style={{ cursor: "pointer" }}
               >
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2.5">
-                    {renderFileIcon(item.mimeType, "h-4 w-4 shrink-0")}
-                    <span className={cn(
-                      "truncate font-medium",
-                      isSelected ? "text-[#7C3AED]" : "text-gray-800"
-                    )}>
+                <td className="px-4 py-2.5">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {renderFileIcon(item.mimeType, "h-5 w-5 shrink-0")}
+                    <span className="truncate font-medium text-gray-800">
                       {name}
                     </span>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-gray-400 hidden sm:table-cell whitespace-nowrap">
+                <td className="px-4 py-2.5 text-gray-500 hidden md:table-cell">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <UserCircle2 className="h-4 w-4 text-gray-400 shrink-0" />
+                    <span className="truncate">{owner}</span>
+                  </div>
+                </td>
+                <td className="px-4 py-2.5 text-gray-400 hidden sm:table-cell whitespace-nowrap">
                   {date && new Date(date).toLocaleString(undefined, {
                     month: "short",
                     day: "numeric",
@@ -748,11 +938,11 @@ function FileListView({
                     minute: "2-digit",
                   })}
                 </td>
-                <td className="px-4 py-3 text-gray-500 hidden md:table-cell">
-                  {getTypeName(item.mimeType)}
-                </td>
-                <td className="px-4 py-3 text-right text-gray-400 tabular-nums whitespace-nowrap">
+                <td className="px-4 py-2.5 text-gray-400 tabular-nums whitespace-nowrap">
                   {item.type === "folder" || !item.sizeBytes ? "—" : formatBytes(item.sizeBytes)}
+                </td>
+                <td className="px-1 py-2.5">
+                  <FileActionMenu item={item} onAction={onAction} isTrash={isTrash} />
                 </td>
               </tr>
             );
@@ -768,14 +958,18 @@ function FileListView({
 function FileGridView({
   items,
   isLoading,
-  selectedItemId,
   onSelect,
+  onAction,
+  onContextMenu,
+  isTrash,
   emptyMessage,
 }: {
   items: any[];
   isLoading: boolean;
-  selectedItemId: string | undefined;
   onSelect: (item: any) => void;
+  onAction: (e: React.MouseEvent, action: string, item: any) => void;
+  onContextMenu: (e: React.MouseEvent, item: any) => void;
+  isTrash: boolean;
   emptyMessage: string;
 }) {
   if (isLoading) {
@@ -806,25 +1000,17 @@ function FileGridView({
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
       {items.map((item) => {
-        const isSelected = selectedItemId === item.id;
         const name = item.name || item.originalName;
         return (
           <div
             key={item.id}
             onClick={() => onSelect(item)}
-            className={cn(
-              "group relative rounded-xl border p-4 cursor-pointer transition-all space-y-3",
-              isSelected
-                ? "border-[#7C3AED] bg-[#F3E8FF]/50 shadow-sm"
-                : "border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm"
-            )}
+            onContextMenu={(e) => onContextMenu(e, item)}
+            className="group relative rounded-xl border border-gray-100 bg-white p-4 cursor-pointer transition-all space-y-3 hover:border-gray-200 hover:bg-gray-50 hover:shadow-sm"
           >
-            <button
-              className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Star className="h-3.5 w-3.5 text-gray-300 hover:text-amber-400 transition-colors" />
-            </button>
+            <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <FileActionMenu item={item} onAction={onAction} isTrash={isTrash} />
+            </div>
 
             <div className="flex h-12 items-center justify-center">
               {renderFileIcon(item.mimeType, "h-10 w-10")}

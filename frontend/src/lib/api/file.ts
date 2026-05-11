@@ -129,3 +129,18 @@ export async function moveFile(fileId: string, folderId: string | null): Promise
     throw toAppError(error);
   }
 }
+
+export async function renameFile(fileId: string, originalName: string): Promise<FileMetadataResponse> {
+  try {
+    const response = await apiClient.patch<ApiResponse<FileMetadataResponse>>(
+      API_ROUTES.FILES.BY_ID(fileId),
+      { originalName }
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.message ?? "Failed to rename file");
+    }
+    return response.data.data;
+  } catch (error) {
+    throw toAppError(error);
+  }
+}

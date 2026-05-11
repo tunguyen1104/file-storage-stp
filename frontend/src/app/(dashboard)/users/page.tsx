@@ -109,7 +109,7 @@ function TenantAdminDashboard() {
       })
   );
 
-  const { data: tenantMe } = useSWR("tenantMe", getTenantMe);
+  const { data: tenantMe, mutate: mutateTenantMe } = useSWR("tenantMe", getTenantMe);
   const storageUsedBytes = tenantMe?.storageUsedBytes ?? 0;
   const storageQuotaBytes = tenantMe?.storageQuotaBytes ?? 1; // avoid division by zero
   const storagePercent = tenantMe ? Math.min(100, Math.round((storageUsedBytes / storageQuotaBytes) * 100)) : 0;
@@ -130,6 +130,7 @@ function TenantAdminDashboard() {
 
   function handleSuccess() {
     mutate();
+    mutateTenantMe();
   }
 
   function getAvatarFromName(name: string) {
@@ -398,6 +399,7 @@ function TenantAdminDashboard() {
         user={editUser}
         open={editUser !== null}
         onOpenChange={(open: boolean) => { if (!open) setEditUser(null); }}
+        isSuperAdmin={false}
         onSuccess={handleSuccess}
       />
 
@@ -627,6 +629,7 @@ function SuperAdminView() {
           user={editUser}
           open={editUser !== null}
           onOpenChange={(open: boolean) => { if (!open) setEditUser(null); }}
+          isSuperAdmin={true}
           onSuccess={handleSuccess}
         />
 
