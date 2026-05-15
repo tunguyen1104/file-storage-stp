@@ -41,12 +41,14 @@ class DeleteFolderServiceTest {
     private FileJpaRepository fileRepository;
     @Mock
     private FolderSupport folderSupport;
+    @Mock
+    private FolderAccessPolicy folderAccessPolicy;
 
     private DeleteFolderService service;
 
     @BeforeEach
     void setUp() {
-        service = new DeleteFolderService(folderRepository, fileRepository, folderSupport);
+        service = new DeleteFolderService(folderRepository, fileRepository, folderSupport, folderAccessPolicy);
     }
 
     @Test

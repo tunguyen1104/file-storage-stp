@@ -14,15 +14,15 @@ public class GetFileMetadataService implements GetFileMetadataUseCase {
 
     private final FileSupport fileSupport;
     private final FileViewMapper fileViewMapper;
+    private final FileAccessPolicy fileAccessPolicy;
 
     @Override
     @Transactional(readOnly = true)
     public FileView execute(GetFileMetadataQuery query) {
         var actor = fileSupport.resolveActor(query.actorUserId(), query.actorTenantId());
         File file = fileSupport.findReadableFile(query.fileId(), query.actorTenantId(), query.actorRole());
-        FileAccessPolicy.requireCanDownload(file, actor.getId(), actor.getTenant().getId(), query.actorRole());
+        fileAccessPolicy.requireCanDownload(file, actor.getId(), actor.getTenant().getId(), query.actorRole());
 
         return fileViewMapper.toFileView(file);
     }
 }
-

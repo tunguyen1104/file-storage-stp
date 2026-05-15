@@ -4,6 +4,7 @@ import com.filestorage.adapter.out.persistence.entity.File;
 import com.filestorage.adapter.out.persistence.entity.Folder;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
+import com.filestorage.application.usecase.share.ShareResolutionService;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.enums.FolderItemType;
 import com.filestorage.domain.model.enums.FolderSortBy;
@@ -30,13 +31,15 @@ public class ListFolderChildrenService implements ListFolderChildrenUseCase {
     private final FolderJpaRepository folderRepository;
     private final FileJpaRepository fileRepository;
     private final FolderSupport folderSupport;
+    private final FolderAccessPolicy folderAccessPolicy;
+    private final ShareResolutionService shareResolutionService;
 
     @Override
     @Transactional(readOnly = true)
     public FolderItemPageView execute(ListFolderChildrenQuery query) {
         var actor = folderSupport.resolveActor(query.actorUserId(), query.actorTenantId());
         Folder parent = folderSupport.findReadableFolder(query.folderId(), actor.getTenant().getId(), query.actorRole());
-        FolderAccessPolicy.requireCanRead(parent, actor.getId(), actor.getTenant().getId(), query.actorRole());
+        folderAccessPolicy.requireCanRead(parent, actor.getId(), actor.getTenant().getId(), query.actorRole());
 
         return listItems(
                 actor.getId(),
@@ -48,7 +51,8 @@ public class ListFolderChildrenService implements ListFolderChildrenUseCase {
                 query.sortBy(),
                 query.sortDirection(),
                 query.type(),
-                query.search()
+                query.search(),
+                false
         );
     }
 
@@ -62,27 +66,30 @@ public class ListFolderChildrenService implements ListFolderChildrenUseCase {
             FolderSortBy sortBy,
             SortDirection sortDirection,
             FolderItemType type,
-            String search
+            String search,
+            boolean restrictMemberToOwnedItems
     ) {
         int effectivePage = Math.max(1, page);
         int effectiveSize = Math.min(100, Math.max(1, size));
         FolderSortBy effectiveSortBy = sortBy == null ? FolderSortBy.CREATED_AT : sortBy;
         SortDirection effectiveDirection = sortDirection == null ? defaultSortDirection(effectiveSortBy) : sortDirection;
 
-        UUID createdByFilter = actorRole == RoleCode.MEMBER ? actorUserId : null;
+        UUID createdByFilter = restrictMemberToOwnedItems && actorRole == RoleCode.MEMBER ? actorUserId : null;
 
         if (type == FolderItemType.FOLDER) {
-            return listFoldersOnly(tenantId, parentId, createdByFilter, search, effectivePage, effectiveSize, effectiveSortBy, effectiveDirection);
+            return listFoldersOnly(actorUserId, tenantId, actorRole, parentId, createdByFilter, search, effectivePage, effectiveSize, effectiveSortBy, effectiveDirection);
         }
         if (type == FolderItemType.FILE) {
-            return listFilesOnly(tenantId, parentId, createdByFilter, search, effectivePage, effectiveSize, effectiveSortBy, effectiveDirection);
+            return listFilesOnly(actorUserId, tenantId, actorRole, parentId, createdByFilter, search, effectivePage, effectiveSize, effectiveSortBy, effectiveDirection);
         }
 
-        return listFoldersThenFiles(tenantId, parentId, createdByFilter, search, effectivePage, effectiveSize, effectiveSortBy, effectiveDirection);
+        return listFoldersThenFiles(actorUserId, tenantId, actorRole, parentId, createdByFilter, search, effectivePage, effectiveSize, effectiveSortBy, effectiveDirection);
     }
 
     private FolderItemPageView listFoldersOnly(
+            UUID actorUserId,
             UUID tenantId,
+            RoleCode actorRole,
             UUID parentId,
             UUID createdBy,
             String search,
@@ -98,12 +105,16 @@ public class ListFolderChildrenService implements ListFolderChildrenUseCase {
                 .and(FolderSearchSpecifications.bySearch(search));
 
         var result = folderRepository.findAll(spec, PageRequest.of(page - 1, size, toFolderSort(sortBy, sortDirection)));
-        List<FolderItemView> data = result.getContent().stream().map(FolderViewFactory::toFolderItemView).toList();
+        List<FolderItemView> data = result.getContent().stream()
+                .map(folder -> toFolderItemView(actorUserId, tenantId, actorRole, folder))
+                .toList();
         return new FolderItemPageView(data, page, size, result.getTotalElements(), result.getTotalPages());
     }
 
     private FolderItemPageView listFilesOnly(
+            UUID actorUserId,
             UUID tenantId,
+            RoleCode actorRole,
             UUID parentId,
             UUID createdBy,
             String search,
@@ -120,12 +131,16 @@ public class ListFolderChildrenService implements ListFolderChildrenUseCase {
                 .and(FolderFileSearchSpecifications.bySearch(search));
 
         var result = fileRepository.findAll(spec, PageRequest.of(page - 1, size, toFileSort(sortBy, sortDirection)));
-        List<FolderItemView> data = result.getContent().stream().map(FolderViewFactory::toFileItemView).toList();
+        List<FolderItemView> data = result.getContent().stream()
+                .map(file -> toFileItemView(actorUserId, tenantId, actorRole, file))
+                .toList();
         return new FolderItemPageView(data, page, size, result.getTotalElements(), result.getTotalPages());
     }
 
     private FolderItemPageView listFoldersThenFiles(
+            UUID actorUserId,
             UUID tenantId,
+            RoleCode actorRole,
             UUID parentId,
             UUID createdBy,
             String search,
@@ -160,13 +175,15 @@ public class ListFolderChildrenService implements ListFolderChildrenUseCase {
         List<FolderItemView> data = new ArrayList<>();
         if (offset < folderCount) {
             var folderPage = folderRepository.findAll(folderSpec, PageRequest.of(page - 1, size, toFolderSort(sortBy, sortDirection)));
-            data.addAll(folderPage.getContent().stream().map(FolderViewFactory::toFolderItemView).toList());
+            data.addAll(folderPage.getContent().stream()
+                    .map(folder -> toFolderItemView(actorUserId, tenantId, actorRole, folder))
+                    .toList());
         }
 
         if (data.size() < size && fileCount > 0) {
             int remaining = size - data.size();
             int fileOffset = Math.max(0, offset - (int) folderCount);
-            data.addAll(fetchFileSlice(fileSpec, fileOffset, remaining, sortBy, sortDirection));
+            data.addAll(fetchFileSlice(actorUserId, tenantId, actorRole, fileSpec, fileOffset, remaining, sortBy, sortDirection));
         }
 
         if (data.size() > size) {
@@ -177,6 +194,9 @@ public class ListFolderChildrenService implements ListFolderChildrenUseCase {
     }
 
     private List<FolderItemView> fetchFileSlice(
+            UUID actorUserId,
+            UUID tenantId,
+            RoleCode actorRole,
             Specification<File> spec,
             int offset,
             int size,
@@ -188,12 +208,28 @@ public class ListFolderChildrenService implements ListFolderChildrenUseCase {
         int requestedSize = size + offsetWithinPage;
 
         var filePage = fileRepository.findAll(spec, PageRequest.of(pageIndex, requestedSize, toFileSort(sortBy, sortDirection)));
-        List<FolderItemView> items = filePage.getContent().stream().map(FolderViewFactory::toFileItemView).toList();
+        List<FolderItemView> items = filePage.getContent().stream()
+                .map(file -> toFileItemView(actorUserId, tenantId, actorRole, file))
+                .toList();
         if (offsetWithinPage >= items.size()) {
             return List.of();
         }
         int toIndex = Math.min(items.size(), offsetWithinPage + size);
         return items.subList(offsetWithinPage, toIndex);
+    }
+
+    private FolderItemView toFolderItemView(UUID actorUserId, UUID tenantId, RoleCode actorRole, Folder folder) {
+        return FolderViewFactory.toFolderItemView(
+                folder,
+                shareResolutionService.resolveFolder(actorUserId, tenantId, actorRole, folder)
+        );
+    }
+
+    private FolderItemView toFileItemView(UUID actorUserId, UUID tenantId, RoleCode actorRole, File file) {
+        return FolderViewFactory.toFileItemView(
+                file,
+                shareResolutionService.resolveFile(actorUserId, tenantId, actorRole, file)
+        );
     }
 
     private Sort toFolderSort(FolderSortBy sortBy, SortDirection direction) {

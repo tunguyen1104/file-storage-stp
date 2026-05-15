@@ -3,6 +3,7 @@ package com.filestorage.application.usecase.folder;
 import com.filestorage.adapter.out.persistence.entity.File;
 import com.filestorage.adapter.out.persistence.entity.Folder;
 import com.filestorage.domain.model.enums.FolderItemType;
+import com.filestorage.domain.model.share.PermissionResult;
 import com.filestorage.domain.model.folder.BreadcrumbView;
 import com.filestorage.domain.model.folder.FolderItemView;
 import com.filestorage.domain.model.folder.FolderView;
@@ -31,6 +32,10 @@ final class FolderViewFactory {
     }
 
     static FolderItemView toFolderItemView(Folder folder) {
+        return toFolderItemView(folder, null);
+    }
+
+    static FolderItemView toFolderItemView(Folder folder, PermissionResult permissionResult) {
         return new FolderItemView(
                 folder.getId(),
                 FolderItemType.FOLDER,
@@ -41,12 +46,18 @@ final class FolderViewFactory {
                 null,
                 folder.getCreatedBy() == null ? null : folder.getCreatedBy().getId(),
                 folder.getCreatedBy() == null ? null : folder.getCreatedBy().getFullName(),
+                permissionResult == null ? null : permissionResult.permission(),
+                permissionResult == null ? null : permissionResult.source(),
                 folder.getCreatedAt(),
                 folder.getUpdatedAt()
         );
     }
 
     static FolderItemView toFileItemView(File file) {
+        return toFileItemView(file, null);
+    }
+
+    static FolderItemView toFileItemView(File file, PermissionResult permissionResult) {
         return new FolderItemView(
                 file.getId(),
                 FolderItemType.FILE,
@@ -57,6 +68,8 @@ final class FolderViewFactory {
                 file.getStatus(),
                 file.getUploadedBy() == null ? null : file.getUploadedBy().getId(),
                 file.getUploadedBy() == null ? null : file.getUploadedBy().getFullName(),
+                permissionResult == null ? null : permissionResult.permission(),
+                permissionResult == null ? null : permissionResult.source(),
                 file.getCreatedAt(),
                 file.getUpdatedAt()
         );

@@ -42,6 +42,7 @@ public class TenantController {
     private final GetTenantUseCase getTenantUseCase;
     private final UpdateTenantUseCase updateTenantUseCase;
     private final DeactivateTenantUseCase deactivateTenantUseCase;
+    private final ActivateTenantUseCase activateTenantUseCase;
     private final TenantRestMapper tenantRestMapper;
 
     @PostMapping
@@ -131,6 +132,19 @@ public class TenantController {
     public ResponseEntity<ApiResponse<TenantResponse>> deactivateTenant(@PathVariable UUID tenantId) {
         SecurityUser actor = currentUserOrThrow();
         var result = deactivateTenantUseCase.execute(new DeactivateTenantUseCase.DeactivateTenantCommand(
+                UUID.fromString(actor.getUserId()),
+                parseRole(actor.getRole()),
+                tenantId
+        ));
+
+        return ResponseEntity.ok(ApiResponse.buildSuccess(tenantRestMapper.toTenantResponse(result)));
+    }
+
+    @PatchMapping("/{tenantId}/activate")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<TenantResponse>> activateTenant(@PathVariable UUID tenantId) {
+        SecurityUser actor = currentUserOrThrow();
+        var result = activateTenantUseCase.execute(new ActivateTenantUseCase.ActivateTenantCommand(
                 UUID.fromString(actor.getUserId()),
                 parseRole(actor.getRole()),
                 tenantId

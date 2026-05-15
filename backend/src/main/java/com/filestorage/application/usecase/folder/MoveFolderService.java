@@ -19,18 +19,19 @@ public class MoveFolderService implements MoveFolderUseCase {
 
     private final FolderJpaRepository folderRepository;
     private final FolderSupport folderSupport;
+    private final FolderAccessPolicy folderAccessPolicy;
 
     @Override
     @Transactional
     public FolderView execute(MoveFolderCommand command) {
         User actor = folderSupport.resolveActor(command.actorUserId(), command.actorTenantId());
         Folder folder = folderSupport.findReadableFolder(command.folderId(), actor.getTenant().getId(), command.actorRole());
-        FolderAccessPolicy.requireCanModify(folder, actor.getId(), actor.getTenant().getId(), command.actorRole());
+        folderAccessPolicy.requireCanModify(folder, actor.getId(), actor.getTenant().getId(), command.actorRole());
 
         Folder newParent = null;
         if (command.parentId() != null) {
             newParent = folderSupport.findReadableFolder(command.parentId(), actor.getTenant().getId(), command.actorRole());
-            FolderAccessPolicy.requireCanModify(newParent, actor.getId(), actor.getTenant().getId(), command.actorRole());
+            folderAccessPolicy.requireCanWriteDirect(newParent, actor.getId(), actor.getTenant().getId(), command.actorRole());
 
             if (folderRepository.isDescendant(folder.getId(), actor.getTenant().getId(), newParent.getId())) {
                 throw new AppException(ErrorCode.FOLDER_INVALID_MOVE);
@@ -47,4 +48,3 @@ public class MoveFolderService implements MoveFolderUseCase {
         return FolderViewFactory.toFolderView(saved, 0L, null);
     }
 }
-

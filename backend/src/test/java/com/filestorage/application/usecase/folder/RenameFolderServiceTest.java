@@ -27,12 +27,14 @@ class RenameFolderServiceTest {
     private FolderJpaRepository folderRepository;
     @Mock
     private FolderSupport folderSupport;
+    @Mock
+    private FolderAccessPolicy folderAccessPolicy;
 
     private RenameFolderService service;
 
     @BeforeEach
     void setUp() {
-        service = new RenameFolderService(folderRepository, folderSupport);
+        service = new RenameFolderService(folderRepository, folderSupport, folderAccessPolicy);
     }
 
     @Test
@@ -87,4 +89,3 @@ class RenameFolderServiceTest {
         return folder;
     }
 }
-

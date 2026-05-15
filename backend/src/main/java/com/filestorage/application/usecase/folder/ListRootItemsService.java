@@ -27,7 +27,8 @@ public class ListRootItemsService implements ListRootItemsUseCase {
                 query.sortBy(),
                 query.sortDirection(),
                 query.type(),
-                query.search()
+                query.search(),
+                true
         );
     }
 }

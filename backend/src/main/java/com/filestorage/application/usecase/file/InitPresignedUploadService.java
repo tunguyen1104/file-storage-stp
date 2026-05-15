@@ -7,6 +7,7 @@ import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
+import com.filestorage.application.usecase.folder.FolderAccessPolicy;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.file.PresignedUploadView;
 import com.filestorage.domain.port.in.file.InitPresignedUploadUseCase;
@@ -34,6 +35,7 @@ public class InitPresignedUploadService implements InitPresignedUploadUseCase {
     private final ObjectStoragePort objectStoragePort;
     private final UploadProperties uploadProperties;
     private final FileUploadValidator fileUploadValidator;
+    private final FolderAccessPolicy folderAccessPolicy;
 
     @Override
     @Transactional
@@ -61,7 +63,7 @@ public class InitPresignedUploadService implements InitPresignedUploadUseCase {
             throw new AppException(ErrorCode.QUOTA_EXCEEDED);
         }
 
-        Folder folder = getFolderIfOwned(command.folderId(), actor.getId());
+        Folder folder = getWritableFolder(command.folderId(), actor, command.role());
 
         String storageKey = objectStoragePort.buildStorageKey(
                 tenant.getId().toString(),
@@ -90,12 +92,14 @@ public class InitPresignedUploadService implements InitPresignedUploadUseCase {
         return new PresignedUploadView(pending.getId(), uploadUrl, expiresAt);
     }
 
-    private Folder getFolderIfOwned(UUID folderId, UUID ownerId) {
+    private Folder getWritableFolder(UUID folderId, User actor, com.filestorage.domain.model.enums.RoleCode actorRole) {
         if (folderId == null) {
             return null;
         }
-        return folderRepository.findByIdAndOwnerId(folderId, ownerId)
+        Folder folder = folderRepository.findByIdAndTenantId(folderId, actor.getTenant().getId())
                 .orElseThrow(() -> new AppException(ErrorCode.FOLDER_NOT_FOUND));
+        folderAccessPolicy.requireCanWriteDirect(folder, actor.getId(), actor.getTenant().getId(), actorRole);
+        return folder;
     }
 
     private static String extractExtension(String name) {

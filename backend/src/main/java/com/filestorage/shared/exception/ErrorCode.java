@@ -52,6 +52,15 @@ public enum ErrorCode {
     UNSUPPORTED_FILE_TYPE(1038, "error.file.unsupported_type", HttpStatus.UNPROCESSABLE_CONTENT),
     INVALID_PART_NUMBER(1039, "error.invalid-part-number", HttpStatus.BAD_REQUEST),
     PART_ALREADY_COMPLETED(1040, "error.part-already-completed", HttpStatus.CONFLICT),
+    EXPIRES_AT_REQUIRED(1041, "error.share.expires-at-required", HttpStatus.BAD_REQUEST),
+    EXPIRES_AT_IN_PAST(1042, "error.share.expires-at-in-past", HttpStatus.BAD_REQUEST),
+    FORBIDDEN_NOT_RESOURCE_OWNER(1043, "error.share.forbidden-not-owner", HttpStatus.FORBIDDEN),
+    SELF_SHARE_NOT_ALLOWED(1044, "error.share.self-share-not-allowed", HttpStatus.FORBIDDEN),
+    CROSS_TENANT_SHARE_NOT_ALLOWED(1045, "error.share.cross-tenant", HttpStatus.FORBIDDEN),
+    SHARE_ALREADY_EXISTS(1046, "error.share.already-exists", HttpStatus.CONFLICT),
+    SHARE_NOT_FOUND(1047, "error.share.not-found", HttpStatus.NOT_FOUND),
+    SHARE_REVOKED_RESHARE_REQUIRED(1048, "error.share.revoked-reshare-required", HttpStatus.CONFLICT),
+    FORBIDDEN_ADMIN_REQUIRED(1049, "error.share.admin-required", HttpStatus.FORBIDDEN),
     INTERNAL_SERVER_ERROR(1500, "error.internal-server-error", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final int code;

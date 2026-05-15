@@ -8,6 +8,7 @@ import com.filestorage.adapter.out.persistence.mapper.FileViewMapper;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
+import com.filestorage.application.usecase.folder.FolderAccessPolicy;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.file.FileView;
 import com.filestorage.domain.port.in.file.UploadFileUseCase;
@@ -33,6 +34,7 @@ public class UploadFileService implements UploadFileUseCase {
     private final FileViewMapper fileViewMapper;
     private final ObjectStoragePort objectStoragePort;
     private final StorageProperties storageProperties;
+    private final FolderAccessPolicy folderAccessPolicy;
 
     @Override
     public FileView execute(UploadFileCommand command) {
@@ -41,7 +43,7 @@ public class UploadFileService implements UploadFileUseCase {
         User actor = fileSupport.resolveActor(command.actorUserId(), command.actorTenantId());
 
         Tenant tenant = actor.getTenant();
-        Folder folder = resolveFolder(command.folderId(), tenant.getId());
+        Folder folder = resolveFolder(command.folderId(), actor, command.actorRole());
         String originalName = resolveOriginalName(command.originalName());
         String extension = extractExtension(originalName);
         // Keep storage key deterministic without forcing the JPA entity id path.
@@ -89,12 +91,14 @@ public class UploadFileService implements UploadFileUseCase {
         }
     }
 
-    private Folder resolveFolder(UUID folderId, UUID tenantId) {
+    private Folder resolveFolder(UUID folderId, User actor, com.filestorage.domain.model.enums.RoleCode actorRole) {
         if (folderId == null) {
             return null;
         }
-        return folderRepository.findByIdAndTenantId(folderId, tenantId)
+        Folder folder = folderRepository.findByIdAndTenantId(folderId, actor.getTenant().getId())
                 .orElseThrow(() -> new AppException(ErrorCode.FOLDER_NOT_FOUND));
+        folderAccessPolicy.requireCanWriteDirect(folder, actor.getId(), actor.getTenant().getId(), actorRole);
+        return folder;
     }
 
     private void enforceQuotas(User actor, int bytes) {

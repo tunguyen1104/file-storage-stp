@@ -20,13 +20,14 @@ public class DeleteFileService implements DeleteFileUseCase {
     private final FileJpaRepository fileRepository;
     private final FileSupport fileSupport;
     private final FileViewMapper fileViewMapper;
+    private final FileAccessPolicy fileAccessPolicy;
 
     @Override
     @Transactional
     public FileView execute(DeleteFileCommand command) {
         var actor = fileSupport.resolveActor(command.actorUserId(), command.actorTenantId());
         File file = fileSupport.findReadableFile(command.fileId(), command.actorTenantId(), command.actorRole());
-        FileAccessPolicy.requireCanModify(file, actor.getId(), actor.getTenant().getId(), command.actorRole());
+        fileAccessPolicy.requireCanModify(file, actor.getId(), actor.getTenant().getId(), command.actorRole());
         FileStatePolicy.requireActive(file);
 
         file.setStatus(FileStatus.PENDING_DELETE);
@@ -36,4 +37,3 @@ public class DeleteFileService implements DeleteFileUseCase {
     }
 
 }
-

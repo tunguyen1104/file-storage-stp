@@ -35,12 +35,14 @@ class RenameFileServiceTest {
     private FileSupport fileSupport;
     @Mock
     private FileViewMapper fileViewMapper;
+    @Mock
+    private FileAccessPolicy fileAccessPolicy;
 
     private RenameFileService service;
 
     @BeforeEach
     void setUp() {
-        service = new RenameFileService(fileRepository, fileSupport, fileViewMapper);
+        service = new RenameFileService(fileRepository, fileSupport, fileViewMapper, fileAccessPolicy);
     }
 
     @Test
@@ -128,4 +130,3 @@ class RenameFileServiceTest {
         return file;
     }
 }
-

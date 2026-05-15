@@ -26,13 +26,14 @@ public class DeleteFolderService implements DeleteFolderUseCase {
     private final FolderJpaRepository folderRepository;
     private final FileJpaRepository fileRepository;
     private final FolderSupport folderSupport;
+    private final FolderAccessPolicy folderAccessPolicy;
 
     @Override
     @Transactional
     public void execute(DeleteFolderCommand command) {
         User actor = folderSupport.resolveActor(command.actorUserId(), command.actorTenantId());
         Folder folder = folderSupport.findReadableFolder(command.folderId(), actor.getTenant().getId(), command.actorRole());
-        FolderAccessPolicy.requireCanModify(folder, actor.getId(), actor.getTenant().getId(), command.actorRole());
+        folderAccessPolicy.requireCanModify(folder, actor.getId(), actor.getTenant().getId(), command.actorRole());
 
         UUID folderId = folder.getId();
         if (folderRepository.existsByTenantIdAndParentId(actor.getTenant().getId(), folderId)

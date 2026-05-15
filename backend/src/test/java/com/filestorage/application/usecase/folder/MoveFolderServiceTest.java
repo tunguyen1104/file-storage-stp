@@ -28,12 +28,14 @@ class MoveFolderServiceTest {
     private FolderJpaRepository folderRepository;
     @Mock
     private FolderSupport folderSupport;
+    @Mock
+    private FolderAccessPolicy folderAccessPolicy;
 
     private MoveFolderService service;
 
     @BeforeEach
     void setUp() {
-        service = new MoveFolderService(folderRepository, folderSupport);
+        service = new MoveFolderService(folderRepository, folderSupport, folderAccessPolicy);
     }
 
     @Test
