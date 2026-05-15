@@ -439,7 +439,13 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
 
   const clearDone = useCallback(() => {
     setUploadQueue((prev) =>
-      prev.filter((i) => !["done", "cancelled", "infected"].includes(i.status))
+      prev.filter((i) => !["done"].includes(i.status))
+    );
+  }, []);
+
+  const clearErrors = useCallback(() => {
+    setUploadQueue((prev) =>
+      prev.filter((i) => !["error", "infected", "cancelled"].includes(i.status))
     );
   }, []);
 
@@ -504,6 +510,7 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
     retryUpload,
     resumeUpload,
     clearDone,
+    clearErrors,
     checkInterruptedUploads,
     resumeInterruptedUpload,
     discardInterruptedUpload,

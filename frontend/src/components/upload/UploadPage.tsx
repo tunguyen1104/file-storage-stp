@@ -15,6 +15,7 @@ export function UploadPage() {
     retryUpload,
     resumeUpload,
     clearDone,
+    clearErrors,
     checkInterruptedUploads,
     resumeInterruptedUpload,
     discardInterruptedUpload,
@@ -66,6 +67,7 @@ export function UploadPage() {
           onRetry={retryUpload}
           onResume={resumeUpload}
           onClearDone={clearDone}
+          onClearErrors={clearErrors}
         />
       )}
     </div>

@@ -4,7 +4,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { useRouter } from "next/navigation";
-import { Plus, Search, UserCircle2, Pencil, UserMinus, MoreVertical, Trash2, ArrowRight, HardDrive } from "lucide-react";
+import { Plus, Search, UserCircle2, Pencil, UserMinus, UserPlus, MoreVertical, Trash2, ArrowRight, HardDrive } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -433,6 +433,7 @@ function SuperAdminView() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<UserResponse | null>(null);
   const [deactivateUser, setDeactivateUser] = useState<UserResponse | null>(null);
+  const [activateUser, setActivateUser] = useState<UserResponse | null>(null);
 
   const isSuperAdmin = user?.role === ROLES.SUPER_ADMIN;
   const debouncedSearch = useDebounce(search, 400);
@@ -444,6 +445,7 @@ function SuperAdminView() {
 
   const users = data?.data ?? [];
   const totalPages = data?.totalPages ?? 1;
+  const totalElements = data?.totalElements ?? 0;
 
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -549,19 +551,30 @@ function SuperAdminView() {
 
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                              onClick={() => setDeactivateUser(member)}
-                              disabled={!member.isActive}
-                            >
-                              <UserMinus className="h-4 w-4" />
-                              <span className="sr-only">Deactivate</span>
-                            </Button>
+                            {member.isActive ? (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => setDeactivateUser(member)}
+                              >
+                                <UserMinus className="h-4 w-4" />
+                                <span className="sr-only">Deactivate</span>
+                              </Button>
+                            ) : (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-green-600 hover:bg-green-600/10 hover:text-green-600"
+                                onClick={() => setActivateUser(member)}
+                              >
+                                <UserPlus className="h-4 w-4" />
+                                <span className="sr-only">Activate</span>
+                              </Button>
+                            )}
                           </TooltipTrigger>
                           <TooltipContent>
-                            {member.isActive ? "Deactivate user" : "Already inactive"}
+                            {member.isActive ? "Deactivate user" : "Activate user"}
                           </TooltipContent>
                         </Tooltip>
                       </div>
@@ -572,9 +585,13 @@ function SuperAdminView() {
             </TableBody>
           </Table>
 
-          {totalPages > 1 && (
-            <div className="border-t border-border px-4 py-3">
-              <Pagination>
+          <div className="border-t border-border px-4 py-3 flex items-center justify-between text-sm text-muted-foreground">
+            <span>
+              Showing {users.length > 0 ? (currentPage - 1) * PAGE_SIZE + 1 : 0}-
+              {Math.min(currentPage * PAGE_SIZE, totalElements)} of {totalElements} users
+            </span>
+            {totalPages > 1 && (
+              <Pagination className="mx-0 w-auto">
                 <PaginationContent>
                   <PaginationItem>
                     <PaginationPrevious
@@ -614,8 +631,8 @@ function SuperAdminView() {
                   </PaginationItem>
                 </PaginationContent>
               </Pagination>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         <CreateUserDialog
@@ -637,6 +654,13 @@ function SuperAdminView() {
           user={deactivateUser}
           open={deactivateUser !== null}
           onOpenChange={(open: boolean) => { if (!open) setDeactivateUser(null); }}
+          onSuccess={handleSuccess}
+        />
+
+        <ActivateUserDialog
+          user={activateUser}
+          open={activateUser !== null}
+          onOpenChange={(open: boolean) => { if (!open) setActivateUser(null); }}
           onSuccess={handleSuccess}
         />
       </section>

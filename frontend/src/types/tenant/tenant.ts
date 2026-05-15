@@ -24,9 +24,10 @@ export type CreateTenantRequest = {
 };
 
 export type UpdateTenantRequest = {
-  name?: string;
-  slug?: string;
-  storageQuotaBytes?: string;
+  name: string;
+  slug: string;
+  storageQuotaBytes: string;
+  isActive?: boolean;
 };
 
 export type ListTenantsParams = {
