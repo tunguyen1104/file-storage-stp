@@ -343,11 +343,7 @@ function FilesPageInner() {
       const { getUrl } = await getPresignedGetUrl(file.id);
 
       // Verify the file actually exists in storage before opening
-      const check = await fetch(getUrl, { method: "HEAD" });
-      if (!check.ok) {
-        toast.error("Tệp không tồn tại trên hệ thống lưu trữ. Có thể tệp đã bị xóa.");
-        return;
-      }
+      
 
       window.open(getUrl, "_blank", "noopener,noreferrer");
     } catch (err) {
