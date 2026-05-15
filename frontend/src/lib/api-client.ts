@@ -7,21 +7,26 @@ import { API_ROUTES } from "@/lib/constants";
 import { getCsrfToken, CSRF_HEADER_NAME } from "./csrf";
 import { toAppError, type ApiErrorResponse } from "@/lib/api/core/api-error";
 
-// ─── Error code constants ──────────────────────────────────────
-const ERROR_CODE_TOKEN_EXPIRED = 1002;
+const AUTH_ERROR_CODES = {
+  ACCESS_DENIED: 2,    // No token sent — try refresh first, logout only if refresh fails
+  TOKEN_EXPIRED: 1002, // Token expired — refresh and retry
+  INVALID_TOKEN: 1003, // Token tampered or revoked — logout immediately
+} as const;
 
-// ─── Promise-based Refresh Lock ─────────────────────────────────
 let refreshPromise: Promise<void> | null = null;
 
-// ─── Axios Instance ──────────────────────────────────────────
 export const apiClient: AxiosInstance = axios.create({
   headers: { "Content-Type": "application/json" },
-  withCredentials: true, // httpOnly cookies sent to BFF automatically
+  withCredentials: true,
 });
 
-// ─── Request Interceptor ────────────────────────────────────
+function logout(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("auth:logout"));
+  }
+}
+
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  // Attach CSRF token to state-changing requests
   const method = config.method?.toUpperCase();
   if (method && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
     const csrfToken = getCsrfToken();
@@ -29,11 +34,9 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
       config.headers.set(CSRF_HEADER_NAME, csrfToken);
     }
   }
-
   return config;
 });
 
-// ─── Response Interceptor ───────────────────────────────────
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError<ApiErrorResponse>) => {
@@ -41,25 +44,40 @@ apiClient.interceptors.response.use(
       _retry?: boolean;
     };
 
-    // Never intercept the refresh request itself to avoid infinite loops
+    // Guard: never intercept the refresh call itself to avoid infinite loops
     if (originalRequest.url?.includes(API_ROUTES.AUTH.REFRESH)) {
       return Promise.reject(toAppError(error));
     }
 
-    // Check if this is a token-expired error (code=1002)
-    const responseData = error.response?.data;
-    const isTokenExpired =
-      error.response?.status === 401 &&
-      responseData?.code === ERROR_CODE_TOKEN_EXPIRED;
+    const status = error.response?.status;
+    const code = error.response?.data?.code;
 
-    // Only attempt refresh for token expiry, not other 401s
-    if (!isTokenExpired || originalRequest._retry) {
+    if (status !== 401) {
       return Promise.reject(toAppError(error));
     }
 
+    switch (code) {
+      case AUTH_ERROR_CODES.INVALID_TOKEN:
+        // Token is tampered or already revoked — refresh token may also be invalid
+        logout();
+        return Promise.reject(toAppError(error));
+
+      case AUTH_ERROR_CODES.ACCESS_DENIED:
+      case AUTH_ERROR_CODES.TOKEN_EXPIRED:
+        // No token sent OR token expired — try refresh; if it fails, logout
+        break;
+
+      default:
+        return Promise.reject(toAppError(error));
+    }
+
+    // Don't retry a request that already went through a refresh cycle
+    if (originalRequest._retry) {
+      return Promise.reject(toAppError(error));
+    }
     originalRequest._retry = true;
 
-    // If a refresh is already in progress, wait for it instead of starting another
+    // Deduplicate concurrent refreshes: wait for an in-flight refresh instead of starting a new one
     if (refreshPromise) {
       try {
         await refreshPromise;
@@ -69,22 +87,19 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // Start a new refresh and store the promise
     refreshPromise = (async () => {
       try {
-        // Use apiClient so the CSRF token header is automatically attached
         await apiClient.post(API_ROUTES.AUTH.REFRESH, {});
-      } catch (refreshError: any) {
-        // Force logout on refresh failure if it's a client error (e.g. 401/403)
-        // or if we can't determine the status (to be safe, though network errors ideally shouldn't log out)
-        const isNetworkError = refreshError?.status >= 500 || refreshError?.message?.includes("Network Error");
-        if (
-          typeof window !== "undefined" &&
-          !isNetworkError
-        ) {
-          window.dispatchEvent(new Event("auth:logout"));
+      } catch (err: unknown) {
+        const appErr = err as { status?: number };
+        // Only logout for auth-specific failures (4xx). Network/server errors (5xx / no response)
+        // don't mean the session is invalid, so we preserve the session.
+        const isAuthFailure =
+          typeof appErr?.status === "number" && appErr.status < 500;
+        if (isAuthFailure) {
+          logout();
         }
-        throw refreshError;
+        throw err;
       }
     })();
 
