@@ -18,10 +18,19 @@ import {
   X,
   Folder as FolderIcon,
   ShieldAlert,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Pagination,
   PaginationContent,
@@ -78,7 +87,26 @@ export default function AdminFilesPage() {
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileMetadataResponse | null>(null);
 
+  const [filterType, setFilterType] = useState<string>("ALL");
+  const [filterStatus, setFilterStatus] = useState<string>("ALL");
+  const [sortBy, setSortBy] = useState<string>("CREATED_AT");
+  const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("DESC");
+
   const debouncedSearch = useDebounce(search, 400);
+
+  const handleSort = (column: string) => {
+    if (sortBy === column) {
+      setSortDirection(sortDirection === "ASC" ? "DESC" : "ASC");
+    } else {
+      setSortBy(column);
+      setSortDirection("ASC");
+    }
+  };
+
+  const SortIcon = ({ column }: { column: string }) => {
+    if (sortBy !== column) return null;
+    return sortDirection === "ASC" ? <ArrowUp className="w-3 h-3 ml-1" /> : <ArrowDown className="w-3 h-3 ml-1" />;
+  };
 
   // SWR for breadcrumbs (only if we are inside a folder)
   const { data: breadcrumbs } = useSWR(
@@ -88,17 +116,19 @@ export default function AdminFilesPage() {
   );
 
   // SWR for fetching admin items
-  const swrKey = ["admin-items", currentPage, debouncedSearch, currentFolderId] as const;
+  const swrKey = ["admin-items", currentPage, debouncedSearch, currentFolderId, filterType, filterStatus, sortBy, sortDirection] as const;
   const { data, error, isLoading, mutate } = useSWR(
     swrKey,
-    async ([, page, q, fId]) => {
+    async ([, page, q, fId, fType, fStatus, sBy, sDir]) => {
       return getAdminFolderItems({
         page,
         limit: DEFAULT_PAGE_SIZE,
         search: q || undefined,
         parentId: fId || undefined,
-        sortBy: "CREATED_AT",
-        sortDirection: "DESC",
+        type: fType !== "ALL" ? (fType as any) : undefined,
+        status: fStatus !== "ALL" ? fStatus : undefined,
+        sortBy: sBy as any,
+        sortDirection: sDir as any,
       });
     },
     { revalidateOnFocus: false }
@@ -140,7 +170,7 @@ export default function AdminFilesPage() {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-gray-50">
       {/* ── Top search bar ── */}
-      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3 shrink-0">
+      <div className="flex flex-col gap-4 border-b border-gray-200 bg-white px-6 py-4 shrink-0 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 text-red-600">
                 <ShieldAlert className="w-4 h-4" />
@@ -150,17 +180,46 @@ export default function AdminFilesPage() {
                 <p className="text-xs text-gray-500">Global view across all tenants</p>
             </div>
         </div>
-        <div className="relative w-full max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            className="h-9 border-gray-200 bg-gray-50 pl-9 text-sm placeholder:text-gray-400 focus-visible:ring-primary/30"
-            placeholder="Search across tenants..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          <Select value={filterType} onValueChange={(v) => { setFilterType(v); setCurrentPage(1); }}>
+            <SelectTrigger className="w-full sm:w-[130px] h-9 text-sm">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Types</SelectItem>
+              <SelectItem value="FOLDER">Folder</SelectItem>
+              <SelectItem value="FILE">File</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setCurrentPage(1); }}>
+            <SelectTrigger className="w-full sm:w-[150px] h-9 text-sm">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Status</SelectItem>
+              <SelectItem value="ACTIVE">Active</SelectItem>
+              <SelectItem value="PENDING">Pending</SelectItem>
+              <SelectItem value="SCANNING">Scanning</SelectItem>
+              <SelectItem value="INFECTED">Infected</SelectItem>
+              <SelectItem value="PENDING_DELETE">Pending Delete</SelectItem>
+              <SelectItem value="DELETED">Deleted</SelectItem>
+              <SelectItem value="UPLOAD_FAILED">Upload Failed</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <div className="relative w-full sm:w-[250px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Input
+              className="h-9 border-gray-200 bg-gray-50 pl-9 text-sm placeholder:text-gray-400 focus-visible:ring-primary/30 w-full"
+              placeholder="Search across tenants..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
         </div>
       </div>
 
@@ -232,11 +291,19 @@ export default function AdminFilesPage() {
               <table className="w-full text-sm">
                 <thead className="border-b border-gray-100 bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Tenant</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell">Date modified</th>
+                    <th className={cn("px-4 py-3 text-left text-xs font-semibold cursor-pointer hover:bg-gray-100 select-none transition-colors", sortBy === "NAME" ? "text-primary" : "text-gray-500")} onClick={() => handleSort("NAME")}>
+                      <div className="flex items-center">Name <SortIcon column="NAME" /></div>
+                    </th>
+                    <th className={cn("px-4 py-3 text-left text-xs font-semibold cursor-pointer hover:bg-gray-100 select-none transition-colors", sortBy === "TENANT_NAME" ? "text-primary" : "text-gray-500")} onClick={() => handleSort("TENANT_NAME")}>
+                      <div className="flex items-center">Tenant <SortIcon column="TENANT_NAME" /></div>
+                    </th>
+                    <th className={cn("px-4 py-3 text-left text-xs font-semibold hidden sm:table-cell cursor-pointer hover:bg-gray-100 select-none transition-colors", sortBy === "CREATED_AT" ? "text-primary" : "text-gray-500")} onClick={() => handleSort("CREATED_AT")}>
+                      <div className="flex items-center">Date modified <SortIcon column="CREATED_AT" /></div>
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden md:table-cell">Type</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500">Size</th>
+                    <th className={cn("px-4 py-3 text-right text-xs font-semibold cursor-pointer hover:bg-gray-100 select-none transition-colors", sortBy === "SIZE_BYTES" ? "text-primary" : "text-gray-500")} onClick={() => handleSort("SIZE_BYTES")}>
+                      <div className="flex items-center justify-end">Size <SortIcon column="SIZE_BYTES" /></div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>

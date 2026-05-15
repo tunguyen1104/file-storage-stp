@@ -11,7 +11,7 @@ import { UploadQueueItem } from "@/components/upload/UploadQueueItem";
 import { cn } from "@/lib/utils";
 
 export function UploadFloatingWidget() {
-  const { uploadQueue, cancelUpload, retryUpload, resumeUpload, clearDone } = useUpload();
+  const { uploadQueue, cancelUpload, retryUpload, resumeUpload, clearDone, clearErrors } = useUpload();
   const [expanded, setExpanded] = useState(true);
   const pathname = usePathname();
 
@@ -77,17 +77,29 @@ export function UploadFloatingWidget() {
         </ScrollArea>
       )}
 
-      {/* Footer — clear completed */}
-      {expanded && doneCount > 0 && (
-        <div className="border-t px-4 py-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full text-xs"
-            onClick={clearDone}
-          >
-            Clear completed
-          </Button>
+      {/* Footer — clear completed / failed */}
+      {expanded && (doneCount > 0 || errorCount > 0) && (
+        <div className="border-t px-4 py-2 flex gap-2">
+          {doneCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex-1 text-xs"
+              onClick={clearDone}
+            >
+              Clear completed
+            </Button>
+          )}
+          {errorCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex-1 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={clearErrors}
+            >
+              Clear failed
+            </Button>
+          )}
         </div>
       )}
     </div>

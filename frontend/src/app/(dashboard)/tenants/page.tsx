@@ -3,6 +3,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { Search, Plus, MoreVertical, Users } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { listTenants } from "@/lib/api/tenants";
+import { listTenants, updateTenant } from "@/lib/api/tenants";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
   CreateTenantDialog,
@@ -49,6 +50,7 @@ export default function TenantsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editTenant, setEditTenant] = useState<TenantResponse | null>(null);
   const [deactivateTenant, setDeactivateTenant] = useState<TenantResponse | null>(null);
+  const [isActivating, setIsActivating] = useState<string | null>(null);
   
   const debouncedSearch = useDebounce(search, 400);
 
@@ -79,8 +81,26 @@ export default function TenantsPage() {
     mutate();
   }
 
+  async function handleActivateTenant(tenant: TenantResponse) {
+    try {
+      setIsActivating(tenant.id);
+      await updateTenant(tenant.id, { 
+        name: tenant.name,
+        slug: tenant.slug,
+        storageQuotaBytes: tenant.storageQuotaBytes.toString(),
+        isActive: true 
+      });
+      toast.success(`Tenant "${tenant.name}" activated`);
+      mutate();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to activate tenant");
+    } finally {
+      setIsActivating(null);
+    }
+  }
+
   function getAvatarFromName(name: string) {
-    return `https://api.dicebear.com/7.x/initials/svg?seed=${name}&backgroundColor=blue`;
+    return `https://api.dicebear.com/7.x/initials/svg?seed=${name}&backgroundColor=2563EB`;
   }
 
   const getStatusBadge = (isActive: boolean, isSuspended: boolean = false, isPending: boolean = false) => {
@@ -164,22 +184,23 @@ export default function TenantsPage() {
             <TableHeader>
               <TableRow className="hover:bg-transparent border-b border-gray-100">
                 <TableHead className="font-semibold text-gray-700 py-4 h-auto px-6">Organization</TableHead>
-                <TableHead className="font-semibold text-gray-700 py-4 h-auto">Storage Used</TableHead>
+                <TableHead className="font-semibold text-gray-700 py-4 h-auto">Storage</TableHead>
                 <TableHead className="font-semibold text-gray-700 py-4 h-auto text-center">Status</TableHead>
                 <TableHead className="font-semibold text-gray-700 py-4 h-auto">Members</TableHead>
+                <TableHead className="font-semibold text-gray-700 py-4 h-auto">Updated At</TableHead>
                 <TableHead className="font-semibold text-gray-700 py-4 h-auto text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-gray-500">
+                  <TableCell colSpan={6} className="h-32 text-center text-gray-500">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : tenants.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-gray-500">
+                  <TableCell colSpan={6} className="h-32 text-center text-gray-500">
                     {debouncedSearch ? `No tenants found for "${debouncedSearch}"` : "No tenants found."}
                   </TableCell>
                 </TableRow>
@@ -196,18 +217,23 @@ export default function TenantsPage() {
                             <AvatarImage src={getAvatarFromName(tenant.name)} />
                             <AvatarFallback>{tenant.name.charAt(0)}</AvatarFallback>
                           </Avatar>
-                          <div className="flex flex-col">
-                            <span className="font-bold text-gray-900 text-sm leading-tight">{tenant.name}</span>
-                            <span className="text-gray-500 text-xs mt-0.5">{tenant.slug}</span>
+                          <div className="flex flex-col max-w-[200px]">
+                            <span className="font-bold text-gray-900 text-sm leading-tight truncate" title={tenant.name}>{tenant.name}</span>
+                            <span className="text-gray-500 text-xs mt-0.5 truncate" title={tenant.slug}>{tenant.slug}</span>
                           </div>
                         </div>
                       </TableCell>
                       
                       <TableCell className="py-4">
-                        <div className="flex flex-col gap-1.5 w-[140px]">
-                          <span className="text-sm font-semibold text-gray-700">
-                            {formatBytes(tenant.storageUsedBytes)}
-                          </span>
+                        <div className="flex flex-col gap-1.5 w-[160px]">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-gray-700">
+                              {formatBytes(tenant.storageUsedBytes)}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              / {tenant.storageQuotaBytes ? formatBytes(tenant.storageQuotaBytes) : 'Unlimited'}
+                            </span>
+                          </div>
                           <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
                             <div 
                               className="h-full bg-[#AF8BE0] rounded-full" 
@@ -226,19 +252,36 @@ export default function TenantsPage() {
                       <TableCell className="py-4">
                         <div className="flex items-center gap-1.5 text-gray-500 font-medium">
                           <Users className="h-4 w-4" />
-                          <span className="text-sm">0</span>
+                          <span className="text-sm">{tenant.userCount}</span>
                         </div>
+                      </TableCell>
+
+                      <TableCell className="py-4">
+                        <span className="text-sm text-gray-500 font-medium">
+                          {tenant.updatedAt ? new Date(tenant.updatedAt).toLocaleDateString() : new Date(tenant.createdAt).toLocaleDateString()}
+                        </span>
                       </TableCell>
                       
                       <TableCell className="py-4">
                         <div className="flex items-center justify-center gap-3">
-                          <Button
-                            variant="default"
-                            className="bg-[#E11D48] hover:bg-[#BE123C] text-white h-9 px-6 rounded-md font-medium shadow-none"
-                            onClick={() => setDeactivateTenant(tenant)}
-                          >
-                            Delete
-                          </Button>
+                          {tenant.isActive ? (
+                            <Button
+                              variant="default"
+                              className="bg-[#E11D48] hover:bg-[#BE123C] text-white h-9 px-6 rounded-md font-medium shadow-none"
+                              onClick={() => setDeactivateTenant(tenant)}
+                            >
+                              Delete
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="default"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white h-9 px-6 rounded-md font-medium shadow-none"
+                              onClick={() => handleActivateTenant(tenant)}
+                              disabled={isActivating === tenant.id}
+                            >
+                              {isActivating === tenant.id ? "Activating..." : "Active"}
+                            </Button>
+                          )}
                           <Button
                             variant="default"
                             className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white h-9 px-6 rounded-md font-medium shadow-none"

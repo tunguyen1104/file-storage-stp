@@ -43,7 +43,7 @@ import {
   type UpdateTenantInput,
 } from "@/lib/schemas/tenant.schema";
 import type { TenantResponse } from "@/types/tenant/tenant";
-import { parseBytes, convertToBytes } from "@/lib/utils/storage";
+import { parseBytes, convertToBytes, formatBytes } from "@/lib/utils/storage";
 import {
   Select,
   SelectContent,
@@ -277,13 +277,38 @@ export function EditTenantDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Edit Tenant</DialogTitle>
+          <DialogTitle>Tenant Details</DialogTitle>
           <DialogDescription>
-            Update tenant information. The slug must remain unique.
+            View and update organization information. The slug must remain unique.
           </DialogDescription>
         </DialogHeader>
+
+        {tenant && (
+          <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg text-sm mb-2">
+            <div>
+              <span className="text-gray-500 block text-xs mb-1">Status</span>
+              <span className="font-medium">{tenant.isActive ? "Active" : "Inactive"}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block text-xs mb-1">Members</span>
+              <span className="font-medium">{tenant.userCount}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block text-xs mb-1">Storage Used</span>
+              <span className="font-medium">{formatBytes(tenant.storageUsedBytes)}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block text-xs mb-1">Created At</span>
+              <span className="font-medium">{new Date(tenant.createdAt).toLocaleString()}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block text-xs mb-1">Updated At</span>
+              <span className="font-medium">{tenant.updatedAt ? new Date(tenant.updatedAt).toLocaleString() : "N/A"}</span>
+            </div>
+          </div>
+        )}
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

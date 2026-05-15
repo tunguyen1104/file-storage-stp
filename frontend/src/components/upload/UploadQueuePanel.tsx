@@ -12,6 +12,7 @@ interface UploadQueuePanelProps {
   onRetry: (itemId: string) => void;
   onResume: (itemId: string) => void;
   onClearDone: () => void;
+  onClearErrors: () => void;
 }
 
 export function UploadQueuePanel({
@@ -20,10 +21,10 @@ export function UploadQueuePanel({
   onRetry,
   onResume,
   onClearDone,
+  onClearErrors,
 }: UploadQueuePanelProps) {
-  const doneCount = items.filter((i) =>
-    ["done", "cancelled", "infected"].includes(i.status)
-  ).length;
+  const doneCount = items.filter((i) => i.status === "done").length;
+  const errorCount = items.filter((i) => ["error", "infected", "cancelled"].includes(i.status)).length;
 
   return (
     <Card>
@@ -34,6 +35,11 @@ export function UploadQueuePanel({
         {doneCount > 0 && (
           <Button variant="ghost" size="sm" onClick={onClearDone} className="text-xs">
             Clear completed
+          </Button>
+        )}
+        {errorCount > 0 && (
+          <Button variant="ghost" size="sm" onClick={onClearErrors} className="text-xs text-destructive hover:text-destructive hover:bg-destructive/10">
+            Clear failed
           </Button>
         )}
       </CardHeader>
