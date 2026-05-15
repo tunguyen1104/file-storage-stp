@@ -7,18 +7,10 @@ import {
   CSRF_HEADER_NAME,
 } from "@/lib/csrf";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8081";
-
-/**
- * Cookie name mapping: backend uses hyphens, browser uses camelCase.
- * The BFF proxy translates between them.
- */
-const COOKIE_MAP = {
-  "access-token": "accessToken",
-  "refresh-token": "refreshToken",
-} as const;
-
-const BROWSER_COOKIE_NAMES = new Set(Object.values(COOKIE_MAP));
+const BACKEND_URL =
+  process.env.BACKEND_URL ??
+  process.env.NEXT_PUBLIC_BACKEND_URL ??
+  "http://localhost:8081";
 
 /**
  * Whitelist of allowed API path prefixes.
@@ -35,6 +27,10 @@ const ALLOWED_PREFIXES = [
   "/api/v1/search",
 ];
 
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+const AUTH_COOKIE_NAMES = ["access-token", "refresh-token"] as const;
+
 /**
  * Headers that should NOT be forwarded from the backend response.
  */
@@ -44,34 +40,6 @@ const SKIP_RESPONSE_HEADERS = new Set([
   "keep-alive",
   "set-cookie", // handled separately via getSetCookie()
 ]);
-
-const MAX_LOGOUT_RETRIES = 2;
-
-/**
- * Parse a Set-Cookie header string and remap backend cookie names
- * (access-token, refresh-token) to camelCase (accessToken, refreshToken).
- */
-function remapSetCookieHeader(setCookie: string): string {
-  for (const [backendName, browserName] of Object.entries(COOKIE_MAP)) {
-    // Match cookie name at start of Set-Cookie value: "access-token=..."
-    if (setCookie.startsWith(`${backendName}=`)) {
-      return `${browserName}=${setCookie.slice(backendName.length + 1)}`;
-    }
-  }
-  return setCookie;
-}
-
-function clearAuthCookies(response: NextResponse) {
-  for (const name of BROWSER_COOKIE_NAMES) {
-    response.cookies.set(name, "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 0,
-      path: "/",
-    });
-  }
-}
 
 /**
  * Unauthenticated auth endpoints that skip CSRF validation.
@@ -87,16 +55,70 @@ const CSRF_EXEMPT_PATHS = new Set([
   "/api/v1/auth/verify-email",
 ]);
 
+const REFRESH_PATH = "/api/v1/auth/refresh";
+const LOGOUT_PATH = "/api/v1/auth/logout";
+
+const MAX_LOGOUT_RETRIES = 2;
+
+function clearAuthCookies(response: NextResponse) {
+  for (const name of AUTH_COOKIE_NAMES) {
+    response.cookies.set(name, "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 0,
+      path: "/",
+    });
+  }
+}
+
+/**
+ * Call the backend refresh endpoint directly and return the new access token value
+ * + full Set-Cookie headers so the proxy response can forward all cookie updates
+ * back to the browser (with backend-set attributes intact).
+ *
+ * Returns null if the refresh failed for any reason — caller should fall through
+ * (forward the original request without auth and let the backend reject it).
+ */
+async function refreshTokensViaBackend(
+  refreshToken: string,
+  csrfToken: string | undefined
+): Promise<{ accessToken: string; setCookies: string[] } | null> {
+  try {
+    const url = new URL(REFRESH_PATH, BACKEND_URL).toString();
+
+    const cookieParts = [`refresh-token=${refreshToken}`];
+    if (csrfToken) cookieParts.push(`${CSRF_COOKIE_NAME}=${csrfToken}`);
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Cookie: cookieParts.join("; "),
+    };
+    if (csrfToken) headers[CSRF_HEADER_NAME] = csrfToken;
+
+    const res = await fetch(url, { method: "POST", headers });
+    if (!res.ok) return null;
+
+    const setCookies = res.headers.getSetCookie();
+    const accessTokenCookie = setCookies.find((c) =>
+      c.startsWith("access-token=")
+    );
+    if (!accessTokenCookie) return null;
+
+    const accessToken = accessTokenCookie.split(";")[0].split("=")[1];
+    return accessToken ? { accessToken, setCookies } : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Proxy an incoming Next.js request to the real backend service.
  */
-export async function proxyToBackend(
-  req: NextRequest
-): Promise<NextResponse> {
+export async function proxyToBackend(req: NextRequest): Promise<NextResponse> {
   const pathname = req.nextUrl.pathname;
   const search = req.nextUrl.search;
 
-  // ── SSRF protection: only allow known API prefixes ─────
   if (!ALLOWED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return NextResponse.json(
       { success: false, errors: "Forbidden" },
@@ -106,11 +128,7 @@ export async function proxyToBackend(
 
   const cookieStore = await cookies();
 
-  // ── CSRF protection for state-changing requests ─────────
-  if (
-    ["POST", "PUT", "PATCH", "DELETE"].includes(req.method) &&
-    !CSRF_EXEMPT_PATHS.has(pathname)
-  ) {
+  if (MUTATING_METHODS.has(req.method) && !CSRF_EXEMPT_PATHS.has(pathname)) {
     const csrfCookie = cookieStore.get(CSRF_COOKIE_NAME)?.value;
     const csrfHeader = req.headers.get(CSRF_HEADER_NAME);
 
@@ -122,9 +140,8 @@ export async function proxyToBackend(
     }
   }
 
-  // Read browser cookies (camelCase names) and send to backend as hyphenated
-  const accessToken = cookieStore.get("accessToken")?.value;
-  const refreshToken = cookieStore.get("refreshToken")?.value;
+  let accessToken = cookieStore.get("access-token")?.value;
+  let refreshToken = cookieStore.get("refresh-token")?.value;
 
   // Generate the CSRF token early so it can be forwarded to the backend
   // on the very first request (before any prior response has set the cookie).
@@ -134,19 +151,39 @@ export async function proxyToBackend(
     csrfToken = generateCsrfToken();
   }
 
-  // ── Build backend URL safely ───────────────────────────
+  // Silent refresh: if the browser has no access-token cookie for a protected
+  // endpoint but still has a refresh-token, fetch a fresh access token here so
+  // the original request can succeed with valid credentials. The new tokens are
+  // forwarded back to the browser via Set-Cookie on the final response.
+  let refreshedSetCookies: string[] = [];
+  const isProtectedEndpoint =
+    !CSRF_EXEMPT_PATHS.has(pathname) && pathname !== REFRESH_PATH;
+  if (!accessToken && refreshToken && isProtectedEndpoint) {
+    const refreshed = await refreshTokensViaBackend(refreshToken, csrfToken);
+    if (refreshed) {
+      accessToken = refreshed.accessToken;
+      refreshedSetCookies = refreshed.setCookies;
+
+      // If the backend rotated the refresh token, use the new one for this request too
+      const rotatedRefreshCookie = refreshed.setCookies.find((c) =>
+        c.startsWith("refresh-token=")
+      );
+      if (rotatedRefreshCookie) {
+        refreshToken = rotatedRefreshCookie.split(";")[0].split("=")[1];
+      }
+    }
+  }
+
   const url = new URL(pathname, BACKEND_URL);
   url.search = search;
-  const backendUrl = url.toString();
 
-  // ── Build request headers ────────────────────────────────
   const headers = new Headers();
 
-  const contentType = req.headers.get("content-type");
-  if (contentType && !["GET", "HEAD"].includes(req.method)) {
-    headers.set("Content-Type", contentType);
-  } else if (!["GET", "HEAD"].includes(req.method)) {
-    headers.set("Content-Type", "application/json");
+  if (MUTATING_METHODS.has(req.method)) {
+    headers.set(
+      "Content-Type",
+      req.headers.get("content-type") ?? "application/json"
+    );
   }
 
   const accept = req.headers.get("accept");
@@ -154,7 +191,7 @@ export async function proxyToBackend(
     headers.set("Accept", accept);
   }
 
-  // Forward cookies to backend using backend's expected hyphenated names
+  // Forward cookies to backend using the backend's expected hyphenated names
   const cookieParts: string[] = [];
   if (accessToken) cookieParts.push(`access-token=${accessToken}`);
   if (refreshToken) cookieParts.push(`refresh-token=${refreshToken}`);
@@ -163,50 +200,50 @@ export async function proxyToBackend(
     headers.set("Cookie", cookieParts.join("; "));
   }
 
-  // Forward CSRF token in header for backend double-submit validation
-  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method) && csrfToken) {
+  if (MUTATING_METHODS.has(req.method) && csrfToken) {
     headers.set(CSRF_HEADER_NAME, csrfToken);
   }
 
-  // ── Build fetch options ──────────────────────────────────
   const init: RequestInit = {
     method: req.method,
     headers,
     redirect: "manual",
   };
 
-  if (!["GET", "HEAD"].includes(req.method)) {
+  if (MUTATING_METHODS.has(req.method)) {
     const body = await req.arrayBuffer();
     if (body.byteLength > 0) {
       init.body = body;
     }
   }
 
-  // ── Execute request ──────────────────────────────────────
   try {
-    const backendRes = await fetch(backendUrl, init);
+    const backendRes = await fetch(url.toString(), init);
     const responseBody = await backendRes.arrayBuffer();
 
-    // 204 No Content (and similar) statuses cannot have a body in Next.js Response constructor
-    const isNoContent = backendRes.status === 204 || backendRes.status === 205 || backendRes.status === 304;
-    const bodyToPass = isNoContent ? null : responseBody;
+    // 204/205/304 statuses cannot carry a body in the Next.js Response constructor
+    const isNoContent = [204, 205, 304].includes(backendRes.status);
 
-    const response = new NextResponse(bodyToPass, {
+    const response = new NextResponse(isNoContent ? null : responseBody, {
       status: backendRes.status,
       statusText: backendRes.statusText,
     });
 
-    // Forward response headers (except transport-layer and Set-Cookie)
     backendRes.headers.forEach((value, key) => {
       if (!SKIP_RESPONSE_HEADERS.has(key.toLowerCase())) {
         response.headers.set(key, value);
       }
     });
 
-    // Forward Set-Cookie headers, remapping backend cookie names to browser names
-    const setCookies = backendRes.headers.getSetCookie();
-    for (const cookie of setCookies) {
-      response.headers.append("Set-Cookie", remapSetCookieHeader(cookie));
+    // Forward Set-Cookie headers as-is — cookie names match between backend and browser
+    for (const cookie of backendRes.headers.getSetCookie()) {
+      response.headers.append("Set-Cookie", cookie);
+    }
+
+    // Forward cookies from the silent refresh so the browser stores the fresh tokens.
+    // Appended after backendRes cookies so they win for conflicting names (newer wins).
+    for (const cookie of refreshedSetCookies) {
+      response.headers.append("Set-Cookie", cookie);
     }
 
     // Use headers.append (not response.cookies.set) to avoid the ResponseCookies
@@ -223,18 +260,17 @@ export async function proxyToBackend(
       response.headers.append("Set-Cookie", parts.join("; "));
     }
 
-    // Always clear cookies on logout
-    if (pathname === "/api/v1/auth/logout") {
+    if (pathname === LOGOUT_PATH) {
       clearAuthCookies(response);
     }
 
     return response;
   } catch (error) {
-    // ── Logout: retry backend call to invalidate refresh token
-    if (pathname === "/api/v1/auth/logout") {
+    // Logout: retry backend call to invalidate the refresh token server-side
+    if (pathname === LOGOUT_PATH) {
       for (let attempt = 1; attempt <= MAX_LOGOUT_RETRIES; attempt++) {
         try {
-          await fetch(backendUrl, {
+          await fetch(url.toString(), {
             method: "POST",
             headers,
             redirect: "manual",
