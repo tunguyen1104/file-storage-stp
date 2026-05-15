@@ -129,6 +129,7 @@ app:
       - application/x-rpm
       - application/java-archive
       - application/octet-stream
+      - application/vnd.android.package-archive
     virus-scan:
       bypass-scan-size-mb: ${VIRUS_SCAN_BYPASS_SIZE_MB:50}
       bypass-mime-types:

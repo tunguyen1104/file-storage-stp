@@ -4,6 +4,10 @@ import com.filestorage.adapter.in.rest.dto.request.ChangeUserPasswordRequest;
 import com.filestorage.adapter.in.rest.dto.request.CreateUserRequest;
 import com.filestorage.adapter.in.rest.dto.request.UpdateUserRequest;
 import com.filestorage.adapter.in.rest.dto.response.ApiResponse;
+import com.filestorage.adapter.in.rest.dto.response.PageResponse;
+import com.filestorage.adapter.in.rest.dto.response.UserCreatedResponse;
+import com.filestorage.adapter.in.rest.dto.response.UserDetailResponse;
+import com.filestorage.adapter.in.rest.dto.response.UserStorageResponse;
 import com.filestorage.adapter.in.rest.mapper.UserRestMapper;
 import com.filestorage.adapter.in.rest.security.SecurityUser;
 import com.filestorage.domain.model.enums.RoleCode;
@@ -46,7 +50,7 @@ public class UserController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN')")
-    public ResponseEntity<ApiResponse<?>> createUser(@RequestBody @Valid CreateUserRequest request) {
+    public ResponseEntity<ApiResponse<UserCreatedResponse>> createUser(@RequestBody @Valid CreateUserRequest request) {
         SecurityUser actor = currentUserOrThrow();
         var result = createUserUseCase.execute(new CreateUserUseCase.CreateUserCommand(
                 UUID.fromString(actor.getUserId()),
@@ -64,7 +68,7 @@ public class UserController {
 
     @GetMapping
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<?>> listUsers(
+    public ResponseEntity<ApiResponse<PageResponse<UserDetailResponse>>> listUsers(
             @RequestParam(required = false) Boolean isActive,
             @RequestParam(required = false) RoleCode roleCode,
             @RequestParam(required = false) UUID tenantId,
@@ -90,7 +94,7 @@ public class UserController {
 
     @GetMapping("/tenant")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN')")
-    public ResponseEntity<ApiResponse<?>> listTenantUsers(
+    public ResponseEntity<ApiResponse<PageResponse<UserDetailResponse>>> listTenantUsers(
             @RequestParam(required = false) Boolean isActive,
             @RequestParam(required = false) RoleCode roleCode,
             @RequestParam(required = false) String search,
@@ -113,7 +117,7 @@ public class UserController {
     }
 
     @GetMapping("/{userId}")
-    public ResponseEntity<ApiResponse<?>> getUserById(@PathVariable UUID userId) {
+    public ResponseEntity<ApiResponse<UserDetailResponse>> getUserById(@PathVariable UUID userId) {
         SecurityUser actor = currentUserOrThrow();
         var result = getUserUseCase.execute(new GetUserUseCase.GetUserQuery(
                 userId,
@@ -127,7 +131,7 @@ public class UserController {
 
     @PatchMapping("/{userId}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN')")
-    public ResponseEntity<ApiResponse<?>> updateUser(@PathVariable UUID userId, @RequestBody @Valid UpdateUserRequest request) {
+    public ResponseEntity<ApiResponse<UserDetailResponse>> updateUser(@PathVariable UUID userId, @RequestBody @Valid UpdateUserRequest request) {
         SecurityUser actor = currentUserOrThrow();
         var result = updateUserUseCase.execute(new UpdateUserUseCase.UpdateUserCommand(
                 UUID.fromString(actor.getUserId()),
@@ -144,7 +148,7 @@ public class UserController {
 
     @DeleteMapping("/{userId}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN')")
-    public ResponseEntity<ApiResponse<?>> deactivateUser(@PathVariable UUID userId) {
+    public ResponseEntity<ApiResponse<UserDetailResponse>> deactivateUser(@PathVariable UUID userId) {
         SecurityUser actor = currentUserOrThrow();
         var result = deactivateUserUseCase.execute(new DeactivateUserUseCase.DeactivateUserCommand(
                 UUID.fromString(actor.getUserId()),
@@ -158,7 +162,7 @@ public class UserController {
 
     @PatchMapping("/{userId}/activate")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN')")
-    public ResponseEntity<ApiResponse<?>> activateUser(@PathVariable UUID userId) {
+    public ResponseEntity<ApiResponse<UserDetailResponse>> activateUser(@PathVariable UUID userId) {
         SecurityUser actor = currentUserOrThrow();
         var result = activateUserUseCase.execute(new ActivateUserUseCase.ActivateUserCommand(
                 UUID.fromString(actor.getUserId()),
@@ -188,7 +192,7 @@ public class UserController {
     }
 
     @GetMapping("/{userId}/storage")
-    public ResponseEntity<ApiResponse<?>> getUserStorage(@PathVariable UUID userId) {
+    public ResponseEntity<ApiResponse<UserStorageResponse>> getUserStorage(@PathVariable UUID userId) {
         SecurityUser actor = currentUserOrThrow();
         var result = getUserStorageUseCase.execute(new GetUserStorageUseCase.GetUserStorageQuery(
                 userId,

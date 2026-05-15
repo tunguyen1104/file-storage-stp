@@ -26,7 +26,7 @@ import java.time.Duration;
 @Slf4j
 public class ClamAvVirusScanAdapter implements VirusScanPort {
 
-    private static final String INFECTED_MARKER = "\"isInfected\":true";
+    private static final String INFECTED_MARKER = "\"is_infected\":true";
 
     private final ClamAvProperties clamAvProperties;
     private final HttpClient httpClient;
