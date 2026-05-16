@@ -67,7 +67,7 @@ public class CompleteMultipartUploadService implements CompleteMultipartUploadUs
         uploadStorageVerifier.verifySizeOrFail(file, storageKey);
 
         // Re-detect real MIME type via Tika to prevent spoofing after assembly
-        uploadStorageVerifier.verifyMimeOrFail(file, storageKey);
+        uploadStorageVerifier.detectAndCorrectMime(file, storageKey);
 
         // Transition session to terminal state and evict Redis cache
         session.setStatus(MultipartUploadStatus.COMPLETED);

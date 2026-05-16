@@ -23,40 +23,15 @@ public class UploadProperties {
     @Min(1)
     private int presignedPutTtlMinutes = 15;
 
+    @Min(1)
+    private long maxFileSizeBytes = 4L * 1024 * 1024 * 1024; // 4 GiB
+
     /** Files remaining in PENDING status for longer than this threshold (hours) are cleaned up. */
     @Min(1)
     private int pendingCleanupThresholdHours = 1;
 
     /** Multipart-upload sub-properties. */
     private Multipart multipart = new Multipart();
-
-    /**
-     * MIME types permitted for upload. Requests declaring a type outside this list are rejected
-     * immediately at session-init time, before any bytes reach object storage.
-     */
-    private List<String> allowedMimeTypes = List.of(
-            "image/jpeg",
-            "image/png",
-            "image/gif",
-            "image/webp",
-            "image/svg+xml",
-            "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "application/vnd.ms-excel",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "application/vnd.ms-powerpoint",
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            "text/plain",
-            "text/csv",
-            "video/mp4",
-            "video/quicktime",
-            "video/x-msvideo",
-            "audio/mpeg",
-            "audio/wav",
-            "audio/flac",
-            "audio/ogg"
-    );
 
     /** Virus-scan bypass sub-properties. */
     private VirusScan virusScan = new VirusScan();
@@ -78,33 +53,55 @@ public class UploadProperties {
         private int cleanupIntervalMinutes = 30;
     }
 
-    /**
-     * Controls which files are allowed to skip the ClamAV scan.
-     * <p>
-     * A file bypasses scanning only when <em>both</em> conditions hold:
-     * <ol>
-     *   <li>Its declared size exceeds {@code bypassScanSizeMb} megabytes.</li>
-     *   <li>Its MIME type is in {@code bypassMimeTypes}.</li>
-     * </ol>
-     * Files below the size threshold are always scanned, even for bypass-eligible MIME types.
-     */
     @Getter
     @Setter
     public static class VirusScan {
 
-        /** File size threshold in MB above which bypass-eligible MIME types skip ClamAV. */
+        /** Files at or above this size (MB) skip ClamAV scanning entirely. */
         @Min(1)
         private int bypassScanSizeMb = 50;
 
-        /** MIME types eligible for scan bypass when the file exceeds {@code bypassScanSizeMb}. */
-        private List<String> bypassMimeTypes = List.of(
-                "video/mp4",
-                "video/quicktime",
-                "video/x-msvideo",
-                "audio/mpeg",
-                "audio/wav",
-                "audio/flac",
-                "audio/ogg"
+        /** MIME types that must be scanned when the file is below {@code bypassScanSizeMb}. */
+        private List<String> scanMimeTypes = List.of(
+                // Documents
+                "application/pdf",
+                "application/msword",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/vnd.ms-excel",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/vnd.ms-powerpoint",
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                "application/rtf",
+                "text/rtf",
+                "text/plain",
+                "text/csv",
+                "text/html",
+                "application/xml",
+                "text/xml",
+                // Archives / compressed
+                "application/zip",
+                "application/x-zip-compressed",
+                "application/x-rar-compressed",
+                "application/x-7z-compressed",
+                "application/x-tar",
+                "application/gzip",
+                "application/x-bzip2",
+                // Executables and installers
+                "application/x-msdownload",
+                "application/x-executable",
+                "application/x-msi",
+                "application/x-deb",
+                "application/x-rpm",
+                "application/java-archive",
+                "application/octet-stream",
+                // Scripts
+                "application/javascript",
+                "text/javascript",
+                "application/x-sh",
+                "text/x-python",
+                "application/x-python-code",
+                // SVG (can embed scripts)
+                "image/svg+xml"
         );
     }
 }

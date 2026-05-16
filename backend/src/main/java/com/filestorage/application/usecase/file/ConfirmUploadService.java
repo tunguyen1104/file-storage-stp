@@ -51,7 +51,7 @@ public class ConfirmUploadService implements ConfirmUploadUseCase {
         uploadStorageVerifier.verifySizeOrFail(file, storageKey);
 
         // Re-detect real MIME type via Tika to prevent spoofing (e.g. evil.exe → report.pdf)
-        uploadStorageVerifier.verifyMimeOrFail(file, storageKey);
+        uploadStorageVerifier.detectAndCorrectMime(file, storageKey);
 
         // Route to ClamAV scan or activate directly if eligible for bypass
         FileStatus resultStatus = uploadStorageVerifier.routeToScanOrActivate(

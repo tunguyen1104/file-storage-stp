@@ -33,14 +33,15 @@ public class InitPresignedUploadService implements InitPresignedUploadUseCase {
     private final UserJpaRepository userRepository;
     private final ObjectStoragePort objectStoragePort;
     private final UploadProperties uploadProperties;
-    private final FileUploadValidator fileUploadValidator;
 
     @Override
     @Transactional
     public PresignedUploadView execute(InitPresignedUploadCommand command) {
 
-        // Fast-exit: reject disallowed MIME types before touching the DB or storage.
-        fileUploadValidator.validateMimeType(command.mimeType());
+        // Fast-exit: reject large file sizes before touching the DB or storage.
+        if (command.sizeBytes() > uploadProperties.getMaxFileSizeBytes()) {
+            throw new AppException(ErrorCode.FILE_TOO_LARGE);
+        }
 
         // Acquire a pessimistic write lock on the user row to serialize concurrent quota checks.
         User actor = userRepository.findByIdForUpdate(command.userId())
