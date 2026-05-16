@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,8 +42,6 @@ class InitPresignedUploadServiceTest {
     private UserJpaRepository userRepository;
     @Mock
     private ObjectStoragePort objectStoragePort;
-    @Mock
-    private FileUploadValidator fileUploadValidator;
 
     private InitPresignedUploadService service;
 
@@ -52,7 +49,7 @@ class InitPresignedUploadServiceTest {
     void setUp() {
         service = new InitPresignedUploadService(
                 fileRepository, folderRepository, userRepository,
-                objectStoragePort, new UploadProperties(), fileUploadValidator
+                objectStoragePort, new UploadProperties()
         );
     }
 
@@ -79,6 +76,24 @@ class InitPresignedUploadServiceTest {
         assertNotNull(view.fileId());
         assertEquals("https://minio.example.com/presigned-put", view.uploadUrl());
         assertNotNull(view.expiresAt());
+    }
+
+    /**
+     * Requests declaring a file larger than the configured hard ceiling (default 4 GiB)
+     * are rejected immediately — before any DB or storage I/O.
+     */
+    @Test
+    void rejectsFileTooLarge() {
+        UUID userId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+
+        long overLimit = new UploadProperties().getMaxFileSizeBytes() + 1;
+        var command = new InitPresignedUploadUseCase.InitPresignedUploadCommand(
+                userId, tenantId, RoleCode.MEMBER, null, "huge.bin", "application/octet-stream", overLimit
+        );
+
+        AppException ex = assertThrows(AppException.class, () -> service.execute(command));
+        assertEquals(ErrorCode.FILE_TOO_LARGE, ex.getError());
     }
 
     @Test
@@ -134,22 +149,6 @@ class InitPresignedUploadServiceTest {
 
         AppException ex = assertThrows(AppException.class, () -> service.execute(command));
         assertEquals(ErrorCode.ACCESS_DENIED, ex.getError());
-    }
-
-    @Test
-    void rejectsDisallowedMimeType() {
-        UUID userId = UUID.randomUUID();
-        UUID tenantId = UUID.randomUUID();
-
-        doThrow(new AppException(ErrorCode.UNSUPPORTED_FILE_TYPE))
-                .when(fileUploadValidator).validateMimeType("application/zip");
-
-        var command = new InitPresignedUploadUseCase.InitPresignedUploadCommand(
-                userId, tenantId, RoleCode.MEMBER, null, "archive.zip", "application/zip", 1024L
-        );
-
-        AppException ex = assertThrows(AppException.class, () -> service.execute(command));
-        assertEquals(ErrorCode.UNSUPPORTED_FILE_TYPE, ex.getError());
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────────
