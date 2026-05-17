@@ -9,8 +9,10 @@ import type {
   MultipartInitResponse,
   PartUrlResponse,
   MultipartSessionResponse,
-  FileStatusResponse,
+  UploadConfirmResponse,
 } from "@/types/upload/upload.types";
+
+export { subscribeFileStatus } from "@/lib/api/file-status-stream";
 
 /**
  * Axios instance for direct PUT calls to MinIO presigned URLs.
@@ -46,27 +48,16 @@ export async function initPresignedUpload(payload: {
 
 /**
  * Step 3 of presigned upload: confirm the file was uploaded to MinIO.
- * Backend verifies size/MIME, transitions PENDING → SCANNING, triggers virus scan.
+ * Backend verifies size/MIME, then either activates directly (scan bypass) or queues ClamAV.
+ * Returned `status` lets the client know whether to wait for a scan result.
  */
-export async function confirmUpload(fileId: string): Promise<void> {
+export async function confirmUpload(fileId: string): Promise<UploadConfirmResponse> {
   try {
-    await apiClient.post(API_ROUTES.FILES.CONFIRM_UPLOAD(fileId));
-  } catch (error) {
-    throw toAppError(error);
-  }
-}
-
-/**
- * Poll file status after confirm / multipart complete.
- * Response field is `fileId` (not `id`) — per FileRestMapper mapping.
- */
-export async function getFileStatus(fileId: string): Promise<FileStatusResponse> {
-  try {
-    const response = await apiClient.get<ApiResponse<FileStatusResponse>>(
-      API_ROUTES.FILES.STATUS(fileId)
+    const response = await apiClient.post<ApiResponse<UploadConfirmResponse>>(
+      API_ROUTES.FILES.CONFIRM_UPLOAD(fileId)
     );
     if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.message ?? "Failed to get file status");
+      throw new Error(response.data.message ?? "Failed to confirm upload");
     }
     return response.data.data;
   } catch (error) {
@@ -153,12 +144,16 @@ export async function completePart(
 export async function completeMultipart(
   uploadId: string,
   parts: { partNumber: number; etag: string }[]
-): Promise<void> {
+): Promise<UploadConfirmResponse> {
   try {
-    await apiClient.post(
+    const response = await apiClient.post<ApiResponse<UploadConfirmResponse>>(
       API_ROUTES.UPLOADS.MULTIPART_COMPLETE(uploadId),
       { parts }
     );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.message ?? "Failed to complete multipart upload");
+    }
+    return response.data.data;
   } catch (error) {
     throw toAppError(error);
   }

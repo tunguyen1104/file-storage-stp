@@ -3,14 +3,20 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import {
-  isRiskyFile,
+  willBeVirusScanned,
   validateFileSize,
   RESUMABLE_THRESHOLD,
+  FILE_STATUS,
+  UPLOAD_STATUS,
+  SSE_ERROR_CODE,
+  MULTIPART_SESSION_STATUS,
+  UPLOAD_MESSAGES,
+  UPLOAD_FAILURE_STATUSES,
 } from "@/lib/constants";
 import {
   initPresignedUpload,
   confirmUpload,
-  getFileStatus,
+  subscribeFileStatus,
   initMultipartUpload,
   getPartUrl,
   completePart,
@@ -29,16 +35,11 @@ import {
   slicePart,
   buildPartList,
   getMissingParts,
-  sleep,
 } from "@/lib/utils/upload-utils";
-import type { UploadItem, UploadStatus, PartInfo, PendingMultipartRecord } from "@/types/upload/upload.types";
+import type { UploadItem, PartInfo, PendingMultipartRecord } from "@/types/upload/upload.types";
 
 // Maximum concurrent chunk uploads per multipart file
 const MULTIPART_CONCURRENCY = 3;
-// Polling interval for file status after confirm/complete (ms)
-const POLL_INTERVAL_MS = 2000;
-// Maximum polling duration (3 minutes)
-const POLL_TIMEOUT_MS = 3 * 60 * 1000;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -47,7 +48,7 @@ function createItem(file: File, folderId?: string): UploadItem {
     id: crypto.randomUUID(),
     file,
     folderId,
-    status: "queued",
+    status: UPLOAD_STATUS.QUEUED,
     progress: 0,
     uploadedParts: [],
   };
@@ -76,36 +77,58 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
     []
   );
 
-  // ── Status polling ────────────────────────────────────────────────────────
+  // ── Status subscription (SSE) ─────────────────────────────────────────────
 
-  const pollFileStatus = useCallback(
-    async (fileId: string, itemId: string) => {
-      const deadline = Date.now() + POLL_TIMEOUT_MS;
-      while (Date.now() < deadline) {
-        await sleep(POLL_INTERVAL_MS);
-        try {
-          const res = await getFileStatus(fileId);
-          // ⚠️ response field is `fileId` not `id` per FileRestMapper
-          if (res.status === "ACTIVE") {
-            updateItem(itemId, { status: "done", progress: 100 });
+  /**
+   * Open an SSE subscription to receive terminal status (ACTIVE / INFECTED /
+   * UPLOAD_FAILED) once the backend finishes virus scanning. Replaces the prior
+   * 2s polling loop. Backend emits SCAN_TIMEOUT on its 4-minute deadline.
+   */
+  const runStatusSubscription = useCallback(
+    (fileId: string, itemId: string) => {
+      const sub = subscribeFileStatus(fileId, {
+        onStatus: (payload) => {
+          if (payload.status === FILE_STATUS.ACTIVE) {
+            updateItem(itemId, {
+              status: UPLOAD_STATUS.DONE,
+              progress: 100,
+              statusSubscription: undefined,
+            });
             onUploadDoneRef.current?.();
-            return;
+            sub.close();
+          } else if (payload.status === FILE_STATUS.INFECTED) {
+            updateItem(itemId, {
+              status: UPLOAD_STATUS.INFECTED,
+              errorMessage: UPLOAD_MESSAGES.VIRUS_DETECTED,
+              statusSubscription: undefined,
+            });
+            sub.close();
+          } else if (payload.status === FILE_STATUS.UPLOAD_FAILED) {
+            updateItem(itemId, {
+              status: UPLOAD_STATUS.ERROR,
+              errorMessage: UPLOAD_MESSAGES.PROCESSING_FAILED,
+              statusSubscription: undefined,
+            });
+            sub.close();
           }
-          if (res.status === "INFECTED") {
-            updateItem(itemId, { status: "infected", errorMessage: "Virus detected in file" });
-            return;
-          }
-          if (res.status === "UPLOAD_FAILED") {
-            updateItem(itemId, { status: "error", errorMessage: "Upload failed during processing" });
-            return;
-          }
-          // SCANNING — keep polling
-          updateItem(itemId, { status: "scanning" });
-        } catch {
-          // Transient network error — keep polling until deadline
-        }
-      }
-      updateItem(itemId, { status: "error", errorMessage: "Scan timeout — please retry" });
+          // SCANNING — server-pushed initial state; keep listening
+        },
+        onError: (err) => {
+          const message =
+            err.code === SSE_ERROR_CODE.SCAN_TIMEOUT
+              ? UPLOAD_MESSAGES.SCAN_TIMEOUT
+              : err.code === SSE_ERROR_CODE.STREAM_LOST
+                ? UPLOAD_MESSAGES.SCAN_CONNECTION_LOST
+                : err.message;
+          updateItem(itemId, {
+            status: UPLOAD_STATUS.ERROR,
+            errorMessage: message,
+            statusSubscription: undefined,
+          });
+          sub.close();
+        },
+      });
+      updateItem(itemId, { statusSubscription: sub });
     },
     [updateItem]
   );
@@ -115,7 +138,7 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
   const runPresignedUpload = useCallback(
     async (item: UploadItem) => {
       const abortController = new AbortController();
-      updateItem(item.id, { status: "uploading", progress: 0, abortController });
+      updateItem(item.id, { status: UPLOAD_STATUS.UPLOADING, progress: 0, abortController });
 
       try {
         // Step 1: init
@@ -149,22 +172,39 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
         });
 
         // Step 3: confirm upload
-        updateItem(item.id, { status: "confirming", progress: 100 });
-        await confirmUpload(fileId);
+        updateItem(item.id, { status: UPLOAD_STATUS.CONFIRMING, progress: 100 });
+        const confirmResult = await confirmUpload(fileId);
 
-        // Step 4: poll for scan result
-        updateItem(item.id, { status: "scanning" });
-        await pollFileStatus(fileId, item.id);
+        // Step 4: branch on backend-reported status — scan bypass returns ACTIVE immediately
+        if (confirmResult.status === FILE_STATUS.ACTIVE) {
+          updateItem(item.id, { status: UPLOAD_STATUS.DONE, progress: 100 });
+          onUploadDoneRef.current?.();
+        } else if (confirmResult.status === FILE_STATUS.INFECTED) {
+          updateItem(item.id, {
+            status: UPLOAD_STATUS.INFECTED,
+            errorMessage: UPLOAD_MESSAGES.VIRUS_DETECTED,
+          });
+        } else if (confirmResult.status === FILE_STATUS.UPLOAD_FAILED) {
+          updateItem(item.id, {
+            status: UPLOAD_STATUS.ERROR,
+            errorMessage: UPLOAD_MESSAGES.PROCESSING_FAILED,
+          });
+        } else {
+          if (willBeVirusScanned(item.file)) {
+            updateItem(item.id, { status: UPLOAD_STATUS.SCANNING });
+          }
+          runStatusSubscription(fileId, item.id);
+        }
       } catch (err: unknown) {
         if (isAbortError(err)) {
-          updateItem(item.id, { status: "cancelled" });
+          updateItem(item.id, { status: UPLOAD_STATUS.CANCELLED });
         } else {
-          const msg = err instanceof Error ? err.message : "Upload failed";
-          updateItem(item.id, { status: "error", errorMessage: msg });
+          const msg = err instanceof Error ? err.message : UPLOAD_MESSAGES.GENERIC_UPLOAD_FAILED;
+          updateItem(item.id, { status: UPLOAD_STATUS.ERROR, errorMessage: msg });
         }
       }
     },
-    [updateItem, pollFileStatus]
+    [updateItem, runStatusSubscription]
   );
 
   // ── Multipart upload (file >= RESUMABLE_THRESHOLD) ────────────────────────
@@ -172,7 +212,7 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
   const runMultipartUpload = useCallback(
     async (item: UploadItem, resumeFromParts?: PartInfo[]) => {
       const abortController = new AbortController();
-      updateItem(item.id, { status: "uploading", abortController });
+      updateItem(item.id, { status: UPLOAD_STATUS.UPLOADING, abortController });
 
       try {
         let uploadId = item.uploadId;
@@ -268,31 +308,48 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
         }
 
         if (abortController.signal.aborted) {
-          updateItem(item.id, { status: "cancelled" });
+          updateItem(item.id, { status: UPLOAD_STATUS.CANCELLED });
           return;
         }
 
         // Step 3: complete multipart — all parts must be uploaded
         const sortedParts = buildPartList(completedParts);
-        updateItem(item.id, { status: "confirming", progress: 100 });
-        await completeMultipart(uploadId!, sortedParts);
+        updateItem(item.id, { status: UPLOAD_STATUS.CONFIRMING, progress: 100 });
+        const completeResult = await completeMultipart(uploadId!, sortedParts);
 
         // Remove from localStorage — upload completed
         removePendingMultipart(uploadId!);
 
-        // Step 4: poll for scan result
-        updateItem(item.id, { status: "scanning" });
-        await pollFileStatus(fileId!, item.id);
+        // Step 4: branch on backend-reported status — scan bypass returns ACTIVE immediately
+        if (completeResult.status === FILE_STATUS.ACTIVE) {
+          updateItem(item.id, { status: UPLOAD_STATUS.DONE, progress: 100 });
+          onUploadDoneRef.current?.();
+        } else if (completeResult.status === FILE_STATUS.INFECTED) {
+          updateItem(item.id, {
+            status: UPLOAD_STATUS.INFECTED,
+            errorMessage: UPLOAD_MESSAGES.VIRUS_DETECTED,
+          });
+        } else if (completeResult.status === FILE_STATUS.UPLOAD_FAILED) {
+          updateItem(item.id, {
+            status: UPLOAD_STATUS.ERROR,
+            errorMessage: UPLOAD_MESSAGES.PROCESSING_FAILED,
+          });
+        } else {
+          if (willBeVirusScanned(item.file)) {
+            updateItem(item.id, { status: UPLOAD_STATUS.SCANNING });
+          }
+          runStatusSubscription(fileId!, item.id);
+        }
       } catch (err: unknown) {
         if (isAbortError(err)) {
-          updateItem(item.id, { status: "cancelled" });
+          updateItem(item.id, { status: UPLOAD_STATUS.CANCELLED });
         } else {
-          const msg = err instanceof Error ? err.message : "Upload failed";
-          updateItem(item.id, { status: "error", errorMessage: msg });
+          const msg = err instanceof Error ? err.message : UPLOAD_MESSAGES.GENERIC_UPLOAD_FAILED;
+          updateItem(item.id, { status: UPLOAD_STATUS.ERROR, errorMessage: msg });
         }
       }
     },
-    [updateItem, pollFileStatus]
+    [updateItem, runStatusSubscription]
   );
 
   // ── Route to correct upload strategy ─────────────────────────────────────
@@ -320,10 +377,10 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
           toast.error(sizeErr);
           continue;
         }
-        if (isRiskyFile(file)) {
+        if (!willBeVirusScanned(file)) {
           toast.warning(
-            `⚠️ "${file.name}" may contain malware. The file will be automatically virus-scanned before activation.`,
-            { duration: 4000 }
+            `⚠️ "${file.name}" will not be virus-scanned (file type or size exceeds scan limits). Upload will proceed without security scanning.`,
+            { duration: 5000, position: "top-right" }
           );
         }
         accepted.push(file);
@@ -345,6 +402,9 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
         // Abort any in-flight fetch/axios
         item.abortController?.abort();
 
+        // Close any open SSE scan subscription
+        item.statusSubscription?.close();
+
         // If multipart has an active session, abort on backend
         if (item.uploadId) {
           void abortMultipart(item.uploadId).catch(() => {});
@@ -352,7 +412,9 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
         }
 
         return prev.map((i) =>
-          i.id === itemId ? { ...i, status: "cancelled" as UploadStatus } : i
+          i.id === itemId
+            ? { ...i, status: UPLOAD_STATUS.CANCELLED, statusSubscription: undefined }
+            : i
         );
       });
     },
@@ -365,14 +427,18 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
         const item = prev.find((i) => i.id === itemId);
         if (!item) return prev;
 
+        // Close any open SSE scan subscription from the prior attempt
+        item.statusSubscription?.close();
+
         const fresh: UploadItem = {
           ...item,
-          status: "queued",
+          status: UPLOAD_STATUS.QUEUED,
           progress: 0,
           speedBps: undefined,
           etaSeconds: undefined,
           errorMessage: undefined,
           abortController: undefined,
+          statusSubscription: undefined,
           // Reset upload state for a clean retry
           fileId: undefined,
           uploadUrl: undefined,
@@ -403,21 +469,25 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
 
         // Multipart resume: check session then continue from missing parts
         const uploadId = item.uploadId;
-        const currentItem = { ...item, status: "uploading" as UploadStatus, abortController: new AbortController() };
+        const currentItem = {
+          ...item,
+          status: UPLOAD_STATUS.UPLOADING,
+          abortController: new AbortController(),
+        };
 
         setTimeout(async () => {
           try {
             const session = await getMultipartSession(uploadId);
-            if (session.status === "ABORTED") {
+            if (session.status === MULTIPART_SESSION_STATUS.ABORTED) {
               toast.error("Upload session expired — please re-upload the file.");
-              updateItem(itemId, { status: "error", errorMessage: "Session expired" });
+              updateItem(itemId, { status: UPLOAD_STATUS.ERROR, errorMessage: "Session expired" });
               return;
             }
-            if (session.status === "COMPLETED") {
-              // Session already complete — poll for scan result
+            if (session.status === MULTIPART_SESSION_STATUS.COMPLETED) {
+              // Session already complete — subscribe for the scan result
               if (currentItem.fileId) {
-                updateItem(itemId, { status: "scanning" });
-                await pollFileStatus(currentItem.fileId, itemId);
+                updateItem(itemId, { status: UPLOAD_STATUS.SCANNING });
+                runStatusSubscription(currentItem.fileId, itemId);
               }
               return;
             }
@@ -427,25 +497,26 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
               session.uploadedParts
             );
           } catch {
-            updateItem(itemId, { status: "error", errorMessage: "Failed to fetch session for resume" });
+            updateItem(itemId, {
+              status: UPLOAD_STATUS.ERROR,
+              errorMessage: "Failed to fetch session for resume",
+            });
           }
         }, 0);
 
         return prev.map((i) => (i.id === itemId ? currentItem : i));
       });
     },
-    [updateItem, pollFileStatus, runMultipartUpload]
+    [updateItem, runStatusSubscription, runMultipartUpload]
   );
 
   const clearDone = useCallback(() => {
-    setUploadQueue((prev) =>
-      prev.filter((i) => !["done"].includes(i.status))
-    );
+    setUploadQueue((prev) => prev.filter((i) => i.status !== UPLOAD_STATUS.DONE));
   }, []);
 
   const clearErrors = useCallback(() => {
     setUploadQueue((prev) =>
-      prev.filter((i) => !["error", "infected", "cancelled"].includes(i.status))
+      prev.filter((i) => !UPLOAD_FAILURE_STATUSES.includes(i.status))
     );
   }, []);
 
@@ -465,7 +536,7 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
         try {
           const session = await getMultipartSession(record.uploadId);
 
-          if (session.status === "ABORTED") {
+          if (session.status === MULTIPART_SESSION_STATUS.ABORTED) {
             toast.error("Upload session has expired. Please re-upload the file.");
             removePendingMultipart(record.uploadId);
             return;
@@ -475,7 +546,7 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
             id: record.itemId,
             file,
             folderId: record.folderId,
-            status: "queued",
+            status: UPLOAD_STATUS.QUEUED,
             progress: 0,
             uploadId: record.uploadId,
             fileId: record.fileId,

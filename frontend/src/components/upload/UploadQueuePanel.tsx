@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UploadQueueItem } from "@/components/upload/UploadQueueItem";
 import type { UploadItem } from "@/types/upload/upload.types";
+import { UPLOAD_STATUS, UPLOAD_FAILURE_STATUSES } from "@/lib/constants";
 
 interface UploadQueuePanelProps {
   items: UploadItem[];
@@ -23,8 +24,8 @@ export function UploadQueuePanel({
   onClearDone,
   onClearErrors,
 }: UploadQueuePanelProps) {
-  const doneCount = items.filter((i) => i.status === "done").length;
-  const errorCount = items.filter((i) => ["error", "infected", "cancelled"].includes(i.status)).length;
+  const doneCount = items.filter((i) => i.status === UPLOAD_STATUS.DONE).length;
+  const errorCount = items.filter((i) => UPLOAD_FAILURE_STATUSES.includes(i.status)).length;
 
   return (
     <Card>

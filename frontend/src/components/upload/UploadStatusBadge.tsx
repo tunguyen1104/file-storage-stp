@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import type { UploadStatus } from "@/types/upload/upload.types";
+import { UPLOAD_STATUS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 interface UploadStatusBadgeProps {
@@ -14,42 +15,42 @@ const STATUS_CONFIG: Record<
   UploadStatus,
   { label: (progress?: number) => string; className: string }
 > = {
-  queued: {
+  [UPLOAD_STATUS.QUEUED]: {
     label: () => "Queued",
     className:
       "border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400",
   },
-  uploading: {
+  [UPLOAD_STATUS.UPLOADING]: {
     label: (p) => (p !== undefined ? `Uploading ${p}%` : "Uploading"),
     className:
       "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-400",
   },
-  confirming: {
+  [UPLOAD_STATUS.CONFIRMING]: {
     label: () => "Confirming",
     className:
       "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-400",
   },
-  scanning: {
+  [UPLOAD_STATUS.SCANNING]: {
     label: () => "Scanning…",
     className:
       "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400",
   },
-  done: {
+  [UPLOAD_STATUS.DONE]: {
     label: () => "Complete",
     className:
       "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-400",
   },
-  error: {
+  [UPLOAD_STATUS.ERROR]: {
     label: () => "Failed",
     className:
       "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400",
   },
-  cancelled: {
+  [UPLOAD_STATUS.CANCELLED]: {
     label: () => "Cancelled",
     className:
       "border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500",
   },
-  infected: {
+  [UPLOAD_STATUS.INFECTED]: {
     label: () => "Virus Detected",
     className:
       "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400",

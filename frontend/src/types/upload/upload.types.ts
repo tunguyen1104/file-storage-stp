@@ -1,3 +1,13 @@
+import type {
+  FileStatus,
+  MultipartSessionStatus,
+  SseErrorCode,
+  UploadStatus,
+} from "@/lib/constants";
+
+// Re-export so the long-standing import path `@/types/upload/upload.types` keeps working.
+export type { UploadStatus } from "@/lib/constants";
+
 // ─── API response shapes ──────────────────────────────────────────────────────
 
 // POST /api/v1/uploads/presigned
@@ -43,32 +53,35 @@ export type CompleteMultipartPayload = {
 export type MultipartSessionResponse = {
   uploadId: string;
   fileId: string;     // UUID
-  status: "IN_PROGRESS" | "COMPLETED" | "ABORTED";
+  status: MultipartSessionStatus;
   totalParts: number;
   uploadedParts: { partNumber: number; etag: string }[];
   expiresAt: string;  // ISO
 };
 
-// GET /api/v1/files/{fileId}/status
-// FileStatusResponse.java: { fileId: UUID, status: FileStatus, originalName: String, updatedAt: Instant }
-export type FileStatusResponse = {
-  fileId: string;     // UUID — ⚠️ field name is `fileId`, not `id`
-  status: "PENDING" | "SCANNING" | "ACTIVE" | "INFECTED" | "UPLOAD_FAILED";
+// SSE `event: status` payload — mirrors backend FileStatusResponse.
+export type FileStatusStreamEvent = {
+  fileId: string;
+  status: FileStatus;
   originalName: string;
-  updatedAt: string;  // ISO
+  updatedAt: string;
+};
+
+// Backend returns ACTIVE when scan was bypassed (non-scannable mime / size ≥ 50 MB),
+// SCANNING when ClamAV was queued, or one of the terminal failure statuses inline.
+export type UploadConfirmResponse = {
+  fileId: string;
+  status: FileStatus;
+  message?: string;
+};
+
+// SSE `event: error` payload + client-synthetic codes emitted by the wrapper.
+export type FileStatusStreamError = {
+  code: SseErrorCode | string;
+  message: string;
 };
 
 // ─── Internal UI state ────────────────────────────────────────────────────────
-
-export type UploadStatus =
-  | "queued"
-  | "uploading"
-  | "confirming"
-  | "scanning"
-  | "done"
-  | "error"
-  | "cancelled"
-  | "infected";
 
 export type PartInfo = {
   partNumber: number;
@@ -98,6 +111,10 @@ export interface UploadItem {
 
   errorMessage?: string;
   abortController?: AbortController;
+  
+  // SSE subscription for the post-upload scan stream. Closed on terminal event,
+  // cancel, retry, or provider unmount.
+  statusSubscription?: { close: () => void };
 }
 
 /**
