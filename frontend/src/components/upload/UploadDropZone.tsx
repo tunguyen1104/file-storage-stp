@@ -103,9 +103,6 @@ export function UploadDropZone({ onFilesSelected }: UploadDropZoneProps) {
               Supports multiple files at once
             </p>
             <p className="text-xs text-muted-foreground/70 mt-2">{ALLOWED_MIME_LABEL}</p>
-            <p className="text-xs text-muted-foreground/70">
-              Max size: {formatBytes(MAX_FILE_SIZE)} per file
-            </p>
           </div>
         </div>
 

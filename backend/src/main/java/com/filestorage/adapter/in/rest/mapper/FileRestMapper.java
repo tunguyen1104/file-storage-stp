@@ -3,7 +3,6 @@ package com.filestorage.adapter.in.rest.mapper;
 import com.filestorage.adapter.in.rest.dto.response.ConfirmUploadResponse;
 import com.filestorage.adapter.in.rest.dto.response.FileMetadataResponse;
 import com.filestorage.adapter.in.rest.dto.response.FileResponse;
-import com.filestorage.adapter.in.rest.dto.response.FileStatusResponse;
 import com.filestorage.adapter.in.rest.dto.response.PageResponse;
 import com.filestorage.adapter.in.rest.dto.response.PresignedUploadInitResponse;
 import com.filestorage.adapter.in.rest.dto.response.UserSummaryResponse;
@@ -55,8 +54,5 @@ public interface FileRestMapper {
 
     @Mapping(target = "message", constant = "File is being scanned for viruses. Please check back shortly.")
     ConfirmUploadResponse toConfirmUploadResponse(ConfirmUploadView view);
-
-    @Mapping(target = "fileId", source = "id")
-    FileStatusResponse toFileStatusResponse(FileView view);
 }
 

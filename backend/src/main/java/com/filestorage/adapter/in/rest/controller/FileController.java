@@ -7,7 +7,6 @@ import com.filestorage.adapter.in.rest.dto.response.ApiResponse;
 import com.filestorage.adapter.in.rest.dto.response.ConfirmUploadResponse;
 import com.filestorage.adapter.in.rest.dto.response.FileMetadataResponse;
 import com.filestorage.adapter.in.rest.dto.response.FileResponse;
-import com.filestorage.adapter.in.rest.dto.response.FileStatusResponse;
 import com.filestorage.adapter.in.rest.dto.response.PageResponse;
 import com.filestorage.adapter.in.rest.dto.response.PresignedDownloadResponse;
 import com.filestorage.adapter.in.rest.dto.response.PresignedGetUrlResponse;
@@ -326,18 +325,6 @@ public class FileController {
                 fileId
         ));
         return ResponseEntity.ok(ApiResponse.buildSuccess(fileRestMapper.toConfirmUploadResponse(view)));
-    }
-
-    @GetMapping("/files/{fileId}/status")
-    public ResponseEntity<ApiResponse<FileStatusResponse>> getFileStatus(@PathVariable UUID fileId) {
-        SecurityUser actor = currentUserOrThrow();
-        FileView view = getFileMetadataUseCase.execute(new GetFileMetadataUseCase.GetFileMetadataQuery(
-                UUID.fromString(actor.getUserId()),
-                UUID.fromString(actor.getTenantId()),
-                parseRole(actor.getRole()),
-                fileId
-        ));
-        return ResponseEntity.ok(ApiResponse.buildSuccess(fileRestMapper.toFileStatusResponse(view)));
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────────

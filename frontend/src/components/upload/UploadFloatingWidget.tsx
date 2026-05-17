@@ -8,7 +8,15 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUpload } from "@/contexts/upload-context";
 import { UploadQueueItem } from "@/components/upload/UploadQueueItem";
+import { UPLOAD_STATUS, UPLOAD_FAILURE_STATUSES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+
+const ACTIVE_WIDGET_STATUSES = [
+  UPLOAD_STATUS.QUEUED,
+  UPLOAD_STATUS.UPLOADING,
+  UPLOAD_STATUS.CONFIRMING,
+  UPLOAD_STATUS.SCANNING,
+] as const;
 
 export function UploadFloatingWidget() {
   const { uploadQueue, cancelUpload, retryUpload, resumeUpload, clearDone, clearErrors } = useUpload();
@@ -19,11 +27,11 @@ export function UploadFloatingWidget() {
   if (uploadQueue.length === 0 || pathname === "/upload") return null;
 
   const activeCount = uploadQueue.filter((i) =>
-    ["queued", "uploading", "confirming", "scanning"].includes(i.status)
+    (ACTIVE_WIDGET_STATUSES as readonly string[]).includes(i.status)
   ).length;
-  const doneCount = uploadQueue.filter((i) => i.status === "done").length;
+  const doneCount = uploadQueue.filter((i) => i.status === UPLOAD_STATUS.DONE).length;
   const errorCount = uploadQueue.filter((i) =>
-    ["error", "infected", "cancelled"].includes(i.status)
+    UPLOAD_FAILURE_STATUSES.includes(i.status)
   ).length;
 
   return (

@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Scheduled job that cleans up expired multipart upload sessions.
@@ -41,7 +40,7 @@ public class ExpiredMultipartSessionCleanupJob {
     private final ObjectStoragePort objectStoragePort;
     private final CachePort cachePort;
 
-    @Scheduled(fixedDelay = 30, timeUnit = TimeUnit.MINUTES)
+    @Scheduled(cron = "0 0 */6 * * *")
     @Transactional
     public void cleanupExpiredSessions() {
         List<MultipartUploadSession> expired = sessionRepository

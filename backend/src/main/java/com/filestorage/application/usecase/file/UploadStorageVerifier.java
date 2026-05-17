@@ -61,36 +61,14 @@ public class UploadStorageVerifier {
         }
     }
 
-    /**
-     * Downloads the first {@value #MIME_DETECTION_BYTES} bytes from MinIO, uses Apache Tika
-     * to detect the real MIME type, validates it against the whitelist, and then
-     * <strong>updates {@code file.mimeType} with the Tika-detected type</strong>.
-     * <p>
-     * Updating the stored type is critical: subsequent decisions such as
-     * {@link FileUploadValidator#shouldBypassScan} must operate on the <em>actual</em>
-     * content type — not the client-declared value — to prevent a client from declaring
-     * {@code video/mp4} on a large PDF/DOCX and bypassing ClamAV.
-     *
-     * @param file       the file entity whose MIME type will be verified and corrected
-     * @param storageKey object path inside the bucket
-     * @throws AppException with {@link ErrorCode#UNSUPPORTED_FILE_TYPE} on MIME spoof
-     */
-    public void verifyMimeOrFail(File file, String storageKey) {
+    public void detectAndCorrectMime(File file, String storageKey) {
         byte[] header = objectStoragePort.downloadPartial(storageKey, MIME_DETECTION_BYTES);
-        try {
-            String detectedMime = fileUploadValidator.detectAndValidateMime(
-                    new ByteArrayInputStream(header), file.getMimeType());
-            // Overwrite the client-declared type with the Tika-verified type so all
-            // downstream logic (bypass check, DB record) reflects the real content.
-            if (!detectedMime.equalsIgnoreCase(file.getMimeType())) {
-                log.info("Correcting MIME type for file {} from '{}' to Tika-detected '{}'",
-                        file.getId(), file.getMimeType(), detectedMime);
-                file.setMimeType(detectedMime);
-            }
-        } catch (AppException ex) {
-            log.warn("MIME spoofing detected for file {} — purging from storage", file.getId());
-            failedUploadPurger.markFailedAndPurge(file, storageKey);
-            throw ex;
+        String detectedMime = fileUploadValidator.detectMime(
+                new ByteArrayInputStream(header), file.getMimeType());
+        if (!detectedMime.equalsIgnoreCase(file.getMimeType())) {
+            log.info("Correcting MIME type for file {} from '{}' to Tika-detected '{}'",
+                    file.getId(), file.getMimeType(), detectedMime);
+            file.setMimeType(detectedMime);
         }
     }
 
@@ -114,11 +92,9 @@ public class UploadStorageVerifier {
         file.setStatus(FileStatus.SCANNING);
         fileRepository.save(file);
 
-        long sizeBytes = file.getSizeBytes() == null ? 0L : file.getSizeBytes();
-
-        if (fileUploadValidator.shouldBypassScan(file.getMimeType(), sizeBytes)) {
+        if (fileUploadValidator.shouldBypassScan(file.getMimeType(), file.getSizeBytes())) {
             log.info("File {} qualifies for scan bypass (mime={}, size={} bytes) — activating directly",
-                    file.getId(), file.getMimeType(), sizeBytes);
+                    file.getId(), file.getMimeType(), file.getSizeBytes());
             virusScanResultHandler.handleClean(file);
             return FileStatus.ACTIVE;
         }

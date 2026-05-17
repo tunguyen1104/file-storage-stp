@@ -93,53 +93,48 @@ app:
       part-url-ttl-minutes: ${MULTIPART_PART_URL_TTL_MINUTES:30}
       session-ttl-hours: ${MULTIPART_SESSION_TTL_HOURS:24}
       cleanup-interval-minutes: ${MULTIPART_CLEANUP_INTERVAL_MINUTES:30}
-    allowed-mime-types:
-      - image/jpeg
-      - image/png
-      - image/gif
-      - image/webp
-      - image/svg+xml
-      - application/pdf
-      - application/msword
-      - application/vnd.openxmlformats-officedocument.wordprocessingml.document
-      - application/vnd.ms-excel
-      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-      - application/vnd.ms-powerpoint
-      - application/vnd.openxmlformats-officedocument.presentationml.presentation
-      - text/plain
-      - text/csv
-      - video/mp4
-      - video/quicktime
-      - video/x-msvideo
-      - audio/mpeg
-      - audio/wav
-      - audio/flac
-      - audio/ogg
-      # Potentially risky — allowed but virus-scanned; frontend must warn users
-      - application/zip
-      - application/x-zip-compressed
-      - application/x-rar-compressed
-      - application/x-7z-compressed
-      - application/x-tar
-      - application/gzip
-      - application/x-msdownload
-      - application/x-executable
-      - application/x-msi
-      - application/x-deb
-      - application/x-rpm
-      - application/java-archive
-      - application/octet-stream
-      - application/vnd.android.package-archive
     virus-scan:
       bypass-scan-size-mb: ${VIRUS_SCAN_BYPASS_SIZE_MB:50}
-      bypass-mime-types:
-        - video/mp4
-        - video/quicktime
-        - video/x-msvideo
-        - audio/mpeg
-        - audio/wav
-        - audio/flac
-        - audio/ogg
+      scan-mime-types:
+        # Documents
+        - application/pdf
+        - application/msword
+        - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+        - application/vnd.ms-excel
+        - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+        - application/vnd.ms-powerpoint
+        - application/vnd.openxmlformats-officedocument.presentationml.presentation
+        - application/rtf
+        - text/rtf
+        - text/plain
+        - text/csv
+        - text/html
+        - application/xml
+        - text/xml
+        # Archives / compressed
+        - application/zip
+        - application/x-zip-compressed
+        - application/x-rar-compressed
+        - application/x-7z-compressed
+        - application/x-tar
+        - application/gzip
+        - application/x-bzip2
+        # Executables and installers
+        - application/x-msdownload
+        - application/x-executable
+        - application/x-msi
+        - application/x-deb
+        - application/x-rpm
+        - application/java-archive
+        - application/octet-stream
+        # Scripts
+        - application/javascript
+        - text/javascript
+        - application/x-sh
+        - text/x-python
+        - application/x-python-code
+        # SVG (can embed scripts)
+        - image/svg+xml
   virus-scan:
     clamav:
       host: ${CLAMAV_HOST:localhost}

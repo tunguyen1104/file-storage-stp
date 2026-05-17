@@ -2,6 +2,7 @@
 
 import { Progress } from "@/components/ui/progress";
 import type { UploadStatus } from "@/types/upload/upload.types";
+import { UPLOAD_STATUS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 interface UploadProgressBarProps {
@@ -15,11 +16,16 @@ export function UploadProgressBar({
   progress,
   className,
 }: UploadProgressBarProps) {
-  if (status === "queued" || status === "done" || status === "cancelled") {
+  if (
+    status === UPLOAD_STATUS.QUEUED ||
+    status === UPLOAD_STATUS.DONE ||
+    status === UPLOAD_STATUS.CANCELLED
+  ) {
     return null;
   }
 
-  const isIndeterminate = status === "scanning" || status === "confirming";
+  const isIndeterminate =
+    status === UPLOAD_STATUS.SCANNING || status === UPLOAD_STATUS.CONFIRMING;
 
   return (
     <div className={cn("w-full", className)}>
@@ -32,7 +38,7 @@ export function UploadProgressBar({
           value={progress}
           className={cn(
             "h-1.5",
-            status === "error" || status === "infected"
+            status === UPLOAD_STATUS.ERROR || status === UPLOAD_STATUS.INFECTED
               ? "[&>div]:bg-destructive"
               : "[&>div]:bg-primary"
           )}

@@ -4,11 +4,13 @@ import com.filestorage.adapter.out.persistence.entity.File;
 import com.filestorage.domain.model.enums.FileStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -18,8 +20,6 @@ import java.util.UUID;
 public interface FileJpaRepository extends JpaRepository<File, UUID>, JpaSpecificationExecutor<File> {
 
 	java.util.Optional<File> findByIdAndTenantId(UUID id, UUID tenantId);
-
-	boolean existsByFolderIdAndStatus(UUID folderId, FileStatus status);
 
 	@Query("SELECT COUNT(f) > 0 FROM File f WHERE f.folder.id = :folderId AND f.status NOT IN :statuses")
 	boolean existsByFolderIdAndStatusNotIn(
@@ -57,4 +57,21 @@ public interface FileJpaRepository extends JpaRepository<File, UUID>, JpaSpecifi
 	 */
 	@Query("SELECT f FROM File f JOIN FETCH f.uploadedBy WHERE f.id = :id")
     Optional<File> findByIdWithUploader(@Param("id") UUID id);
+
+	/**
+	 * Finds files in the given status whose scheduled deletion time has passed
+	 * ({@code scheduledDeleteAt <= cutoff}). Used by {@code SoftDeletedFileCleanupJob}
+	 * to locate PENDING_DELETE files that are due for physical purge.
+	 */
+	List<File> findByStatusAndScheduledDeleteAtBefore(FileStatus status, Instant cutoff);
+
+	/**
+	 * Re-fetches a file by ID with a PESSIMISTIC_WRITE lock, but only if its current
+	 * status matches the expected value. Used by {@code SoftDeletedFileCleanupJob} to
+	 * guard against a concurrent RestoreFileService call changing the status between
+	 * the initial bulk query and the actual purge.
+	 */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("SELECT f FROM File f WHERE f.id = :id AND f.status = :status")
+	Optional<File> findByIdAndStatusForUpdate(@Param("id") UUID id, @Param("status") FileStatus status);
 }

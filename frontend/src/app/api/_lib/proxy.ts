@@ -7,15 +7,34 @@ import {
   CSRF_HEADER_NAME,
 } from "@/lib/csrf";
 
+/**
+ * BFF (Backend-For-Frontend) proxy for every `/api/v1/*` route the Next.js app exposes.
+ *
+ * Why it exists:
+ *   - Keeps auth tokens (access + refresh) in httpOnly cookies so JS can't read them.
+ *   - Adds CSRF protection on mutating requests via the double-submit-cookie pattern.
+ *   - Performs **silent token refresh** when the access token expired but the refresh
+ *     token is still good — so users don't get bounced to /login mid-session.
+ *   - Forwards the upstream response body verbatim, including SSE streams.
+ *
+ * Reading order (top → bottom of `proxyToBackend`):
+ *   1. SSRF allowlist        — only forward to paths the FE owns.
+ *   2. CSRF validation       — mutating methods only.
+ *   3. Read auth cookies + run silent refresh if the access token is gone.
+ *   4. Build & send the upstream request to the real backend.
+ *   5. Pipe the response back, choosing streaming vs. buffered based on content-type.
+ *   6. Special-case `/auth/logout`: always clear auth cookies, retry on transport error.
+ */
+
+// ─── Configuration ────────────────────────────────────────────────────────────
+
 const BACKEND_URL =
   process.env.BACKEND_URL ??
   process.env.NEXT_PUBLIC_BACKEND_URL ??
   "http://localhost:8081";
 
-/**
- * Whitelist of allowed API path prefixes.
- * Prevents SSRF by blocking requests to internal backend endpoints.
- */
+// SSRF guard: every incoming path must start with one of these.
+// New backend resource groups need an entry here before they're reachable.
 const ALLOWED_PREFIXES = [
   "/api/v1/auth/",
   "/api/v1/folders",
@@ -27,25 +46,23 @@ const ALLOWED_PREFIXES = [
   "/api/v1/search",
 ];
 
+// HTTP methods that change server state and therefore require CSRF protection.
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+// Cookies cleared whenever the user logs out (or the backend signals a session kill).
 const AUTH_COOKIE_NAMES = ["access-token", "refresh-token"] as const;
 
-/**
- * Headers that should NOT be forwarded from the backend response.
- */
+// Hop-by-hop / transport-layer headers we must not blindly forward from the backend.
+// Set-Cookie is handled separately via getSetCookie() so multiple cookies survive.
 const SKIP_RESPONSE_HEADERS = new Set([
   "transfer-encoding",
   "connection",
   "keep-alive",
-  "set-cookie", // handled separately via getSetCookie()
+  "set-cookie",
 ]);
 
-/**
- * Unauthenticated auth endpoints that skip CSRF validation.
- * CSRF protection is only meaningful for authenticated sessions;
- * these endpoints have no session cookie to forge against.
- */
+// Anonymous endpoints (no session yet) — there's nothing for CSRF to protect, so skip the check.
+// Keep this list tight: ANY authenticated endpoint must NOT appear here.
 const CSRF_EXEMPT_PATHS = new Set([
   "/api/v1/auth/signin",
   "/api/v1/auth/refresh",
@@ -57,10 +74,12 @@ const CSRF_EXEMPT_PATHS = new Set([
 
 const REFRESH_PATH = "/api/v1/auth/refresh";
 const LOGOUT_PATH = "/api/v1/auth/logout";
-
 const MAX_LOGOUT_RETRIES = 2;
 
-function clearAuthCookies(response: NextResponse) {
+// ─── Small response helpers ───────────────────────────────────────────────────
+
+/** Clear the access + refresh cookies on the outgoing response. */
+function clearAuthCookies(response: NextResponse): void {
   for (const name of AUTH_COOKIE_NAMES) {
     response.cookies.set(name, "", {
       httpOnly: true,
@@ -72,13 +91,109 @@ function clearAuthCookies(response: NextResponse) {
   }
 }
 
+/** 403 with a clear reason string in the JSON body. */
+function forbidden(reason: string): NextResponse {
+  return NextResponse.json({ success: false, errors: reason }, { status: 403 });
+}
+
+// ─── Gatekeepers (run before any upstream work) ───────────────────────────────
+
 /**
- * Call the backend refresh endpoint directly and return the new access token value
- * + full Set-Cookie headers so the proxy response can forward all cookie updates
- * back to the browser (with backend-set attributes intact).
+ * Reject requests whose pathname is outside the SSRF allowlist.
+ * Returns null when the path is allowed.
+ */
+function rejectIfSsrf(pathname: string): NextResponse | null {
+  const allowed = ALLOWED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  return allowed ? null : forbidden("Forbidden");
+}
+
+/**
+ * Double-submit cookie check: the JS-readable `csrf-token` cookie must match the
+ * `X-CSRF-Token` request header. Skipped for anonymous endpoints (`CSRF_EXEMPT_PATHS`).
  *
- * Returns null if the refresh failed for any reason — caller should fall through
- * (forward the original request without auth and let the backend reject it).
+ * Returns null when the request passes (or when the check doesn't apply).
+ */
+function rejectIfCsrfFails(
+  req: NextRequest,
+  cookieCsrfToken: string | undefined,
+  pathname: string
+): NextResponse | null {
+  const isMutating = MUTATING_METHODS.has(req.method);
+  if (!isMutating || CSRF_EXEMPT_PATHS.has(pathname)) {
+    return null;
+  }
+
+  const headerCsrfToken = req.headers.get(CSRF_HEADER_NAME);
+  if (validateCsrfToken(cookieCsrfToken, headerCsrfToken)) {
+    return null;
+  }
+  return forbidden("Invalid CSRF token");
+}
+
+// ─── CSRF token bootstrap ─────────────────────────────────────────────────────
+
+/**
+ * Return the current CSRF token, or mint a fresh one if none exists yet.
+ *
+ * `isFreshlyMinted = true` tells the caller it must Set-Cookie the new value on
+ * the outgoing response so the browser stores it for the next round-trip.
+ */
+function readOrMintCsrfToken(existing: string | undefined): {
+  token: string;
+  isFreshlyMinted: boolean;
+} {
+  if (existing) return { token: existing, isFreshlyMinted: false };
+  return { token: generateCsrfToken(), isFreshlyMinted: true };
+}
+
+/** Build the Set-Cookie value for the first-issue CSRF cookie. */
+function buildFreshCsrfCookieHeader(token: string): string {
+  const parts = [
+    `${CSRF_COOKIE_NAME}=${token}`,
+    `Path=/`,
+    `SameSite=Strict`,
+    `Max-Age=${60 * 60 * 24}`,
+  ];
+  if (process.env.NODE_ENV === "production") parts.push(`Secure`);
+  return parts.join("; ");
+}
+
+// ─── Silent token refresh ─────────────────────────────────────────────────────
+
+type SilentRefreshResult = {
+  accessToken: string;
+  refreshToken: string;     // possibly rotated by the backend
+  setCookies: string[];     // raw Set-Cookie strings to pipe back to the browser
+};
+
+/**
+ * Determine whether we should attempt a silent refresh.
+ *
+ * Triggers when:
+ *   - the request targets a protected endpoint (i.e. NOT anonymous, NOT /refresh itself), AND
+ *   - the browser has no access-token cookie, BUT
+ *   - it still has a refresh-token cookie we can spend.
+ */
+function shouldAttemptSilentRefresh(
+  pathname: string,
+  accessToken: string | undefined,
+  refreshToken: string | undefined
+): boolean {
+  if (accessToken) return false;
+  if (!refreshToken) return false;
+  if (CSRF_EXEMPT_PATHS.has(pathname)) return false;
+  if (pathname === REFRESH_PATH) return false;
+  return true;
+}
+
+/**
+ * Call the backend's /auth/refresh directly to mint a fresh access token.
+ *
+ * On success, returns the new access-token value plus the full Set-Cookie strings
+ * the backend issued (so we can forward them to the browser with attributes intact).
+ *
+ * On any failure (network, 4xx, missing access cookie) returns null — the caller
+ * should fall through and let the upstream backend reject the unauthenticated request.
  */
 async function refreshTokensViaBackend(
   refreshToken: string,
@@ -100,9 +215,7 @@ async function refreshTokensViaBackend(
     if (!res.ok) return null;
 
     const setCookies = res.headers.getSetCookie();
-    const accessTokenCookie = setCookies.find((c) =>
-      c.startsWith("access-token=")
-    );
+    const accessTokenCookie = setCookies.find((c) => c.startsWith("access-token="));
     if (!accessTokenCookie) return null;
 
     const accessToken = accessTokenCookie.split(";")[0].split("=")[1];
@@ -113,73 +226,54 @@ async function refreshTokensViaBackend(
 }
 
 /**
- * Proxy an incoming Next.js request to the real backend service.
+ * If the gating predicate matches, run the silent refresh and return updated tokens
+ * + Set-Cookie strings the caller must forward. Returns null when no refresh ran
+ * (either the predicate failed or the backend rejected the refresh).
  */
-export async function proxyToBackend(req: NextRequest): Promise<NextResponse> {
-  const pathname = req.nextUrl.pathname;
-  const search = req.nextUrl.search;
-
-  if (!ALLOWED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
-    return NextResponse.json(
-      { success: false, errors: "Forbidden" },
-      { status: 403 }
-    );
+async function trySilentRefresh(
+  pathname: string,
+  accessToken: string | undefined,
+  refreshToken: string | undefined,
+  csrfToken: string | undefined
+): Promise<SilentRefreshResult | null> {
+  if (!shouldAttemptSilentRefresh(pathname, accessToken, refreshToken)) {
+    return null;
   }
 
-  const cookieStore = await cookies();
+  const refreshed = await refreshTokensViaBackend(refreshToken!, csrfToken);
+  if (!refreshed) return null;
 
-  if (MUTATING_METHODS.has(req.method) && !CSRF_EXEMPT_PATHS.has(pathname)) {
-    const csrfCookie = cookieStore.get(CSRF_COOKIE_NAME)?.value;
-    const csrfHeader = req.headers.get(CSRF_HEADER_NAME);
+  // If the backend rotated the refresh token, use the rotated value for this
+  // request — otherwise carry forward the original.
+  const rotatedRefreshCookie = refreshed.setCookies.find((c) =>
+    c.startsWith("refresh-token=")
+  );
+  const nextRefreshToken = rotatedRefreshCookie
+    ? rotatedRefreshCookie.split(";")[0].split("=")[1]
+    : refreshToken!;
 
-    if (!validateCsrfToken(csrfCookie, csrfHeader)) {
-      return NextResponse.json(
-        { success: false, errors: "Invalid CSRF token" },
-        { status: 403 }
-      );
-    }
+  return {
+    accessToken: refreshed.accessToken,
+    refreshToken: nextRefreshToken,
+    setCookies: refreshed.setCookies,
+  };
+}
+
+// ─── Upstream request construction ────────────────────────────────────────────
+
+/** Build the Cookie + CSRF + Content-Type headers we send to the backend. */
+function buildUpstreamHeaders(
+  req: NextRequest,
+  tokens: {
+    accessToken: string | undefined;
+    refreshToken: string | undefined;
+    csrfToken: string | undefined;
   }
-
-  let accessToken = cookieStore.get("access-token")?.value;
-  let refreshToken = cookieStore.get("refresh-token")?.value;
-
-  // Generate the CSRF token early so it can be forwarded to the backend
-  // on the very first request (before any prior response has set the cookie).
-  let csrfToken = cookieStore.get(CSRF_COOKIE_NAME)?.value;
-  const isNewCsrfToken = !csrfToken;
-  if (isNewCsrfToken) {
-    csrfToken = generateCsrfToken();
-  }
-
-  // Silent refresh: if the browser has no access-token cookie for a protected
-  // endpoint but still has a refresh-token, fetch a fresh access token here so
-  // the original request can succeed with valid credentials. The new tokens are
-  // forwarded back to the browser via Set-Cookie on the final response.
-  let refreshedSetCookies: string[] = [];
-  const isProtectedEndpoint =
-    !CSRF_EXEMPT_PATHS.has(pathname) && pathname !== REFRESH_PATH;
-  if (!accessToken && refreshToken && isProtectedEndpoint) {
-    const refreshed = await refreshTokensViaBackend(refreshToken, csrfToken);
-    if (refreshed) {
-      accessToken = refreshed.accessToken;
-      refreshedSetCookies = refreshed.setCookies;
-
-      // If the backend rotated the refresh token, use the new one for this request too
-      const rotatedRefreshCookie = refreshed.setCookies.find((c) =>
-        c.startsWith("refresh-token=")
-      );
-      if (rotatedRefreshCookie) {
-        refreshToken = rotatedRefreshCookie.split(";")[0].split("=")[1];
-      }
-    }
-  }
-
-  const url = new URL(pathname, BACKEND_URL);
-  url.search = search;
-
+): Headers {
   const headers = new Headers();
+  const isMutating = MUTATING_METHODS.has(req.method);
 
-  if (MUTATING_METHODS.has(req.method)) {
+  if (isMutating) {
     headers.set(
       "Content-Type",
       req.headers.get("content-type") ?? "application/json"
@@ -187,102 +281,222 @@ export async function proxyToBackend(req: NextRequest): Promise<NextResponse> {
   }
 
   const accept = req.headers.get("accept");
-  if (accept) {
-    headers.set("Accept", accept);
-  }
+  if (accept) headers.set("Accept", accept);
 
-  // Forward cookies to backend using the backend's expected hyphenated names
+  // Forward cookies to the backend using hyphenated names (backend's contract).
   const cookieParts: string[] = [];
-  if (accessToken) cookieParts.push(`access-token=${accessToken}`);
-  if (refreshToken) cookieParts.push(`refresh-token=${refreshToken}`);
-  if (csrfToken) cookieParts.push(`${CSRF_COOKIE_NAME}=${csrfToken}`);
+  if (tokens.accessToken) cookieParts.push(`access-token=${tokens.accessToken}`);
+  if (tokens.refreshToken) cookieParts.push(`refresh-token=${tokens.refreshToken}`);
+  if (tokens.csrfToken) cookieParts.push(`${CSRF_COOKIE_NAME}=${tokens.csrfToken}`);
   if (cookieParts.length > 0) {
     headers.set("Cookie", cookieParts.join("; "));
   }
 
-  if (MUTATING_METHODS.has(req.method) && csrfToken) {
-    headers.set(CSRF_HEADER_NAME, csrfToken);
+  // The CSRF header travels alongside the cookie on mutating requests so the
+  // backend can also enforce the double-submit check.
+  if (isMutating && tokens.csrfToken) {
+    headers.set(CSRF_HEADER_NAME, tokens.csrfToken);
   }
+
+  return headers;
+}
+
+// ─── Response forwarding ──────────────────────────────────────────────────────
+
+/** Copy non-hop-by-hop headers from the backend response onto our outgoing response. */
+function forwardResponseHeaders(target: NextResponse, source: Response): void {
+  source.headers.forEach((value, key) => {
+    if (!SKIP_RESPONSE_HEADERS.has(key.toLowerCase())) {
+      target.headers.set(key, value);
+    }
+  });
+}
+
+/**
+ * Pipe Set-Cookie headers from every source onto the response, in priority order:
+ *   1. Cookies the backend set on this request's response.
+ *   2. Cookies the silent-refresh issued (appended AFTER, so they win on conflicts).
+ *   3. The first-issue CSRF cookie if we just minted one.
+ *
+ * Using `headers.append("Set-Cookie", …)` rather than `response.cookies.set()` is
+ * deliberate: the ResponseCookies API does a delete-then-rewrite of ALL Set-Cookie
+ * headers, which would drop the auth cookies appended in step 1/2.
+ */
+function pipeSetCookies(
+  response: NextResponse,
+  backendRes: Response,
+  refreshedSetCookies: string[],
+  freshCsrfCookie: string | null
+): void {
+  for (const cookie of backendRes.headers.getSetCookie()) {
+    response.headers.append("Set-Cookie", cookie);
+  }
+  for (const cookie of refreshedSetCookies) {
+    response.headers.append("Set-Cookie", cookie);
+  }
+  if (freshCsrfCookie) {
+    response.headers.append("Set-Cookie", freshCsrfCookie);
+  }
+}
+
+/**
+ * Build the response for an SSE upstream (text/event-stream).
+ *
+ * Critical: we pipe `backendRes.body` (a ReadableStream) straight through —
+ * NEVER call `.arrayBuffer()` or the SSE events get buffered and the client sees
+ * nothing until the backend closes the connection.
+ */
+function buildStreamingResponse(
+  backendRes: Response,
+  refreshedSetCookies: string[],
+  freshCsrfCookie: string | null
+): NextResponse {
+  const response = new NextResponse(backendRes.body, {
+    status: backendRes.status,
+    statusText: backendRes.statusText,
+  });
+
+  forwardResponseHeaders(response, backendRes);
+  pipeSetCookies(response, backendRes, refreshedSetCookies, freshCsrfCookie);
+
+  // Hint to reverse proxies (nginx, etc.) not to buffer the stream.
+  response.headers.set("Cache-Control", "no-cache, no-transform");
+  response.headers.set("X-Accel-Buffering", "no");
+
+  return response;
+}
+
+/** Build the response for a JSON/binary upstream that we can safely buffer. */
+async function buildBufferedResponse(
+  backendRes: Response,
+  refreshedSetCookies: string[],
+  freshCsrfCookie: string | null
+): Promise<NextResponse> {
+  const body = await backendRes.arrayBuffer();
+
+  // 204/205/304 cannot legally carry a body in the Response constructor.
+  const isNoContentStatus = [204, 205, 304].includes(backendRes.status);
+
+  const response = new NextResponse(isNoContentStatus ? null : body, {
+    status: backendRes.status,
+    statusText: backendRes.statusText,
+  });
+
+  forwardResponseHeaders(response, backendRes);
+  pipeSetCookies(response, backendRes, refreshedSetCookies, freshCsrfCookie);
+
+  return response;
+}
+
+// ─── Logout failure recovery ──────────────────────────────────────────────────
+
+/**
+ * Best-effort retry of the backend logout when the original fetch threw.
+ *
+ * The refresh token must be invalidated server-side to be revocation-safe,
+ * so a transient transport error shouldn't leave the session valid on the
+ * backend. We swallow per-attempt errors and log; the response to the browser
+ * always clears the auth cookies regardless.
+ */
+async function retryLogoutBackend(url: string, headers: Headers): Promise<void> {
+  for (let attempt = 1; attempt <= MAX_LOGOUT_RETRIES; attempt++) {
+    try {
+      await fetch(url, { method: "POST", headers, redirect: "manual" });
+      return;
+    } catch {
+      console.warn(
+        `[BFF Proxy] Logout retry ${attempt}/${MAX_LOGOUT_RETRIES} failed`
+      );
+    }
+  }
+}
+
+// ─── Main entry point ─────────────────────────────────────────────────────────
+
+/**
+ * Forward an incoming Next.js request to the real backend, handling auth + CSRF.
+ * See file-level comment for the full request lifecycle.
+ */
+export async function proxyToBackend(req: NextRequest): Promise<NextResponse> {
+  const pathname = req.nextUrl.pathname;
+  const search = req.nextUrl.search;
+
+  // (1) SSRF allowlist
+  const ssrfBlock = rejectIfSsrf(pathname);
+  if (ssrfBlock) return ssrfBlock;
+
+  const cookieStore = await cookies();
+
+  // (2) CSRF validation
+  const csrfBlock = rejectIfCsrfFails(
+    req,
+    cookieStore.get(CSRF_COOKIE_NAME)?.value,
+    pathname
+  );
+  if (csrfBlock) return csrfBlock;
+
+  // (3) Auth state — read cookies, mint a CSRF token if first contact, attempt silent refresh
+  let accessToken = cookieStore.get("access-token")?.value;
+  let refreshToken = cookieStore.get("refresh-token")?.value;
+
+  const { token: csrfToken, isFreshlyMinted: isNewCsrf } = readOrMintCsrfToken(
+    cookieStore.get(CSRF_COOKIE_NAME)?.value
+  );
+  const freshCsrfCookie = isNewCsrf ? buildFreshCsrfCookieHeader(csrfToken) : null;
+
+  const refreshed = await trySilentRefresh(pathname, accessToken, refreshToken, csrfToken);
+  if (refreshed) {
+    accessToken = refreshed.accessToken;
+    refreshToken = refreshed.refreshToken;
+  }
+  const refreshedSetCookies = refreshed?.setCookies ?? [];
+
+  // (4) Build the upstream request
+  const upstreamUrl = new URL(pathname, BACKEND_URL);
+  upstreamUrl.search = search;
+
+  const upstreamHeaders = buildUpstreamHeaders(req, {
+    accessToken,
+    refreshToken,
+    csrfToken,
+  });
 
   const init: RequestInit = {
     method: req.method,
-    headers,
+    headers: upstreamHeaders,
     redirect: "manual",
   };
-
   if (MUTATING_METHODS.has(req.method)) {
     const body = await req.arrayBuffer();
-    if (body.byteLength > 0) {
-      init.body = body;
-    }
+    if (body.byteLength > 0) init.body = body;
   }
 
+  // (5) Forward and pipe back the response
   try {
-    const backendRes = await fetch(url.toString(), init);
-    const responseBody = await backendRes.arrayBuffer();
+    const backendRes = await fetch(upstreamUrl.toString(), init);
+    const contentType = backendRes.headers.get("content-type") ?? "";
+    const isSse = contentType.startsWith("text/event-stream");
 
-    // 204/205/304 statuses cannot carry a body in the Next.js Response constructor
-    const isNoContent = [204, 205, 304].includes(backendRes.status);
-
-    const response = new NextResponse(isNoContent ? null : responseBody, {
-      status: backendRes.status,
-      statusText: backendRes.statusText,
-    });
-
-    backendRes.headers.forEach((value, key) => {
-      if (!SKIP_RESPONSE_HEADERS.has(key.toLowerCase())) {
-        response.headers.set(key, value);
-      }
-    });
-
-    // Forward Set-Cookie headers as-is — cookie names match between backend and browser
-    for (const cookie of backendRes.headers.getSetCookie()) {
-      response.headers.append("Set-Cookie", cookie);
+    if (isSse) {
+      return buildStreamingResponse(backendRes, refreshedSetCookies, freshCsrfCookie);
     }
 
-    // Forward cookies from the silent refresh so the browser stores the fresh tokens.
-    // Appended after backendRes cookies so they win for conflicting names (newer wins).
-    for (const cookie of refreshedSetCookies) {
-      response.headers.append("Set-Cookie", cookie);
-    }
+    const response = await buildBufferedResponse(
+      backendRes,
+      refreshedSetCookies,
+      freshCsrfCookie
+    );
 
-    // Use headers.append (not response.cookies.set) to avoid the ResponseCookies
-    // API doing a delete-then-rewrite of ALL Set-Cookie headers, which can drop
-    // the auth cookies already appended above.
-    if (isNewCsrfToken && csrfToken) {
-      const parts = [
-        `${CSRF_COOKIE_NAME}=${csrfToken}`,
-        `Path=/`,
-        `SameSite=Strict`,
-        `Max-Age=${60 * 60 * 24}`,
-      ];
-      if (process.env.NODE_ENV === "production") parts.push(`Secure`);
-      response.headers.append("Set-Cookie", parts.join("; "));
-    }
-
+    // (6) Special case: logout always strips auth cookies on its way out.
     if (pathname === LOGOUT_PATH) {
       clearAuthCookies(response);
     }
-
     return response;
   } catch (error) {
-    // Logout: retry backend call to invalidate the refresh token server-side
     if (pathname === LOGOUT_PATH) {
-      for (let attempt = 1; attempt <= MAX_LOGOUT_RETRIES; attempt++) {
-        try {
-          await fetch(url.toString(), {
-            method: "POST",
-            headers,
-            redirect: "manual",
-          });
-          break;
-        } catch {
-          console.warn(
-            `[BFF Proxy] Logout retry ${attempt}/${MAX_LOGOUT_RETRIES} failed`
-          );
-        }
-      }
-
+      // Even on transport failure, do our best to invalidate the refresh token
+      // server-side, then return success to the browser with auth cookies cleared.
+      await retryLogoutBackend(upstreamUrl.toString(), upstreamHeaders);
       const logoutRes = NextResponse.json(
         { success: true, message: "Logged out" },
         { status: 200 }

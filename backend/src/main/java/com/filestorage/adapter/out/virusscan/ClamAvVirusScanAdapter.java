@@ -18,7 +18,7 @@ import java.time.Duration;
  * (e.g. <a href="https://github.com/benzino77/clamav-rest-api">clamav-rest-api</a>).
  * <p>
  * The REST API exposes {@code POST /api/v1/scan} which accepts multipart/form-data
- * and returns JSON like: {@code { "data": { "result": [{ "isInfected": false }] } }}.
+ * and returns JSON like: {@code { "data": { "result": [{ "is_infected": false }] } }}.
  * <p>
  * This adapter is intentionally thin — the interface contract is defined by {@link VirusScanPort}.
  */

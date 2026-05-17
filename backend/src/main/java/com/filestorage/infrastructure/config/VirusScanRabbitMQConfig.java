@@ -5,6 +5,12 @@ import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
+import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
+import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
+import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
+import org.aopalliance.intercept.MethodInterceptor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -79,5 +85,26 @@ public class VirusScanRabbitMQConfig {
     @Bean
     public Binding virusScanDlqBinding(Queue virusScanDeadLetterQueue, DirectExchange virusScanDeadLetterExchange) {
         return BindingBuilder.bind(virusScanDeadLetterQueue).to(virusScanDeadLetterExchange).with(VIRUS_SCAN_DL_RK);
+    }
+
+    @Bean
+    public MethodInterceptor virusScanRetryInterceptor() {
+        return RetryInterceptorBuilder.stateless()
+                .maxRetries(3)
+                .backOffOptions(5_000, 2.0, 30_000)
+                .recoverer(new RejectAndDontRequeueRecoverer())
+                .build();
+    }
+
+    @Bean
+    public SimpleRabbitListenerContainerFactory virusScanListenerContainerFactory(
+            ConnectionFactory connectionFactory) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setConnectionFactory(connectionFactory);
+        factory.setMessageConverter(new JacksonJsonMessageConverter());
+        factory.setAdviceChain(virusScanRetryInterceptor());
+        factory.setDefaultRequeueRejected(false);
+        factory.setPrefetchCount(1);
+        return factory;
     }
 }

@@ -42,8 +42,6 @@ public class InitMultipartUploadService implements InitMultipartUploadUseCase {
     private final ObjectStoragePort objectStoragePort;
     private final CachePort cachePort;
     private final UploadProperties uploadProperties;
-    private final FileUploadValidator fileUploadValidator;
-    private final FolderAccessPolicy folderAccessPolicy;
 
     @Override
     @Transactional
@@ -54,8 +52,10 @@ public class InitMultipartUploadService implements InitMultipartUploadUseCase {
             throw new AppException(ErrorCode.INVALID_PAYLOAD);
         }
 
-        // Fast-exit: reject disallowed MIME types before touching the DB or storage.
-        fileUploadValidator.validateMimeType(command.mimeType());
+        // Fast-exit: reject large file sizes before touching the DB or storage.
+        if (command.totalSizeBytes() > uploadProperties.getMaxFileSizeBytes()) {
+            throw new AppException(ErrorCode.FILE_TOO_LARGE);
+        }
 
         // Pessimistic write lock to serialize concurrent quota checks
         User actor = userRepository.findByIdForUpdate(command.userId())

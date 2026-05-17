@@ -58,7 +58,7 @@ class ConfirmUploadServiceTest {
 
         when(fileRepository.findByIdAndTenantId(fileId, tenantId)).thenReturn(Optional.of(file));
         when(objectStoragePort.objectExists(file.getStorageKey())).thenReturn(true);
-        // verifySizeOrFail and verifyMimeOrFail are no-ops (mock default)
+        // verifySizeOrFail and detectAndCorrectMime are no-ops (mock default)
         when(uploadStorageVerifier.routeToScanOrActivate(eq(file), eq(tenantId), eq(userId)))
                 .thenReturn(FileStatus.SCANNING);
 
@@ -67,7 +67,7 @@ class ConfirmUploadServiceTest {
         assertEquals(fileId, view.fileId());
         assertEquals(FileStatus.SCANNING, view.status());
         verify(uploadStorageVerifier).verifySizeOrFail(file, file.getStorageKey());
-        verify(uploadStorageVerifier).verifyMimeOrFail(file, file.getStorageKey());
+        verify(uploadStorageVerifier).detectAndCorrectMime(file, file.getStorageKey());
         verify(uploadStorageVerifier).routeToScanOrActivate(file, tenantId, userId);
     }
 
@@ -200,7 +200,7 @@ class ConfirmUploadServiceTest {
                 () -> service.execute(command(userId, tenantId, fileId)));
 
         assertEquals(ErrorCode.FILE_METADATA_MISMATCH, ex.getError());
-        verify(uploadStorageVerifier, never()).verifyMimeOrFail(any(), anyString());
+        verify(uploadStorageVerifier, never()).detectAndCorrectMime(any(), anyString());
     }
 
     @Test
@@ -213,7 +213,7 @@ class ConfirmUploadServiceTest {
         when(fileRepository.findByIdAndTenantId(fileId, tenantId)).thenReturn(Optional.of(file));
         when(objectStoragePort.objectExists(file.getStorageKey())).thenReturn(true);
         doThrow(new AppException(ErrorCode.UNSUPPORTED_FILE_TYPE))
-                .when(uploadStorageVerifier).verifyMimeOrFail(eq(file), anyString());
+                .when(uploadStorageVerifier).detectAndCorrectMime(eq(file), anyString());
 
         AppException ex = assertThrows(AppException.class,
                 () -> service.execute(command(userId, tenantId, fileId)));

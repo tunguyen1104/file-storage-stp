@@ -16,7 +16,21 @@ import { UploadStatusBadge } from "@/components/upload/UploadStatusBadge";
 import { UploadProgressBar } from "@/components/upload/UploadProgressBar";
 import { formatBytes, formatSpeed, formatEta } from "@/lib/utils/upload-utils";
 import type { UploadItem } from "@/types/upload/upload.types";
+import { UPLOAD_STATUS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+
+const ACTIVE_QUEUE_STATUSES = [
+  UPLOAD_STATUS.QUEUED,
+  UPLOAD_STATUS.UPLOADING,
+  UPLOAD_STATUS.CONFIRMING,
+  UPLOAD_STATUS.SCANNING,
+] as const;
+
+const IN_FLIGHT_PROGRESS_STATUSES = [
+  UPLOAD_STATUS.UPLOADING,
+  UPLOAD_STATUS.CONFIRMING,
+  UPLOAD_STATUS.SCANNING,
+] as const;
 
 // ─── File icon helper ─────────────────────────────────────────────────────────
 
@@ -60,10 +74,10 @@ export function UploadQueueItem({
   onRetry,
   onResume,
 }: UploadQueueItemProps) {
-  const isActive = ["queued", "uploading", "confirming", "scanning"].includes(item.status);
-  const isError = item.status === "error";
+  const isActive = (ACTIVE_QUEUE_STATUSES as readonly string[]).includes(item.status);
+  const isError = item.status === UPLOAD_STATUS.ERROR;
   const canResume = isError && !!item.uploadId;
-  const isDone = item.status === "done";
+  const isDone = item.status === UPLOAD_STATUS.DONE;
   const mimeType = item.file.type || "application/octet-stream";
 
   return (
@@ -120,7 +134,7 @@ export function UploadQueueItem({
               <Play className="h-3.5 w-3.5" />
             </Button>
           )}
-          {isError && !canResume && item.status !== "infected" && (
+          {isError && !canResume && item.status !== UPLOAD_STATUS.INFECTED && (
             <Button
               variant="ghost"
               size="icon"
@@ -135,7 +149,7 @@ export function UploadQueueItem({
       </div>
 
       {/* Progress bar */}
-      {["uploading", "confirming", "scanning"].includes(item.status) && (
+      {(IN_FLIGHT_PROGRESS_STATUSES as readonly string[]).includes(item.status) && (
         <UploadProgressBar
           status={item.status}
           progress={item.progress}
@@ -144,7 +158,7 @@ export function UploadQueueItem({
       )}
 
       {/* Speed + ETA row */}
-      {item.status === "uploading" && (item.speedBps || item.etaSeconds) && (
+      {item.status === UPLOAD_STATUS.UPLOADING && (item.speedBps || item.etaSeconds) && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
           {item.speedBps !== undefined && (
             <span>{formatSpeed(item.speedBps)}</span>
