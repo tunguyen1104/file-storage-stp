@@ -30,7 +30,8 @@ public class VirusScanConsumer {
     private final VirusScanEventPublisherPort virusScanEventPublisherPort;
     private final VirusScanResultHandler virusScanResultHandler;
 
-    @RabbitListener(queues = VirusScanRabbitMQConfig.VIRUS_SCAN_REQUEST_QUEUE)
+    @RabbitListener(queues = VirusScanRabbitMQConfig.VIRUS_SCAN_REQUEST_QUEUE,
+                    containerFactory = "virusScanListenerContainerFactory")
     public void handleVirusScanRequested(VirusScanRequestedEvent event) {
         log.info("VirusScanConsumer: received scan request for fileId={}", event.fileId());
 
@@ -63,7 +64,8 @@ public class VirusScanConsumer {
         ));
     }
 
-    @RabbitListener(queues = VirusScanRabbitMQConfig.VIRUS_SCAN_RESULT_QUEUE)
+    @RabbitListener(queues = VirusScanRabbitMQConfig.VIRUS_SCAN_RESULT_QUEUE,
+                    containerFactory = "virusScanListenerContainerFactory")
     public void handleVirusScanCompleted(VirusScanCompletedEvent event) {
         log.info("VirusScanConsumer: received scan result for fileId={} infected={}", event.fileId(), event.infected());
         virusScanResultHandler.handle(event);

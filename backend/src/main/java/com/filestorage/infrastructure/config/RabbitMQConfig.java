@@ -109,6 +109,10 @@ public class RabbitMQConfig {
         factory.setConnectionFactory(connectionFactory);
         factory.setMessageConverter(jsonMessageConverter());
         factory.setAdviceChain(emailRetryInterceptor());
+        factory.setDefaultRequeueRejected(false);
+        factory.setPrefetchCount(2);
+        factory.setConcurrentConsumers(3);
+        factory.setMaxConcurrentConsumers(3);
         return factory;
     }
 }

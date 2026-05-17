@@ -3,8 +3,10 @@ package com.filestorage.application.usecase.file;
 import com.filestorage.adapter.out.persistence.entity.File;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
+import com.filestorage.domain.event.FileStatusChangedEvent;
 import com.filestorage.domain.event.VirusScanCompletedEvent;
 import com.filestorage.domain.model.enums.FileStatus;
+import com.filestorage.domain.port.out.FileStatusEventPublisherPort;
 import com.filestorage.domain.port.out.ObjectStoragePort;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
@@ -12,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 
 /**
  * Application service that processes the result of a completed virus scan.
@@ -27,6 +30,7 @@ public class VirusScanResultHandler {
     private final FileJpaRepository fileRepository;
     private final UserJpaRepository userRepository;
     private final ObjectStoragePort objectStoragePort;
+    private final FileStatusEventPublisherPort fileStatusEventPublisher;
 
     @Transactional
     public void handle(VirusScanCompletedEvent event) {
@@ -53,6 +57,8 @@ public class VirusScanResultHandler {
 
         // Delete the physical object — do not update quota (file was never counted)
         objectStoragePort.deleteObjectIfExists(file.getStorageKey());
+
+        publishStatusChanged(file, FileStatus.INFECTED);
     }
 
     void handleClean(File file) {
@@ -68,6 +74,7 @@ public class VirusScanResultHandler {
             file.setStatus(FileStatus.UPLOAD_FAILED);
             fileRepository.save(file);
             objectStoragePort.deleteObjectIfExists(file.getStorageKey());
+            publishStatusChanged(file, FileStatus.UPLOAD_FAILED);
             return;
         }
 
@@ -75,5 +82,15 @@ public class VirusScanResultHandler {
         fileRepository.save(file);
 
         log.info("File {} passed virus scan — status set to ACTIVE, quota updated (+{} bytes)", file.getId(), sizeBytes);
+        publishStatusChanged(file, FileStatus.ACTIVE);
+    }
+
+    private void publishStatusChanged(File file, FileStatus status) {
+        fileStatusEventPublisher.publishStatusChanged(new FileStatusChangedEvent(
+                file.getId(),
+                file.getTenant().getId(),
+                file.getUploadedBy().getId(),
+                status
+        ));
     }
 }
