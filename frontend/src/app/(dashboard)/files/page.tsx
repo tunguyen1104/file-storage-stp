@@ -62,6 +62,7 @@ import {
   FILE_STATUS,
   FILE_SORT_BY,
   SORT_DIRECTION,
+  MAX_FILE_SIZE,
 } from "@/lib/constants";
 import type { FileSortBy, SortDirection } from "@/lib/constants";
 import type { FileMetadataResponse } from "@/types/file/file";
@@ -342,12 +343,9 @@ function FilesPageInner() {
     try {
       const { getUrl } = await getPresignedGetUrl(file.id);
 
-      // Verify the file actually exists in storage before opening
-      
-
       window.open(getUrl, "_blank", "noopener,noreferrer");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể xem trước tệp");
+      toast.error(err instanceof Error ? err.message : "Failed to preview file");
     }
   }, []);
 
@@ -549,7 +547,7 @@ function FilesPageInner() {
                 </div>
                 <div className="text-center">
                   <p className="text-sm font-medium text-gray-700">Click or drag files to this area to upload</p>
-                  <p className="text-xs text-gray-400 mt-0.5">All file types supported · Max 10 GB per file</p>
+                  <p className="text-xs text-gray-400 mt-0.5">All file types supported · Max {MAX_FILE_SIZE / (1024 * 1024 * 1024)} GB per file</p>
                 </div>
               </div>
             )}

@@ -219,6 +219,46 @@ export async function proxyToBackend(req: NextRequest): Promise<NextResponse> {
 
   try {
     const backendRes = await fetch(url.toString(), init);
+
+    // Streaming branch: pipe text/event-stream (SSE) responses straight through
+    // instead of buffering — buffering would defeat SSE entirely.
+    const contentType = backendRes.headers.get("content-type") ?? "";
+    if (contentType.startsWith("text/event-stream")) {
+      const response = new NextResponse(backendRes.body, {
+        status: backendRes.status,
+        statusText: backendRes.statusText,
+      });
+
+      backendRes.headers.forEach((value, key) => {
+        if (!SKIP_RESPONSE_HEADERS.has(key.toLowerCase())) {
+          response.headers.set(key, value);
+        }
+      });
+
+      for (const cookie of backendRes.headers.getSetCookie()) {
+        response.headers.append("Set-Cookie", cookie);
+      }
+      for (const cookie of refreshedSetCookies) {
+        response.headers.append("Set-Cookie", cookie);
+      }
+      if (isNewCsrfToken && csrfToken) {
+        const parts = [
+          `${CSRF_COOKIE_NAME}=${csrfToken}`,
+          `Path=/`,
+          `SameSite=Strict`,
+          `Max-Age=${60 * 60 * 24}`,
+        ];
+        parts.push(`Secure`);
+        response.headers.append("Set-Cookie", parts.join("; "));
+      }
+
+      // Defensive: discourage intermediate buffering by reverse proxies.
+      response.headers.set("Cache-Control", "no-cache, no-transform");
+      response.headers.set("X-Accel-Buffering", "no");
+
+      return response;
+    }
+
     const responseBody = await backendRes.arrayBuffer();
 
     // 204/205/304 statuses cannot carry a body in the Next.js Response constructor
@@ -256,7 +296,7 @@ export async function proxyToBackend(req: NextRequest): Promise<NextResponse> {
         `SameSite=Strict`,
         `Max-Age=${60 * 60 * 24}`,
       ];
-      if (process.env.NODE_ENV === "production") parts.push(`Secure`);
+      parts.push(`Secure`);
       response.headers.append("Set-Cookie", parts.join("; "));
     }
 
