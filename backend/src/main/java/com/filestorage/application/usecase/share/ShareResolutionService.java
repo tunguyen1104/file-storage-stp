@@ -40,6 +40,12 @@ public class ShareResolutionService {
         }
         UUID resourceTenantId = folder.getTenant().getId();
         if (!canAccessTenant(actorTenantId, role, resourceTenantId)) {
+            if (folder.getId() != null && shareRepository.hasActiveAllTenantsFolderShare(folder.getId())) {
+                return DIRECT_VIEWER;
+            }
+            if (folder.getId() != null && shareRepository.hasActiveAllTenantsShareOnAnyAncestor(folder.getId())) {
+                return INHERITED_VIEWER;
+            }
             return null;
         }
         if (role == RoleCode.SUPER_ADMIN || role == RoleCode.TENANT_ADMIN) {
@@ -75,6 +81,13 @@ public class ShareResolutionService {
         }
         UUID resourceTenantId = file.getTenant().getId();
         if (!canAccessTenant(actorTenantId, role, resourceTenantId)) {
+            if (file.getId() != null && shareRepository.hasActiveAllTenantsFileShare(file.getId())) {
+                return DIRECT_VIEWER;
+            }
+            if (file.getFolder() != null && file.getFolder().getId() != null
+                    && shareRepository.hasActiveAllTenantsShareOnAnyAncestor(file.getFolder().getId())) {
+                return INHERITED_VIEWER;
+            }
             return null;
         }
         if (role == RoleCode.SUPER_ADMIN || role == RoleCode.TENANT_ADMIN) {

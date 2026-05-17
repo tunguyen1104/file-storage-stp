@@ -23,6 +23,10 @@ public interface ShareRepositoryPort {
 
     boolean existsActiveTenantFolderShare(UUID folderId, UUID tenantId);
 
+    boolean existsActiveAllTenantsFileShare(UUID fileId);
+
+    boolean existsActiveAllTenantsFolderShare(UUID folderId);
+
     Optional<FileShare> findActiveUserFileShare(UUID fileId, UUID userId);
 
     Optional<FileShare> findActiveUserFolderShare(UUID folderId, UUID userId);
@@ -31,9 +35,15 @@ public interface ShareRepositoryPort {
 
     boolean hasActiveTenantFolderShare(UUID folderId, UUID tenantId);
 
+    boolean hasActiveAllTenantsFileShare(UUID fileId);
+
+    boolean hasActiveAllTenantsFolderShare(UUID folderId);
+
     boolean hasActiveUserShareOnAnyAncestor(UUID folderId, UUID userId);
 
     boolean hasActiveTenantShareOnAnyAncestor(UUID folderId, UUID tenantId);
+
+    boolean hasActiveAllTenantsShareOnAnyAncestor(UUID folderId);
 
     Page<FileShare> findBySharedBy(UUID userId, String resourceType, ShareStatus status, Pageable pageable);
 

@@ -104,6 +104,7 @@ public class ShareController {
     }
 
     @PostMapping("/files/tenant")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<ShareResponse>> shareFileWithTenant(@RequestBody @Valid ShareWithTenantRequest request) {
         SecurityUser actor = currentUserOrThrow();
         ShareView view = shareFileWithTenantUseCase.shareFileWithTenant(new ShareWithTenantCommand(
@@ -111,12 +112,14 @@ public class ShareController {
                 tenantId(actor),
                 role(actor),
                 request.resourceId(),
-                resolveExpiresAt(request.expireTime())
+                resolveExpiresAt(request.expireTime()),
+                request.tenantId()
         ));
         return ResponseEntity.status(201).body(ApiResponse.buildSuccess(shareRestMapper.toShareResponse(view)));
     }
 
     @PostMapping("/folders/tenant")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<ShareResponse>> shareFolderWithTenant(@RequestBody @Valid ShareWithTenantRequest request) {
         SecurityUser actor = currentUserOrThrow();
         ShareView view = shareFolderWithTenantUseCase.shareFolderWithTenant(new ShareWithTenantCommand(
@@ -124,7 +127,8 @@ public class ShareController {
                 tenantId(actor),
                 role(actor),
                 request.resourceId(),
-                resolveExpiresAt(request.expireTime())
+                resolveExpiresAt(request.expireTime()),
+                request.tenantId()
         ));
         return ResponseEntity.status(201).body(ApiResponse.buildSuccess(shareRestMapper.toShareResponse(view)));
     }

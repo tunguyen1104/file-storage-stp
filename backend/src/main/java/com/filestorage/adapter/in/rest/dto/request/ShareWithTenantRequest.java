@@ -7,6 +7,7 @@ import java.util.UUID;
 
 public record ShareWithTenantRequest(
         @NotNull UUID resourceId,
-        @NotNull @Positive Long expireTime
+        @NotNull @Positive Long expireTime,
+        UUID tenantId
 ) {
 }

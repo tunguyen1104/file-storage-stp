@@ -72,8 +72,8 @@ class ShareServiceSupport {
     File findShareableFile(UUID fileId, UUID tenantId) {
         File file = fileRepository.findByIdAndTenantId(fileId, tenantId)
                 .orElseThrow(() -> new AppException(ErrorCode.FILE_NOT_FOUND));
-        if (file.getStatus() == FileStatus.DELETED) {
-            throw new AppException(ErrorCode.FILE_NOT_FOUND);
+        if (file.getStatus() != FileStatus.ACTIVE) {
+            throw new AppException(ErrorCode.FILE_STATUS_INVALID);
         }
         return file;
     }
@@ -105,6 +105,12 @@ class ShareServiceSupport {
 
     UUID folderOwnerId(Folder folder) {
         return folder.getOwner() == null ? null : folder.getOwner().getId();
+    }
+
+    void validateTargetTenantExists(UUID tenantId) {
+        if (!tenantRepository.existsById(tenantId)) {
+            throw new AppException(ErrorCode.TENANT_NOT_FOUND);
+        }
     }
 
     String normalizeResourceType(String resourceType) {
@@ -200,7 +206,7 @@ class ShareServiceSupport {
     }
 
     private ShareRecipientType recipientType(FileShare share) {
-        return share.getSharedWithTenantId() != null ? ShareRecipientType.TENANT : ShareRecipientType.USER;
+        return (share.getSharedWithTenantId() != null || share.isAllTenants()) ? ShareRecipientType.TENANT : ShareRecipientType.USER;
     }
 
     private ShareUserView shareUserView(UUID userId) {

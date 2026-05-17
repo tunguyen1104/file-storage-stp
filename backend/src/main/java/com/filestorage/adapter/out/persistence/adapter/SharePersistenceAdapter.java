@@ -57,6 +57,16 @@ public class SharePersistenceAdapter implements ShareRepositoryPort {
     }
 
     @Override
+    public boolean existsActiveAllTenantsFileShare(UUID fileId) {
+        return shareRepository.existsActiveAllTenantsFileShare(fileId, Instant.now());
+    }
+
+    @Override
+    public boolean existsActiveAllTenantsFolderShare(UUID folderId) {
+        return shareRepository.existsActiveAllTenantsFolderShare(folderId, Instant.now());
+    }
+
+    @Override
     public Optional<FileShare> findActiveUserFileShare(UUID fileId, UUID userId) {
         return shareRepository.findByFileIdAndSharedWithUserIdAndStatusAndExpiresAtAfter(
                 fileId,
@@ -94,6 +104,21 @@ public class SharePersistenceAdapter implements ShareRepositoryPort {
                 ShareStatus.ACTIVE,
                 Instant.now()
         );
+    }
+
+    @Override
+    public boolean hasActiveAllTenantsFileShare(UUID fileId) {
+        return shareRepository.hasActiveAllTenantsFileShare(fileId, Instant.now());
+    }
+
+    @Override
+    public boolean hasActiveAllTenantsFolderShare(UUID folderId) {
+        return shareRepository.hasActiveAllTenantsFolderShare(folderId, Instant.now());
+    }
+
+    @Override
+    public boolean hasActiveAllTenantsShareOnAnyAncestor(UUID folderId) {
+        return shareRepository.hasActiveAllTenantsShareOnAnyAncestor(folderId);
     }
 
     @Override

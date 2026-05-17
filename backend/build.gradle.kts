@@ -27,6 +27,7 @@ val archunitVersion               = "1.3.0"
 val testcontainersVersion         = "1.19.3"
 val minioVersion                  = "8.6.0"
 val tikaVersion                   = "2.9.2"
+val shedlockVersion               = "6.6.0"
 
 // ─── Dependencies ─────────────────────────────────────────────────────────────
 dependencies {
@@ -54,6 +55,10 @@ dependencies {
 
 	// ── API Documentation ────────────────────────────────────────────────────
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:$springdocVersion")
+
+	// ── Distributed Scheduler Lock (ShedLock + Redis) ──────────────────────
+	implementation("net.javacrumbs.shedlock:shedlock-spring:$shedlockVersion")
+	implementation("net.javacrumbs.shedlock:shedlock-provider-redis-spring:$shedlockVersion")
 
 	// ── Object Storage (MinIO / S3-compatible) ─────────────────────────────
 	implementation("io.minio:minio:$minioVersion")

@@ -1,6 +1,7 @@
 package com.filestorage.application.usecase.share;
 
 import com.filestorage.adapter.out.persistence.entity.FileShare;
+import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.model.enums.ShareStatus;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
@@ -36,6 +37,14 @@ public final class ShareAccessPolicy {
 
     public static void validateSameTenant(UUID actorTenantId, UUID targetUserTenantId) {
         if (actorTenantId == null || targetUserTenantId == null || !actorTenantId.equals(targetUserTenantId)) {
+            throw new AppException(ErrorCode.CROSS_TENANT_SHARE_NOT_ALLOWED);
+        }
+    }
+
+    public static void validateTenantAdminTargetTenant(RoleCode role, UUID actorTenantId, UUID targetTenantId) {
+        if (role == RoleCode.TENANT_ADMIN
+                && targetTenantId != null
+                && !targetTenantId.equals(actorTenantId)) {
             throw new AppException(ErrorCode.CROSS_TENANT_SHARE_NOT_ALLOWED);
         }
     }

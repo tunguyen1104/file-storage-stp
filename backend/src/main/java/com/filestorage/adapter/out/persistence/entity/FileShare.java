@@ -71,4 +71,7 @@ public class FileShare {
 
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    @Column(name = "all_tenants", nullable = false)
+    private boolean allTenants = false;
 }

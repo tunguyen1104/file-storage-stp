@@ -20,6 +20,19 @@ public interface FileShareJpaRepository extends JpaRepository<FileShare, UUID> {
 
     void deleteByFileId(UUID fileId);
 
+    void deleteByFolderId(UUID folderId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE FileShare fs
+            SET fs.status = 'REVOKED',
+                fs.revokedAt = :revokedAt,
+                fs.updatedAt = :revokedAt
+            WHERE fs.fileId = :fileId
+              AND fs.status = 'ACTIVE'
+            """)
+    void revokeActiveSharesByFileId(@Param("fileId") UUID fileId, @Param("revokedAt") Instant revokedAt);
+
     boolean existsByFileIdAndSharedWithUserIdAndStatus(UUID fileId, UUID userId, ShareStatus status);
 
     boolean existsByFolderIdAndSharedWithUserIdAndStatus(UUID folderId, UUID userId, ShareStatus status);
@@ -67,6 +80,54 @@ public interface FileShareJpaRepository extends JpaRepository<FileShare, UUID> {
             @Param("folderId") UUID folderId,
             @Param("userId") UUID userId,
             @Param("status") ShareStatus status,
+            @Param("now") Instant now
+    );
+
+    @Query("""
+            SELECT COUNT(fs) > 0 FROM FileShare fs
+            WHERE fs.fileId = :fileId
+              AND fs.allTenants = true
+              AND fs.status = 'ACTIVE'
+              AND fs.expiresAt > :now
+            """)
+    boolean existsActiveAllTenantsFileShare(
+            @Param("fileId") UUID fileId,
+            @Param("now") Instant now
+    );
+
+    @Query("""
+            SELECT COUNT(fs) > 0 FROM FileShare fs
+            WHERE fs.folderId = :folderId
+              AND fs.allTenants = true
+              AND fs.status = 'ACTIVE'
+              AND fs.expiresAt > :now
+            """)
+    boolean existsActiveAllTenantsFolderShare(
+            @Param("folderId") UUID folderId,
+            @Param("now") Instant now
+    );
+
+    @Query("""
+            SELECT COUNT(fs) > 0 FROM FileShare fs
+            WHERE fs.fileId = :fileId
+              AND fs.allTenants = true
+              AND fs.status = 'ACTIVE'
+              AND fs.expiresAt > :now
+            """)
+    boolean hasActiveAllTenantsFileShare(
+            @Param("fileId") UUID fileId,
+            @Param("now") Instant now
+    );
+
+    @Query("""
+            SELECT COUNT(fs) > 0 FROM FileShare fs
+            WHERE fs.folderId = :folderId
+              AND fs.allTenants = true
+              AND fs.status = 'ACTIVE'
+              AND fs.expiresAt > :now
+            """)
+    boolean hasActiveAllTenantsFolderShare(
+            @Param("folderId") UUID folderId,
             @Param("now") Instant now
     );
 
@@ -143,7 +204,9 @@ public interface FileShareJpaRepository extends JpaRepository<FileShare, UUID> {
 
     @Query("""
             SELECT fs FROM FileShare fs
-            WHERE (fs.sharedWithUserId = :userId OR fs.sharedWithTenantId = :tenantId)
+            WHERE (fs.sharedWithUserId = :userId
+                OR fs.sharedWithTenantId = :tenantId
+                OR fs.allTenants = true)
               AND fs.status = :status
               AND fs.expiresAt > :now
               AND (:resourceType IS NULL
@@ -221,5 +284,24 @@ public interface FileShareJpaRepository extends JpaRepository<FileShare, UUID> {
     boolean hasActiveTenantShareOnAnyAncestor(
             @Param("folderId") UUID folderId,
             @Param("tenantId") UUID tenantId
+    );
+
+    @Query(value = """
+            WITH RECURSIVE ancestors AS (
+                SELECT id, parent_id FROM folders WHERE id = :folderId
+                UNION ALL
+                SELECT f.id, f.parent_id FROM folders f
+                INNER JOIN ancestors a ON f.id = a.parent_id
+            )
+            SELECT EXISTS (
+                SELECT 1 FROM file_shares fs
+                JOIN ancestors a ON fs.folder_id = a.id
+                WHERE fs.all_tenants = true
+                  AND fs.status = 'ACTIVE'
+                  AND fs.expires_at > NOW()
+            )
+            """, nativeQuery = true)
+    boolean hasActiveAllTenantsShareOnAnyAncestor(
+            @Param("folderId") UUID folderId
     );
 }

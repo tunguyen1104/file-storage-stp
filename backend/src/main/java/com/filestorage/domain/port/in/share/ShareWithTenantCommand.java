@@ -10,6 +10,7 @@ public record ShareWithTenantCommand(
         UUID actorTenantId,
         RoleCode actorRole,
         UUID resourceId,
-        Instant expiresAt
+        Instant expiresAt,
+        UUID targetTenantId
 ) {
 }
