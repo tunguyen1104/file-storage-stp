@@ -6,6 +6,13 @@ import com.filestorage.adapter.in.rest.dto.request.ShareFileRequest;
 import com.filestorage.adapter.in.rest.dto.request.ShareFolderRequest;
 import com.filestorage.adapter.in.rest.dto.request.ShareWithTenantRequest;
 import com.filestorage.adapter.in.rest.dto.response.ApiResponse;
+import com.filestorage.adapter.in.rest.dto.response.PageResponse;
+import com.filestorage.adapter.in.rest.dto.response.share.AdminBulkRevokeResultResponse;
+import com.filestorage.adapter.in.rest.dto.response.share.ShareExpirationResponse;
+import com.filestorage.adapter.in.rest.dto.response.share.ShareResponse;
+import com.filestorage.adapter.in.rest.dto.response.share.ShareWithResourceResponse;
+import com.filestorage.adapter.in.rest.dto.response.share.SharedWithMeResponse;
+import com.filestorage.adapter.in.rest.mapper.ShareRestMapper;
 import com.filestorage.adapter.in.rest.security.SecurityUser;
 import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.model.enums.ShareStatus;
@@ -13,7 +20,7 @@ import com.filestorage.domain.model.share.AdminBulkRevokeResultView;
 import com.filestorage.domain.model.share.ShareExpirationView;
 import com.filestorage.domain.model.share.SharePageView;
 import com.filestorage.domain.model.share.ShareView;
-import com.filestorage.domain.model.share.SharedWithMeView;
+import com.filestorage.domain.model.share.SharedWithMePageView;
 import com.filestorage.domain.port.in.share.AdminRevokeShareUseCase;
 import com.filestorage.domain.port.in.share.AdminRevokeUserSharesUseCase;
 import com.filestorage.domain.port.in.share.GetMySharesQuery;
@@ -34,7 +41,6 @@ import com.filestorage.shared.exception.ErrorCode;
 import com.filestorage.shared.util.SecurityContextUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -66,9 +72,10 @@ public class ShareController {
     private final RevokeShareUseCase revokeShareUseCase;
     private final AdminRevokeShareUseCase adminRevokeShareUseCase;
     private final AdminRevokeUserSharesUseCase adminRevokeUserSharesUseCase;
+    private final ShareRestMapper shareRestMapper;
 
     @PostMapping("/files")
-    public ResponseEntity<ApiResponse<ShareView>> shareFile(@RequestBody @Valid ShareFileRequest request) {
+    public ResponseEntity<ApiResponse<ShareResponse>> shareFile(@RequestBody @Valid ShareFileRequest request) {
         SecurityUser actor = currentUserOrThrow();
         ShareView view = shareFileUseCase.shareFile(new ShareFileCommand(
                 actorId(actor),
@@ -78,11 +85,11 @@ public class ShareController {
                 request.sharedWithUserEmail(),
                 resolveExpiresAt(request.expireTime())
         ));
-        return ResponseEntity.status(201).body(ApiResponse.buildSuccess(view));
+        return ResponseEntity.status(201).body(ApiResponse.buildSuccess(shareRestMapper.toShareResponse(view)));
     }
 
     @PostMapping("/folders")
-    public ResponseEntity<ApiResponse<ShareView>> shareFolder(@RequestBody @Valid ShareFolderRequest request) {
+    public ResponseEntity<ApiResponse<ShareResponse>> shareFolder(@RequestBody @Valid ShareFolderRequest request) {
         SecurityUser actor = currentUserOrThrow();
         ShareView view = shareFolderUseCase.shareFolder(new ShareFolderCommand(
                 actorId(actor),
@@ -93,11 +100,11 @@ public class ShareController {
                 request.permission(),
                 resolveExpiresAt(request.expireTime())
         ));
-        return ResponseEntity.status(201).body(ApiResponse.buildSuccess(view));
+        return ResponseEntity.status(201).body(ApiResponse.buildSuccess(shareRestMapper.toShareResponse(view)));
     }
 
     @PostMapping("/files/tenant")
-    public ResponseEntity<ApiResponse<ShareView>> shareFileWithTenant(@RequestBody @Valid ShareWithTenantRequest request) {
+    public ResponseEntity<ApiResponse<ShareResponse>> shareFileWithTenant(@RequestBody @Valid ShareWithTenantRequest request) {
         SecurityUser actor = currentUserOrThrow();
         ShareView view = shareFileWithTenantUseCase.shareFileWithTenant(new ShareWithTenantCommand(
                 actorId(actor),
@@ -106,11 +113,11 @@ public class ShareController {
                 request.resourceId(),
                 resolveExpiresAt(request.expireTime())
         ));
-        return ResponseEntity.status(201).body(ApiResponse.buildSuccess(view));
+        return ResponseEntity.status(201).body(ApiResponse.buildSuccess(shareRestMapper.toShareResponse(view)));
     }
 
     @PostMapping("/folders/tenant")
-    public ResponseEntity<ApiResponse<ShareView>> shareFolderWithTenant(@RequestBody @Valid ShareWithTenantRequest request) {
+    public ResponseEntity<ApiResponse<ShareResponse>> shareFolderWithTenant(@RequestBody @Valid ShareWithTenantRequest request) {
         SecurityUser actor = currentUserOrThrow();
         ShareView view = shareFolderWithTenantUseCase.shareFolderWithTenant(new ShareWithTenantCommand(
                 actorId(actor),
@@ -119,11 +126,11 @@ public class ShareController {
                 request.resourceId(),
                 resolveExpiresAt(request.expireTime())
         ));
-        return ResponseEntity.status(201).body(ApiResponse.buildSuccess(view));
+        return ResponseEntity.status(201).body(ApiResponse.buildSuccess(shareRestMapper.toShareResponse(view)));
     }
 
     @PatchMapping("/{shareId}/expiration")
-    public ResponseEntity<ApiResponse<ShareExpirationView>> renewExpiration(
+    public ResponseEntity<ApiResponse<ShareExpirationResponse>> renewExpiration(
             @PathVariable UUID shareId,
             @RequestBody @Valid RenewShareExpirationRequest request
     ) {
@@ -131,13 +138,13 @@ public class ShareController {
         ShareExpirationView view = renewShareExpirationUseCase.renew(
                 shareId,
                 actorId(actor),
-                resolveExpiresAt(request.expireTime())
+                Duration.ofMinutes(request.expireTime())
         );
-        return ResponseEntity.ok(ApiResponse.buildSuccess(view));
+        return ResponseEntity.ok(ApiResponse.buildSuccess(shareRestMapper.toShareExpirationResponse(view)));
     }
 
     @GetMapping("/by-me")
-    public ResponseEntity<ApiResponse<SharePageView>> getSharesByMe(
+    public ResponseEntity<ApiResponse<PageResponse<ShareWithResourceResponse>>> getSharesByMe(
             @RequestParam(required = false) String resourceType,
             @RequestParam(required = false) ShareStatus status,
             @RequestParam(defaultValue = "1") int page,
@@ -151,24 +158,24 @@ public class ShareController {
                 page,
                 limit
         ));
-        return ResponseEntity.ok(ApiResponse.buildSuccess(view));
+        return ResponseEntity.ok(ApiResponse.buildSuccess(shareRestMapper.toShareWithResourcePageResponse(view)));
     }
 
     @GetMapping("/with-me")
-    public ResponseEntity<ApiResponse<Page<SharedWithMeView>>> getSharesWithMe(
+    public ResponseEntity<ApiResponse<PageResponse<SharedWithMeResponse>>> getSharesWithMe(
             @RequestParam(required = false) String resourceType,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int limit
     ) {
         SecurityUser actor = currentUserOrThrow();
-        Page<SharedWithMeView> view = getSharesWithMeUseCase.getSharesWithMe(new GetSharesWithMeQuery(
+        SharedWithMePageView view = getSharesWithMeUseCase.getSharesWithMe(new GetSharesWithMeQuery(
                 actorId(actor),
                 tenantId(actor),
                 resourceType,
                 page,
                 limit
         ));
-        return ResponseEntity.ok(ApiResponse.buildSuccess(view));
+        return ResponseEntity.ok(ApiResponse.buildSuccess(shareRestMapper.toSharedWithMePageResponse(view)));
     }
 
     @DeleteMapping("/{shareId}")
@@ -188,7 +195,7 @@ public class ShareController {
 
     @PostMapping("/admin/users/{userId}/revoke")
     @PreAuthorize("hasAnyRole('TENANT_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<AdminBulkRevokeResultView>> adminRevokeUserShares(
+    public ResponseEntity<ApiResponse<AdminBulkRevokeResultResponse>> adminRevokeUserShares(
             @PathVariable UUID userId,
             @RequestBody @Valid AdminBulkRevokeRequest request
     ) {
@@ -198,7 +205,7 @@ public class ShareController {
                 actorId(actor),
                 request.scope().name()
         );
-        return ResponseEntity.ok(ApiResponse.buildSuccess(view));
+        return ResponseEntity.ok(ApiResponse.buildSuccess(shareRestMapper.toAdminBulkRevokeResultResponse(view)));
     }
 
     private SecurityUser currentUserOrThrow() {

@@ -69,6 +69,23 @@ public interface FolderJpaRepository extends JpaRepository<Folder, UUID>, JpaSpe
 			""", nativeQuery = true)
 	boolean isDescendant(UUID folderId, UUID tenantId, UUID candidateParentId);
 
+	@org.springframework.data.jpa.repository.Query(value = """
+			WITH RECURSIVE path AS (
+				SELECT id, parent_id, owner_id
+				FROM folders
+				WHERE id = :folderId AND tenant_id = :tenantId
+				UNION ALL
+				SELECT f.id, f.parent_id, f.owner_id
+				FROM folders f
+				JOIN path p ON p.parent_id = f.id
+				WHERE f.tenant_id = :tenantId
+			)
+			SELECT EXISTS (
+				SELECT 1 FROM path WHERE owner_id = :ownerId
+			)
+			""", nativeQuery = true)
+	boolean hasOwnerInPath(UUID folderId, UUID tenantId, UUID ownerId);
+
 	interface FolderBreadcrumbProjection {
 		java.util.UUID getId();
 		String getName();

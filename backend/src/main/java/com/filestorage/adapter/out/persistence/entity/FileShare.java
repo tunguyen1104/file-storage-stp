@@ -14,6 +14,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -47,6 +49,7 @@ public class FileShare {
     private UUID sharedWithTenantId;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "permission", columnDefinition = "permission_file")
     private PermissionFile permission;
 
@@ -57,7 +60,7 @@ public class FileShare {
     @Column(name = "shared_by", nullable = false)
     private UUID sharedBy;
 
-    @Column(name = "expires_at")
+    @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 
     @Column(name = "created_at", insertable = false, updatable = false)

@@ -5,6 +5,7 @@ import com.filestorage.adapter.out.persistence.entity.FileShare;
 import com.filestorage.adapter.out.persistence.entity.Folder;
 import com.filestorage.adapter.out.persistence.entity.Tenant;
 import com.filestorage.adapter.out.persistence.entity.User;
+import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
 import com.filestorage.domain.model.enums.MyPermission;
 import com.filestorage.domain.model.enums.PermissionFile;
 import com.filestorage.domain.model.enums.PermissionSource;
@@ -30,12 +31,14 @@ class ShareResolutionServiceTest {
 
     @Mock
     private ShareRepositoryPort shareRepository;
+    @Mock
+    private FolderJpaRepository folderRepository;
 
     private ShareResolutionService service;
 
     @BeforeEach
     void setUp() {
-        service = new ShareResolutionService(shareRepository);
+        service = new ShareResolutionService(shareRepository, folderRepository);
     }
 
     @Test
@@ -48,7 +51,7 @@ class ShareResolutionServiceTest {
 
         assertEquals(MyPermission.ADMIN, result.permission());
         assertEquals(PermissionSource.ADMIN_PRIVILEGE, result.source());
-        verifyNoInteractions(shareRepository);
+        verifyNoInteractions(shareRepository, folderRepository);
     }
 
     @Test
@@ -61,7 +64,7 @@ class ShareResolutionServiceTest {
 
         assertEquals(MyPermission.OWNER, result.permission());
         assertEquals(PermissionSource.OWNERSHIP, result.source());
-        verifyNoInteractions(shareRepository);
+        verifyNoInteractions(shareRepository, folderRepository);
     }
 
     @Test
@@ -112,6 +115,39 @@ class ShareResolutionServiceTest {
     }
 
     @Test
+    void ancestorFolderOwnerResolvesFolderDescendantAsInheritedViewer() {
+        UUID ancestorOwnerId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        Folder folder = folder(UUID.randomUUID(), tenantId, UUID.randomUUID());
+
+        when(shareRepository.findActiveUserFolderShare(folder.getId(), ancestorOwnerId)).thenReturn(Optional.empty());
+        when(shareRepository.hasActiveTenantFolderShare(folder.getId(), tenantId)).thenReturn(false);
+        when(folderRepository.hasOwnerInPath(folder.getId(), tenantId, ancestorOwnerId)).thenReturn(true);
+
+        PermissionResult result = service.resolveFolder(ancestorOwnerId, tenantId, RoleCode.MEMBER, folder);
+
+        assertEquals(MyPermission.VIEWER, result.permission());
+        assertEquals(PermissionSource.INHERITED, result.source());
+    }
+
+    @Test
+    void ancestorFolderOwnerResolvesFileDescendantAsInheritedViewer() {
+        UUID ancestorOwnerId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        Folder folder = folder(UUID.randomUUID(), tenantId, UUID.randomUUID());
+        File file = file(UUID.randomUUID(), tenantId, UUID.randomUUID(), folder);
+
+        when(shareRepository.findActiveUserFileShare(file.getId(), ancestorOwnerId)).thenReturn(Optional.empty());
+        when(shareRepository.hasActiveTenantFileShare(file.getId(), tenantId)).thenReturn(false);
+        when(folderRepository.hasOwnerInPath(folder.getId(), tenantId, ancestorOwnerId)).thenReturn(true);
+
+        PermissionResult result = service.resolveFile(ancestorOwnerId, tenantId, RoleCode.MEMBER, file);
+
+        assertEquals(MyPermission.VIEWER, result.permission());
+        assertEquals(PermissionSource.INHERITED, result.source());
+    }
+
+    @Test
     void crossTenantMemberGetsNoPermission() {
         UUID actorId = UUID.randomUUID();
         UUID actorTenantId = UUID.randomUUID();
@@ -120,7 +156,7 @@ class ShareResolutionServiceTest {
         PermissionResult result = service.resolveFolder(actorId, actorTenantId, RoleCode.MEMBER, folder);
 
         assertNull(result);
-        verifyNoInteractions(shareRepository);
+        verifyNoInteractions(shareRepository, folderRepository);
     }
 
     private Folder folder(UUID folderId, UUID tenantId, UUID ownerId) {

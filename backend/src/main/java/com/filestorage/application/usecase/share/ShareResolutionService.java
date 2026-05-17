@@ -3,6 +3,7 @@ package com.filestorage.application.usecase.share;
 import com.filestorage.adapter.out.persistence.entity.File;
 import com.filestorage.adapter.out.persistence.entity.FileShare;
 import com.filestorage.adapter.out.persistence.entity.Folder;
+import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
 import com.filestorage.domain.model.enums.MyPermission;
 import com.filestorage.domain.model.enums.PermissionFile;
 import com.filestorage.domain.model.enums.PermissionSource;
@@ -31,6 +32,7 @@ public class ShareResolutionService {
             new PermissionResult(MyPermission.VIEWER, PermissionSource.INHERITED);
 
     private final ShareRepositoryPort shareRepository;
+    private final FolderJpaRepository folderRepository;
 
     public PermissionResult resolveFolder(UUID actorId, UUID actorTenantId, RoleCode role, Folder folder) {
         if (folder == null || folder.getTenant() == null || folder.getTenant().getId() == null) {
@@ -56,6 +58,9 @@ public class ShareResolutionService {
         }
         if (shareRepository.hasActiveTenantFolderShare(folder.getId(), actorTenantId)) {
             return DIRECT_VIEWER;
+        }
+        if (isOwnerInFolderPath(folder.getId(), resourceTenantId, actorId)) {
+            return INHERITED_VIEWER;
         }
         if (shareRepository.hasActiveUserShareOnAnyAncestor(folder.getId(), actorId)
                 || shareRepository.hasActiveTenantShareOnAnyAncestor(folder.getId(), actorTenantId)) {
@@ -85,6 +90,10 @@ public class ShareResolutionService {
             return DIRECT_VIEWER;
         }
         if (file.getFolder() != null && file.getFolder().getId() != null
+                && isOwnerInFolderPath(file.getFolder().getId(), resourceTenantId, actorId)) {
+            return INHERITED_VIEWER;
+        }
+        if (file.getFolder() != null && file.getFolder().getId() != null
                 && (shareRepository.hasActiveUserShareOnAnyAncestor(file.getFolder().getId(), actorId)
                 || shareRepository.hasActiveTenantShareOnAnyAncestor(file.getFolder().getId(), actorTenantId))) {
             return INHERITED_VIEWER;
@@ -109,5 +118,12 @@ public class ShareResolutionService {
         return actorId != null
                 && file.getUploadedBy() != null
                 && actorId.equals(file.getUploadedBy().getId());
+    }
+
+    private boolean isOwnerInFolderPath(UUID folderId, UUID tenantId, UUID actorId) {
+        return folderId != null
+                && tenantId != null
+                && actorId != null
+                && folderRepository.hasOwnerInPath(folderId, tenantId, actorId);
     }
 }

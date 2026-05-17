@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -24,14 +25,18 @@ public class RenewShareExpirationService implements RenewShareExpirationUseCase 
 
     @Override
     @Transactional
-    public ShareExpirationView renew(UUID shareId, UUID actorId, Instant expiresAt) {
+    public ShareExpirationView renew(UUID shareId, UUID actorId, Duration duration) {
         User actor = support.resolveActor(actorId);
         FileShare share = findShare(shareId);
         validateActorOwnsSharedResource(actor, share);
         ShareAccessPolicy.validateNotRevoked(share);
-        ShareAccessPolicy.validateExpiresAt(expiresAt);
 
-        share.setExpiresAt(expiresAt);
+        // ACTIVE: cộng dồn vào expiresAt cũ; EXPIRED: tính từ thời điểm hiện tại
+        Instant base = share.getStatus() == ShareStatus.ACTIVE ? share.getExpiresAt() : Instant.now();
+        Instant newExpiresAt = base.plus(duration);
+        ShareAccessPolicy.validateExpiresAt(newExpiresAt);
+
+        share.setExpiresAt(newExpiresAt);
         share.setStatus(ShareStatus.ACTIVE);
         share.setRevokedAt(null);
         share.setUpdatedAt(Instant.now());
