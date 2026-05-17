@@ -14,8 +14,6 @@ public interface FolderJpaRepository extends JpaRepository<Folder, UUID>, JpaSpe
 
 	Optional<Folder> findByIdAndTenantId(UUID id, UUID tenantId);
 
-	Optional<Folder> findByIdAndOwnerId(UUID id, UUID ownerId);
-
 	boolean existsByIdAndTenantId(UUID id, UUID tenantId);
 
 	boolean existsByTenantIdAndParentIdAndName(UUID tenantId, UUID parentId, String name);

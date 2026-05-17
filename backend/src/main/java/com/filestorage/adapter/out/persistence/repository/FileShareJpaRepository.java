@@ -58,34 +58,6 @@ public interface FileShareJpaRepository extends JpaRepository<FileShare, UUID> {
     @Query("""
             SELECT COUNT(fs) > 0 FROM FileShare fs
             WHERE fs.fileId = :fileId
-              AND fs.sharedWithUserId = :userId
-              AND fs.status = :status
-              AND fs.expiresAt > :now
-            """)
-    boolean existsByFileIdAndSharedWithUserIdAndStatusAndExpiresAtAfter(
-            @Param("fileId") UUID fileId,
-            @Param("userId") UUID userId,
-            @Param("status") ShareStatus status,
-            @Param("now") Instant now
-    );
-
-    @Query("""
-            SELECT COUNT(fs) > 0 FROM FileShare fs
-            WHERE fs.folderId = :folderId
-              AND fs.sharedWithUserId = :userId
-              AND fs.status = :status
-              AND fs.expiresAt > :now
-            """)
-    boolean existsByFolderIdAndSharedWithUserIdAndStatusAndExpiresAtAfter(
-            @Param("folderId") UUID folderId,
-            @Param("userId") UUID userId,
-            @Param("status") ShareStatus status,
-            @Param("now") Instant now
-    );
-
-    @Query("""
-            SELECT COUNT(fs) > 0 FROM FileShare fs
-            WHERE fs.fileId = :fileId
               AND fs.allTenants = true
               AND fs.status = 'ACTIVE'
               AND fs.expiresAt > :now

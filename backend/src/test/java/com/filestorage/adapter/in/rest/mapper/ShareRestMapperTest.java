@@ -5,7 +5,6 @@ import com.filestorage.domain.model.enums.ShareRecipientType;
 import com.filestorage.domain.model.enums.ShareStatus;
 import com.filestorage.domain.model.share.PaginationView;
 import com.filestorage.domain.model.share.ShareResourceView;
-import com.filestorage.domain.model.share.ShareTenantView;
 import com.filestorage.domain.model.share.ShareUserView;
 import com.filestorage.domain.model.share.ShareView;
 import com.filestorage.domain.model.share.SharedByView;

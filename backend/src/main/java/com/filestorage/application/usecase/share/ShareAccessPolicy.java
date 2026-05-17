@@ -24,7 +24,7 @@ public final class ShareAccessPolicy {
     }
 
     public static void validateOwnership(UUID ownerId, UUID actorId) {
-        if (ownerId == null || actorId == null || !ownerId.equals(actorId)) {
+        if (ownerId == null || !ownerId.equals(actorId)) {
             throw new AppException(ErrorCode.FORBIDDEN_NOT_RESOURCE_OWNER);
         }
     }
@@ -36,7 +36,7 @@ public final class ShareAccessPolicy {
     }
 
     public static void validateSameTenant(UUID actorTenantId, UUID targetUserTenantId) {
-        if (actorTenantId == null || targetUserTenantId == null || !actorTenantId.equals(targetUserTenantId)) {
+        if (actorTenantId == null || !actorTenantId.equals(targetUserTenantId)) {
             throw new AppException(ErrorCode.CROSS_TENANT_SHARE_NOT_ALLOWED);
         }
     }
