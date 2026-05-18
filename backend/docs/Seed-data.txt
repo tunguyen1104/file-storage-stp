@@ -12,4 +12,9 @@ Member123@
 
 Tenant
 System: 025c459a-ad18-485e-ac36-a3cf283f3a74
-Normal: ab96a53d-56f0-4d0e-8d3e-5a6b6/
+
+
+docker compose -p backend-dev --env-file .env.backend-dev -f docker-compose.backend-dev.yml build
+docker compose -p backend-dev --env-file .env.backend-dev -f docker-compose.backend-dev.yml up -d
+docker compose -p backend-dev --env-file .env.backend-dev -f docker-compose.backend-dev.yml down
+

@@ -20,6 +20,7 @@ class FileSupport {
     private final UserJpaRepository userRepository;
     private final FileJpaRepository fileRepository;
     private final StorageProperties storageProperties;
+    private final FileAccessPolicy fileAccessPolicy;
 
     User resolveActor(UUID actorUserId, UUID actorTenantId) {
         User actor = userRepository.findByIdWithRoleAndTenant(actorUserId)
@@ -56,7 +57,7 @@ class FileSupport {
     ) {
         User actor = resolveActor(actorUserId, actorTenantId);
         File file = findReadableFile(fileId, actorTenantId, actorRole);
-        FileAccessPolicy.requireCanDownload(file, actor.getId(), actor.getTenant().getId(), actorRole);
+        fileAccessPolicy.requireCanDownload(file, actor.getId(), actor.getTenant().getId(), actorRole);
         FileStatePolicy.requireActive(file);
         int effectiveTtlMinutes = resolveTtlMinutes(ttlMinutes);
         return new DownloadContext(file, effectiveTtlMinutes);

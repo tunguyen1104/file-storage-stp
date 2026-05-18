@@ -6,9 +6,13 @@ import com.filestorage.adapter.out.persistence.entity.Tenant;
 import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
+import com.filestorage.application.usecase.share.ShareResolutionService;
 import com.filestorage.domain.model.enums.FolderItemType;
+import com.filestorage.domain.model.enums.MyPermission;
+import com.filestorage.domain.model.enums.PermissionSource;
 import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.model.folder.FolderItemPageView;
+import com.filestorage.domain.model.share.PermissionResult;
 import com.filestorage.domain.port.in.folder.ListFolderChildrenUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,12 +42,22 @@ class ListFolderChildrenServiceTest {
     private FileJpaRepository fileRepository;
     @Mock
     private FolderSupport folderSupport;
+    @Mock
+    private FolderAccessPolicy folderAccessPolicy;
+    @Mock
+    private ShareResolutionService shareResolutionService;
 
     private ListFolderChildrenService service;
 
     @BeforeEach
     void setUp() {
-        service = new ListFolderChildrenService(folderRepository, fileRepository, folderSupport);
+        service = new ListFolderChildrenService(
+                folderRepository,
+                fileRepository,
+                folderSupport,
+                folderAccessPolicy,
+                shareResolutionService
+        );
     }
 
     @Test
@@ -61,6 +75,14 @@ class ListFolderChildrenServiceTest {
         Folder folderA = folder(UUID.randomUUID(), tenantId, actor, "Design");
         Folder folderB = folder(UUID.randomUUID(), tenantId, actor, "Docs");
         File file = file(UUID.randomUUID(), tenantId, actor, "readme.pdf");
+        PermissionResult ownerPermission = new PermissionResult(MyPermission.OWNER, PermissionSource.OWNERSHIP);
+
+        when(shareResolutionService.resolveFolder(actorUserId, tenantId, RoleCode.TENANT_ADMIN, folderA))
+                .thenReturn(ownerPermission);
+        when(shareResolutionService.resolveFolder(actorUserId, tenantId, RoleCode.TENANT_ADMIN, folderB))
+                .thenReturn(ownerPermission);
+        when(shareResolutionService.resolveFile(actorUserId, tenantId, RoleCode.TENANT_ADMIN, file))
+                .thenReturn(ownerPermission);
 
         when(folderRepository.count(ArgumentMatchers.<Specification<Folder>>any())).thenReturn(2L);
         when(fileRepository.count(ArgumentMatchers.<Specification<File>>any())).thenReturn(1L);
@@ -94,6 +116,8 @@ class ListFolderChildrenServiceTest {
         assertEquals(FolderItemType.FOLDER, result.data().get(0).type());
         assertEquals(FolderItemType.FOLDER, result.data().get(1).type());
         assertEquals(FolderItemType.FILE, result.data().get(2).type());
+        assertEquals(MyPermission.OWNER, result.data().get(0).myPermission());
+        assertEquals(PermissionSource.OWNERSHIP, result.data().get(0).permissionSource());
     }
 
     private User actor(UUID userId, UUID tenantId) {

@@ -16,13 +16,14 @@ public class GetFolderBreadcrumbsService implements GetFolderBreadcrumbsUseCase 
 
     private final FolderJpaRepository folderRepository;
     private final FolderSupport folderSupport;
+    private final FolderAccessPolicy folderAccessPolicy;
 
     @Override
     @Transactional(readOnly = true)
     public List<BreadcrumbView> execute(GetFolderBreadcrumbsQuery query) {
         var actor = folderSupport.resolveActor(query.actorUserId(), query.actorTenantId());
         Folder folder = folderSupport.findReadableFolder(query.folderId(), actor.getTenant().getId(), query.actorRole());
-        FolderAccessPolicy.requireCanRead(folder, actor.getId(), actor.getTenant().getId(), query.actorRole());
+        folderAccessPolicy.requireCanRead(folder, actor.getId(), actor.getTenant().getId(), query.actorRole());
 
         return folderRepository.findBreadcrumbs(folder.getId(), actor.getTenant().getId())
                 .stream()
@@ -30,4 +31,3 @@ public class GetFolderBreadcrumbsService implements GetFolderBreadcrumbsUseCase 
                 .toList();
     }
 }
-

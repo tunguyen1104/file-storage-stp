@@ -32,6 +32,8 @@ public interface FolderRestMapper {
                 view.mimeType(),
                 view.status(),
                 toUserSummaryResponse(view.actorId(), view.actorFullName()),
+                view.myPermission(),
+                view.permissionSource(),
                 view.createdAt(),
                 view.updatedAt()
         );

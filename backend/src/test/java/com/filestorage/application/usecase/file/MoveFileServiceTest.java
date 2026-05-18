@@ -7,6 +7,7 @@ import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.mapper.FileViewMapper;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
+import com.filestorage.application.usecase.folder.FolderAccessPolicy;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.model.file.FileView;
@@ -36,12 +37,23 @@ class MoveFileServiceTest {
     private FileSupport fileSupport;
     @Mock
     private FileViewMapper fileViewMapper;
+    @Mock
+    private FileAccessPolicy fileAccessPolicy;
+    @Mock
+    private FolderAccessPolicy folderAccessPolicy;
 
     private MoveFileService service;
 
     @BeforeEach
     void setUp() {
-        service = new MoveFileService(fileRepository, folderRepository, fileSupport, fileViewMapper);
+        service = new MoveFileService(
+                fileRepository,
+                folderRepository,
+                fileSupport,
+                fileViewMapper,
+                fileAccessPolicy,
+                folderAccessPolicy
+        );
     }
 
     @Test
@@ -164,4 +176,3 @@ class MoveFileServiceTest {
         return file;
     }
 }
-

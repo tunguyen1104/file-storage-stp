@@ -21,6 +21,7 @@ public class CreateFolderService implements CreateFolderUseCase {
 
     private final FolderJpaRepository folderRepository;
     private final FolderSupport folderSupport;
+    private final FolderAccessPolicy folderAccessPolicy;
 
     @Override
     @Transactional
@@ -31,7 +32,7 @@ public class CreateFolderService implements CreateFolderUseCase {
         Folder parent = null;
         if (command.parentId() != null) {
             parent = folderSupport.findReadableFolder(command.parentId(), actor.getTenant().getId(), command.actorRole());
-            FolderAccessPolicy.requireCanModify(parent, actor.getId(), actor.getTenant().getId(), command.actorRole());
+            folderAccessPolicy.requireCanWriteDirect(parent, actor.getId(), actor.getTenant().getId(), command.actorRole());
         }
 
         UUID parentId = parent == null ? null : parent.getId();

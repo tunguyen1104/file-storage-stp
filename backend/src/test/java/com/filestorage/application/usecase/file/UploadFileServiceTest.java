@@ -7,6 +7,7 @@ import com.filestorage.adapter.out.persistence.mapper.FileViewMapper;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
+import com.filestorage.application.usecase.folder.FolderAccessPolicy;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.model.file.FileView;
@@ -48,6 +49,8 @@ class UploadFileServiceTest {
     private FileViewMapper fileViewMapper;
     @Mock
     private ObjectStoragePort objectStoragePort;
+    @Mock
+    private FolderAccessPolicy folderAccessPolicy;
 
     private UploadFileService uploadFileService;
 
@@ -60,7 +63,8 @@ class UploadFileServiceTest {
                 fileSupport,
                 fileViewMapper,
                 objectStoragePort,
-                new StorageProperties()
+                new StorageProperties(),
+                folderAccessPolicy
         );
     }
 

@@ -32,6 +32,8 @@ class FileDownloadSupportTest {
     private FileJpaRepository fileRepository;
     @Mock
     private UserJpaRepository userRepository;
+    @Mock
+    private FileAccessPolicy fileAccessPolicy;
 
     private FileSupport support;
 
@@ -39,7 +41,7 @@ class FileDownloadSupportTest {
     void setUp() {
         StorageProperties storageProperties = new StorageProperties();
         storageProperties.setDefaultDownloadTtlMinutes(15);
-        support = new FileSupport(userRepository, fileRepository, storageProperties);
+        support = new FileSupport(userRepository, fileRepository, storageProperties, fileAccessPolicy);
     }
 
     @Test
@@ -134,5 +136,4 @@ class FileDownloadSupportTest {
         return actor;
     }
 }
-
 

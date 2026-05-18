@@ -9,6 +9,7 @@ import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.MultipartUploadSessionJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
+import com.filestorage.application.usecase.folder.FolderAccessPolicy;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.enums.MultipartUploadStatus;
 import com.filestorage.domain.model.file.MultipartUploadInitView;
@@ -74,7 +75,7 @@ public class InitMultipartUploadService implements InitMultipartUploadUseCase {
             throw new AppException(ErrorCode.QUOTA_EXCEEDED);
         }
 
-        Folder folder = getFolderIfOwned(command.folderId(), actor.getId());
+        Folder folder = getWritableFolder(command.folderId(), actor, command.role());
 
         String storageKey = objectStoragePort.buildStorageKey(
                 tenant.getId().toString(),
@@ -123,12 +124,14 @@ public class InitMultipartUploadService implements InitMultipartUploadUseCase {
         return new MultipartUploadInitView(uploadId, pending.getId(), expiresAt);
     }
 
-    private Folder getFolderIfOwned(UUID folderId, UUID ownerId) {
+    private Folder getWritableFolder(UUID folderId, User actor, com.filestorage.domain.model.enums.RoleCode actorRole) {
         if (folderId == null) {
             return null;
         }
-        return folderRepository.findByIdAndOwnerId(folderId, ownerId)
+        Folder folder = folderRepository.findByIdAndTenantId(folderId, actor.getTenant().getId())
                 .orElseThrow(() -> new AppException(ErrorCode.FOLDER_NOT_FOUND));
+        folderAccessPolicy.requireCanWriteDirect(folder, actor.getId(), actor.getTenant().getId(), actorRole);
+        return folder;
     }
 
     private static MultipartSessionCacheDto toDto(MultipartUploadSession session, UUID fileId) {

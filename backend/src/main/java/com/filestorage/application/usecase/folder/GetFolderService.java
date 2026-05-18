@@ -17,13 +17,14 @@ public class GetFolderService implements GetFolderUseCase {
 
     private final FolderJpaRepository folderRepository;
     private final FolderSupport folderSupport;
+    private final FolderAccessPolicy folderAccessPolicy;
 
     @Override
     @Transactional(readOnly = true)
     public FolderView execute(GetFolderQuery query) {
         var actor = folderSupport.resolveActor(query.actorUserId(), query.actorTenantId());
         Folder folder = folderSupport.findReadableFolder(query.folderId(), actor.getTenant().getId(), query.actorRole());
-        FolderAccessPolicy.requireCanRead(folder, actor.getId(), actor.getTenant().getId(), query.actorRole());
+        folderAccessPolicy.requireCanRead(folder, actor.getId(), actor.getTenant().getId(), query.actorRole());
 
         List<BreadcrumbView> breadcrumbs = folderRepository.findBreadcrumbs(folder.getId(), actor.getTenant().getId())
                 .stream()
@@ -34,4 +35,3 @@ public class GetFolderService implements GetFolderUseCase {
         return FolderViewFactory.toFolderView(folder, sizeBytes, breadcrumbs);
     }
 }
-

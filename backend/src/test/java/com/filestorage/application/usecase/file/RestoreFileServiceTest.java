@@ -36,12 +36,14 @@ class RestoreFileServiceTest {
     private FileSupport fileSupport;
     @Mock
     private FileViewMapper fileViewMapper;
+    @Mock
+    private FileAccessPolicy fileAccessPolicy;
 
     private RestoreFileService service;
 
     @BeforeEach
     void setUp() {
-        service = new RestoreFileService(fileRepository, folderRepository, fileSupport, fileViewMapper);
+        service = new RestoreFileService(fileRepository, folderRepository, fileSupport, fileViewMapper, fileAccessPolicy);
     }
 
     @Test

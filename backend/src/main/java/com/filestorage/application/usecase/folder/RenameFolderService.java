@@ -21,13 +21,14 @@ public class RenameFolderService implements RenameFolderUseCase {
 
     private final FolderJpaRepository folderRepository;
     private final FolderSupport folderSupport;
+    private final FolderAccessPolicy folderAccessPolicy;
 
     @Override
     @Transactional
     public FolderView execute(RenameFolderCommand command) {
         User actor = folderSupport.resolveActor(command.actorUserId(), command.actorTenantId());
         Folder folder = folderSupport.findReadableFolder(command.folderId(), actor.getTenant().getId(), command.actorRole());
-        FolderAccessPolicy.requireCanModify(folder, actor.getId(), actor.getTenant().getId(), command.actorRole());
+        folderAccessPolicy.requireCanModify(folder, actor.getId(), actor.getTenant().getId(), command.actorRole());
 
         String name = normalizeName(command.name());
         UUID parentId = folder.getParent() == null ? null : folder.getParent().getId();
@@ -51,4 +52,3 @@ public class RenameFolderService implements RenameFolderUseCase {
         return trimmed;
     }
 }
-

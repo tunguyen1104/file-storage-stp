@@ -22,6 +22,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,12 +34,14 @@ class GetFileMetadataServiceTest {
     private FileSupport fileSupport;
     @Mock
     private FileViewMapper fileViewMapper;
+    @Mock
+    private FileAccessPolicy fileAccessPolicy;
 
     private GetFileMetadataService service;
 
     @BeforeEach
     void setUp() {
-        service = new GetFileMetadataService(fileSupport, fileViewMapper);
+        service = new GetFileMetadataService(fileSupport, fileViewMapper, fileAccessPolicy);
     }
 
     @Test
@@ -52,6 +55,9 @@ class GetFileMetadataServiceTest {
 
         File file = file(fileId, actorTenantId, uploaderId);
         when(fileSupport.findReadableFile(fileId, actorTenantId, RoleCode.MEMBER)).thenReturn(file);
+        doThrow(new AppException(ErrorCode.FORBIDDEN))
+                .when(fileAccessPolicy)
+                .requireCanDownload(file, actorUserId, actorTenantId, RoleCode.MEMBER);
 
         var query = new GetFileMetadataUseCase.GetFileMetadataQuery(actorUserId, actorTenantId, RoleCode.MEMBER, fileId);
 
@@ -121,4 +127,3 @@ class GetFileMetadataServiceTest {
         return file;
     }
 }
-

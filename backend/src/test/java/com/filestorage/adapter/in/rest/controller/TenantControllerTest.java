@@ -61,6 +61,8 @@ class TenantControllerTest {
     @Mock
     private DeactivateTenantUseCase deactivateTenantUseCase;
     @Mock
+    private ActivateTenantUseCase activateTenantUseCase;
+    @Mock
     private TenantRestMapper tenantRestMapper;
 
     private UUID actorUserId;
@@ -86,6 +88,7 @@ class TenantControllerTest {
                 getTenantUseCase,
                 updateTenantUseCase,
                 deactivateTenantUseCase,
+                activateTenantUseCase,
                 tenantRestMapper
         );
 
@@ -225,6 +228,21 @@ class TenantControllerTest {
         mockMvc.perform(delete("/api/v1/tenants/{tenantId}", tenantId))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value(ErrorCode.SYSTEM_TENANT_CANNOT_BE_DELETED.getCode()));
+    }
+
+    @Test
+    void activateTenant_returns200() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        TenantView view = new TenantView(tenantId, "Acme", "acme", 100L, 0L, true, actorUserId, Instant.now(), Instant.now());
+        TenantResponse response = new TenantResponse(tenantId, "Acme", "acme", 100L, 0L, true, actorUserId, Instant.now(), Instant.now());
+
+        when(activateTenantUseCase.execute(any())).thenReturn(view);
+        when(tenantRestMapper.toTenantResponse(view)).thenReturn(response);
+
+        mockMvc.perform(patch("/api/v1/tenants/{tenantId}/activate", tenantId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.isActive").value(true));
     }
 
     @Test
