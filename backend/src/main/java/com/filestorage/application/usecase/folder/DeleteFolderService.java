@@ -5,6 +5,8 @@ import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.FileShareJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
+import com.filestorage.application.usecase.indexing.AfterCommitIndexingPublisher;
+import com.filestorage.domain.event.FolderIndexEvent;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.port.in.folder.DeleteFolderUseCase;
 import com.filestorage.shared.exception.AppException;
@@ -29,6 +31,7 @@ public class DeleteFolderService implements DeleteFolderUseCase {
     private final FileShareJpaRepository fileShareRepository;
     private final FolderSupport folderSupport;
     private final FolderAccessPolicy folderAccessPolicy;
+    private final AfterCommitIndexingPublisher indexingPublisher;
 
     @Override
     @Transactional
@@ -38,7 +41,8 @@ public class DeleteFolderService implements DeleteFolderUseCase {
         folderAccessPolicy.requireCanModify(folder, actor.getId(), actor.getTenant().getId(), command.actorRole());
 
         UUID folderId = folder.getId();
-        if (folderRepository.existsByTenantIdAndParentId(actor.getTenant().getId(), folderId)
+        UUID tenantId = folder.getTenant().getId();
+        if (folderRepository.existsByTenantIdAndParentId(tenantId, folderId)
                 || fileRepository.existsByFolderIdAndStatusNotIn(folderId, FILE_STATUSES_ALLOWED_IN_DELETABLE_FOLDER)) {
             throw new AppException(ErrorCode.FOLDER_NOT_EMPTY);
         }
@@ -46,5 +50,12 @@ public class DeleteFolderService implements DeleteFolderUseCase {
         fileRepository.clearFolderByFolderIdAndStatusIn(folderId, FILE_STATUSES_ALLOWED_IN_DELETABLE_FOLDER);
         fileShareRepository.deleteByFolderId(folderId);
         folderRepository.delete(folder);
+
+        indexingPublisher.publishFolderDeleted(new FolderIndexEvent(
+                folderId,
+                tenantId,
+                folder.getCreatedBy().getId(),
+                FolderIndexEvent.Action.DELETE
+        ));
     }
 }

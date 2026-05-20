@@ -7,6 +7,8 @@ import com.filestorage.adapter.out.persistence.mapper.FileViewMapper;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
 import com.filestorage.application.usecase.folder.FolderAccessPolicy;
+import com.filestorage.application.usecase.indexing.AfterCommitIndexingPublisher;
+import com.filestorage.domain.event.FileIndexEvent;
 import com.filestorage.domain.model.file.FileView;
 import com.filestorage.domain.port.in.file.MoveFileUseCase;
 import com.filestorage.shared.exception.AppException;
@@ -25,6 +27,7 @@ public class MoveFileService implements MoveFileUseCase {
     private final FileViewMapper fileViewMapper;
     private final FileAccessPolicy fileAccessPolicy;
     private final FolderAccessPolicy folderAccessPolicy;
+    private final AfterCommitIndexingPublisher indexingPublisher;
 
     @Override
     @Transactional
@@ -42,6 +45,16 @@ public class MoveFileService implements MoveFileUseCase {
         }
 
         file.setFolder(targetFolder);
-        return fileViewMapper.toFileView(fileRepository.save(file));
+        File saved = fileRepository.save(file);
+
+        // folderId changed — UpdateFileIndexService reloads both name and folderId,
+        // so writing the same name back is a harmless no-op.
+        indexingPublisher.publishFileUpdated(new FileIndexEvent(
+                saved.getId(),
+                actor.getTenant().getId(),
+                saved.getUploadedBy().getId(),
+                FileIndexEvent.Action.UPSERT_METADATA
+        ));
+        return fileViewMapper.toFileView(saved);
     }
 }
