@@ -22,7 +22,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { downloadFile, getPresignedGetUrl, restoreFile } from "@/lib/api/file";
-import { FILE_STATUS } from "@/lib/constants";
 import type { FileMetadataResponse } from "@/types/file/file";
 import { cn } from "@/lib/utils";
 
@@ -259,98 +258,125 @@ export function FileDetailCard({
 
       {/* ── Action buttons ── */}
       <div className="mt-auto border-t border-gray-100 px-5 py-4 space-y-2">
-        {mode === "default" && (
-          <>
-            <div className="grid grid-cols-2 gap-2">
+        {(() => {
+          const isPendingScanOrError =
+            file.status === "PENDING" ||
+            file.status === "SCANNING" ||
+            file.status === "UPLOAD_FAILED" ||
+            file.status === "INFECTED";
+
+          if (isPendingScanOrError) {
+            return (
               <Button
                 size="sm"
                 variant="outline"
-                className="gap-2 w-full"
-                disabled={actionLoading !== null}
-                onClick={handleDownload}
-              >
-                {actionLoading === "download"
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <Download className="h-4 w-4" />}
-                Download
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-2 w-full"
-                disabled
-              >
-                <Share2 className="h-4 w-4" />
-                Share
-              </Button>
-            </div>
-            {isPreviewable(file.mimeType) && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-2 w-full"
-                disabled={actionLoading !== null}
-                onClick={handlePreview}
-              >
-                {actionLoading === "preview"
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <Eye className="h-4 w-4" />}
-                Preview
-              </Button>
-            )}
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-2 w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                className="gap-2 w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-medium"
                 disabled={actionLoading !== null}
                 onClick={() => onDelete?.(file)}
               >
                 <Trash2 className="h-4 w-4" />
-                Remove
+                Delete permanently
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-2 w-full"
-                disabled={actionLoading !== null}
-                onClick={() => onMove?.(file)}
-              >
-                <MoveRight className="h-4 w-4" />
-                Move
-              </Button>
-            </div>
-          </>
-        )}
+            );
+          }
 
-        {mode === "trash" && (
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-2 w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-              disabled={actionLoading !== null}
-              onClick={() => onDelete?.(file)}
-            >
-              {actionLoading === "delete"
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <Trash2 className="h-4 w-4" />}
-              Delete
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-2 w-full border-[#7C3AED]/30 text-[#7C3AED] hover:bg-[#F3E8FF] hover:text-[#7C3AED]"
-              disabled={actionLoading !== null}
-              onClick={handleRestore}
-            >
-              {actionLoading === "restore"
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <RotateCcw className="h-4 w-4" />}
-              Restore
-            </Button>
-          </div>
-        )}
+          if (mode === "default") {
+            return (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 w-full"
+                    disabled={actionLoading !== null}
+                    onClick={handleDownload}
+                  >
+                    {actionLoading === "download"
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <Download className="h-4 w-4" />}
+                    Download
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 w-full"
+                    disabled
+                  >
+                    <Share2 className="h-4 w-4" />
+                    Share
+                  </Button>
+                </div>
+                {isPreviewable(file.mimeType) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 w-full"
+                    disabled={actionLoading !== null}
+                    onClick={handlePreview}
+                  >
+                    {actionLoading === "preview"
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <Eye className="h-4 w-4" />}
+                    Preview
+                  </Button>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                    disabled={actionLoading !== null}
+                    onClick={() => onDelete?.(file)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Remove
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 w-full"
+                    disabled={actionLoading !== null}
+                    onClick={() => onMove?.(file)}
+                  >
+                    <MoveRight className="h-4 w-4" />
+                    Move
+                  </Button>
+                </div>
+              </>
+            );
+          }
+
+          if (mode === "trash") {
+            return (
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-2 w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                  disabled={actionLoading !== null}
+                  onClick={() => onDelete?.(file)}
+                >
+                  {actionLoading === "delete"
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Trash2 className="h-4 w-4" />}
+                  Delete
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-2 w-full border-[#7C3AED]/30 text-[#7C3AED] hover:bg-[#F3E8FF] hover:text-[#7C3AED]"
+                  disabled={actionLoading !== null}
+                  onClick={handleRestore}
+                >
+                  {actionLoading === "restore"
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <RotateCcw className="h-4 w-4" />}
+                  Restore
+                </Button>
+              </div>
+            );
+          }
+        })()}
       </div>
 
     </div>
@@ -363,7 +389,7 @@ function MetaCell({ label, value }: { label: string; value: string }) {
   return (
     <div className="space-y-0.5">
       <p className="text-[10px] font-semibold tracking-wider text-gray-400 uppercase">{label}</p>
-      <p className="text-sm font-medium text-gray-800 truncate">{value}</p>
+      <p className="text-sm font-medium text-gray-800 truncate" title={value}>{value}</p>
     </div>
   );
 }

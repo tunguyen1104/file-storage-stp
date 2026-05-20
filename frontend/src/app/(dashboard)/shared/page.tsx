@@ -2,6 +2,7 @@
 
 import { useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import useSWR from "swr";
 import {
   Share2,
   Users,
@@ -14,18 +15,21 @@ import {
   FileAudio,
   File as FileIcon,
   Folder as FolderIcon,
-  Link2,
-  Mail,
   MoreVertical,
   Eye,
   Download,
   Trash2,
-  Copy,
   ExternalLink,
   Search,
-  UserCircle2,
   ShieldCheck,
   ShieldOff,
+  User,
+  Building,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  Link,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -39,6 +43,24 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  listSharesWithMe,
+  listSharesByMe,
+  revokeShare,
+  extendShare,
+} from "@/lib/api/share";
+import { getPresignedGetUrl } from "@/lib/api/file";
+import { FilePreviewDialog } from "@/components/files/FilePreviewDialog";
+import { ExtendShareDialog } from "@/components/files/ExtendShareDialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // ─── Helpers ──────────────────────────────────────────────────────
 
@@ -54,8 +76,8 @@ function renderFileIcon(mimeType: string | null, size = "h-5 w-5") {
   return <FileIcon className={cn(size, "text-gray-400")} />;
 }
 
-function formatBytes(bytes: number): string {
-  if (!bytes) return "—";
+function formatBytes(bytes: number | null): string {
+  if (bytes === null || bytes === undefined) return "—";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -65,140 +87,49 @@ function formatBytes(bytes: number): string {
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 60) return `${mins} phút trước`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24) return `${hrs} giờ trước`;
   const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString();
+  if (days < 30) return `${days} ngày trước`;
+  return new Date(dateStr).toLocaleDateString("vi-VN");
 }
 
-function getAvatar(name: string) {
-  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=7C3AED`;
-}
+const isFilePreviewable = (mimeType: string | null, name: string): boolean => {
+  if (!mimeType) {
+    const ext = name.split(".").pop()?.toLowerCase();
+    const previewableExtensions = [
+      "pdf",
+      "png",
+      "jpg",
+      "jpeg",
+      "gif",
+      "webp",
+      "svg",
+      "mp4",
+      "webm",
+      "mp3",
+      "ogg",
+      "wav",
+      "txt",
+    ];
+    return ext ? previewableExtensions.includes(ext) : false;
+  }
+  return (
+    mimeType === "application/pdf" ||
+    mimeType.startsWith("image/") ||
+    mimeType.startsWith("video/") ||
+    mimeType.startsWith("audio/") ||
+    mimeType.startsWith("text/")
+  );
+};
 
-// ─── Mock data ────────────────────────────────────────────────────
-
-const SHARED_WITH_ME: SharedItem[] = [
-  {
-    id: "s1",
-    name: "Q1 2025 Report.pdf",
-    mimeType: "application/pdf",
-    sizeBytes: 2400000,
-    sharedBy: { name: "Alice Nguyen", email: "alice@example.com" },
-    permission: "VIEW",
-    sharedAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-    type: "file",
-  },
-  {
-    id: "s2",
-    name: "Design Assets",
-    mimeType: null,
-    sizeBytes: 0,
-    sharedBy: { name: "Bob Tran", email: "bob@example.com" },
-    permission: "EDIT",
-    sharedAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-    type: "folder",
-  },
-  {
-    id: "s3",
-    name: "Product Demo.mp4",
-    mimeType: "video/mp4",
-    sizeBytes: 145000000,
-    sharedBy: { name: "Carol Le", email: "carol@example.com" },
-    permission: "VIEW",
-    sharedAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    type: "file",
-  },
-  {
-    id: "s4",
-    name: "Team Photos",
-    mimeType: null,
-    sizeBytes: 0,
-    sharedBy: { name: "David Pham", email: "david@example.com" },
-    permission: "EDIT",
-    sharedAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-    type: "folder",
-  },
-  {
-    id: "s5",
-    name: "Budget Tracker.xlsx",
-    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    sizeBytes: 820000,
-    sharedBy: { name: "Eve Hoang", email: "eve@example.com" },
-    permission: "VIEW",
-    sharedAt: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
-    type: "file",
-  },
-];
-
-const MY_SHARES: MyShareItem[] = [
-  {
-    id: "m1",
-    name: "Project Proposal.docx",
-    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    sizeBytes: 350000,
-    sharedWith: [
-      { name: "Alice Nguyen", email: "alice@example.com" },
-      { name: "Bob Tran", email: "bob@example.com" },
-    ],
-    permission: "VIEW",
-    sharedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    type: "file",
-    linkEnabled: true,
-  },
-  {
-    id: "m2",
-    name: "Marketing Materials",
-    mimeType: null,
-    sizeBytes: 0,
-    sharedWith: [{ name: "Carol Le", email: "carol@example.com" }],
-    permission: "EDIT",
-    sharedAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    type: "folder",
-    linkEnabled: false,
-  },
-  {
-    id: "m3",
-    name: "Annual Report 2024.pdf",
-    mimeType: "application/pdf",
-    sizeBytes: 5200000,
-    sharedWith: [
-      { name: "David Pham", email: "david@example.com" },
-      { name: "Eve Hoang", email: "eve@example.com" },
-      { name: "Frank Vo", email: "frank@example.com" },
-    ],
-    permission: "VIEW",
-    sharedAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
-    type: "file",
-    linkEnabled: true,
-  },
-];
-
-// ─── Types ────────────────────────────────────────────────────────
-
-interface SharedItem {
-  id: string;
-  name: string;
-  mimeType: string | null;
-  sizeBytes: number;
-  sharedBy: { name: string; email: string };
-  permission: "VIEW" | "EDIT";
-  sharedAt: string;
-  type: "file" | "folder";
-}
-
-interface MyShareItem {
-  id: string;
-  name: string;
-  mimeType: string | null;
-  sizeBytes: number;
-  sharedWith: { name: string; email: string }[];
-  permission: "VIEW" | "EDIT";
-  sharedAt: string;
-  type: "file" | "folder";
-  linkEnabled: boolean;
-}
+const getStatusLabel = (status: string) => {
+  if (status === "ACTIVE") return "Hoạt động";
+  if (status === "EXPIRED") return "Hết hạn";
+  if (status === "REVOKED") return "Bị thu hồi";
+  return status;
+};
 
 // ─── Permission Badge ─────────────────────────────────────────────
 
@@ -206,369 +137,651 @@ function PermissionBadge({ permission }: { permission: "VIEW" | "EDIT" }) {
   return permission === "EDIT" ? (
     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
       <ShieldCheck className="h-3 w-3" />
-      Can edit
+      Chỉnh sửa
     </span>
   ) : (
     <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[11px] font-semibold text-blue-600">
       <Eye className="h-3 w-3" />
-      View only
+      Chỉ xem
     </span>
   );
 }
 
-// ─── Shared With Me Tab ───────────────────────────────────────────
-
-function SharedWithMeTab({ search }: { search: string }) {
-  const filtered = SHARED_WITH_ME.filter((i) =>
-    i.name.toLowerCase().includes(search.toLowerCase()) ||
-    i.sharedBy.name.toLowerCase().includes(search.toLowerCase())
-  );
-
-  if (filtered.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-gray-200 bg-white py-20">
-        <Share2 className="h-10 w-10 text-gray-300" />
-        <p className="text-sm text-gray-400">
-          {search ? `Không tìm thấy kết quả cho "${search}"` : "Chưa có tệp nào được chia sẻ với bạn."}
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-      <table className="w-full text-sm">
-        <thead className="border-b border-gray-100 bg-gray-50">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 w-[38%]">Tên</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden md:table-cell w-[22%]">Chia sẻ bởi</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell w-[15%]">Quyền</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell w-[12%]">Kích thước</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 w-[10%]">Ngày nhận</th>
-            <th className="w-10" />
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.map((item) => (
-            <tr
-              key={item.id}
-              className="group border-b border-gray-50 transition-colors hover:bg-gray-50 cursor-pointer"
-            >
-              <td className="px-4 py-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  {renderFileIcon(item.mimeType, "h-5 w-5 shrink-0")}
-                  <span className="truncate font-medium text-gray-800">{item.name}</span>
-                  {item.type === "folder" && (
-                    <Badge variant="secondary" className="text-[10px] py-0 px-1.5 shrink-0">Folder</Badge>
-                  )}
-                </div>
-              </td>
-              <td className="px-4 py-3 hidden md:table-cell">
-                <div className="flex items-center gap-2">
-                  <Avatar className="h-6 w-6 shrink-0">
-                    <AvatarImage src={getAvatar(item.sharedBy.name)} />
-                    <AvatarFallback className="text-[10px]">{item.sharedBy.name[0]}</AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-gray-700 truncate">{item.sharedBy.name}</p>
-                    <p className="text-[11px] text-gray-400 truncate">{item.sharedBy.email}</p>
-                  </div>
-                </div>
-              </td>
-              <td className="px-4 py-3 hidden sm:table-cell">
-                <PermissionBadge permission={item.permission} />
-              </td>
-              <td className="px-4 py-3 hidden sm:table-cell text-gray-400 tabular-nums text-xs">
-                {formatBytes(item.sizeBytes)}
-              </td>
-              <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">
-                {timeAgo(item.sharedAt)}
-              </td>
-              <td className="px-1 py-3">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    <button className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem className="gap-2 text-[13px] cursor-pointer">
-                      <Eye className="h-4 w-4 text-gray-500" />
-                      Xem
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="gap-2 text-[13px] cursor-pointer">
-                      <Download className="h-4 w-4 text-gray-500" />
-                      Tải xuống
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="gap-2 text-[13px] cursor-pointer text-red-600 focus:text-red-700 focus:bg-red-50">
-                      <ShieldOff className="h-4 w-4" />
-                      Rời khỏi chia sẻ
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// ─── My Shares Tab ────────────────────────────────────────────────
-
-function MySharesTab({ search }: { search: string }) {
-  const filtered = MY_SHARES.filter((i) =>
-    i.name.toLowerCase().includes(search.toLowerCase())
-  );
-
-  if (filtered.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-gray-200 bg-white py-20">
-        <Users className="h-10 w-10 text-gray-300" />
-        <p className="text-sm text-gray-400">
-          {search ? `Không tìm thấy kết quả cho "${search}"` : "Bạn chưa chia sẻ tệp nào."}
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      {filtered.map((item) => (
-        <div
-          key={item.id}
-          className="group rounded-xl border border-gray-200 bg-white p-4 hover:border-gray-300 hover:shadow-sm transition-all"
-        >
-          <div className="flex items-start gap-3">
-            {/* Icon */}
-            <div className="mt-0.5 shrink-0">
-              {renderFileIcon(item.mimeType, "h-8 w-8")}
-            </div>
-
-            {/* Main info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-semibold text-gray-900 text-sm truncate">{item.name}</span>
-                {item.type === "folder" && (
-                  <Badge variant="secondary" className="text-[10px] py-0 px-1.5 shrink-0">Folder</Badge>
-                )}
-                <PermissionBadge permission={item.permission} />
-                {item.linkEnabled && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 border border-violet-200 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
-                    <Link2 className="h-3 w-3" />
-                    Link enabled
-                  </span>
-                )}
-              </div>
-
-              <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {timeAgo(item.sharedAt)}
-                </span>
-                {item.sizeBytes > 0 && <span>{formatBytes(item.sizeBytes)}</span>}
-              </div>
-
-              {/* Shared with avatars */}
-              <div className="mt-3 flex items-center gap-2">
-                <div className="flex -space-x-2">
-                  {item.sharedWith.slice(0, 4).map((u, idx) => (
-                    <Avatar key={idx} className="h-7 w-7 border-2 border-white shadow-sm" title={u.name}>
-                      <AvatarImage src={getAvatar(u.name)} />
-                      <AvatarFallback className="text-[10px] bg-[#7C3AED] text-white">{u.name[0]}</AvatarFallback>
-                    </Avatar>
-                  ))}
-                  {item.sharedWith.length > 4 && (
-                    <div className="h-7 w-7 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-[10px] font-semibold text-gray-500 shadow-sm">
-                      +{item.sharedWith.length - 4}
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {item.sharedWith.slice(0, 2).map((u, idx) => (
-                    <span key={idx} className="text-xs text-gray-500">{u.name}{idx < Math.min(1, item.sharedWith.length - 1) ? "," : ""}</span>
-                  ))}
-                  {item.sharedWith.length > 2 && (
-                    <span className="text-xs text-gray-400">và {item.sharedWith.length - 2} người khác</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0">
-                  <MoreVertical className="h-4 w-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuItem className="gap-2 text-[13px] cursor-pointer">
-                  <UserCircle2 className="h-4 w-4 text-gray-500" />
-                  Quản lý người dùng
-                </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2 text-[13px] cursor-pointer">
-                  <Copy className="h-4 w-4 text-gray-500" />
-                  Sao chép liên kết
-                </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2 text-[13px] cursor-pointer">
-                  <ExternalLink className="h-4 w-4 text-gray-500" />
-                  Mở tệp
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="gap-2 text-[13px] cursor-pointer text-red-600 focus:text-red-700 focus:bg-red-50">
-                  <Trash2 className="h-4 w-4" />
-                  Hủy chia sẻ tất cả
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── Invite / share mini-CTA card ────────────────────────────────
-
-function ShareCTACard() {
-  return (
-    <div className="rounded-xl border border-dashed border-violet-300 bg-violet-50/60 p-5 flex items-center gap-4">
-      <div className="h-10 w-10 rounded-full bg-[#7C3AED]/10 flex items-center justify-center shrink-0">
-        <Mail className="h-5 w-5 text-[#7C3AED]" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-gray-800">Chia sẻ tệp hoặc thư mục</p>
-        <p className="text-xs text-gray-500 mt-0.5">Gửi lời mời tới đồng nghiệp để cộng tác cùng nhau.</p>
-      </div>
-      <Button size="sm" className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white gap-2 shrink-0">
-        <Share2 className="h-4 w-4" />
-        Chia sẻ ngay
-      </Button>
-    </div>
-  );
-}
-
-// ─── Inner page ───────────────────────────────────────────────────
+// ─── Shared Page Inner ───────────────────────────────────────────
 
 function SharedPageInner() {
+  const { user } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
   const tab = (searchParams.get("view") as "received" | "sent") ?? "received";
   const [search, setSearch] = useState("");
+  const [resourceTypeFilter, setResourceTypeFilter] = useState<"ALL" | "FILE" | "FOLDER">("ALL");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+
+  // Pagination states
+  const [receivedPage, setReceivedPage] = useState(1);
+  const [sentPage, setSentPage] = useState(1);
+  const limit = 12;
+
+  // Selected file preview state
+  const [fileToPreview, setFileToPreview] = useState<{
+    id: string;
+    originalName: string;
+    mimeType: string | null;
+    sizeBytes: number;
+    status: string;
+  } | null>(null);
+
+  const [extendShareId, setExtendShareId] = useState<string | null>(null);
+  const [extendResourceName, setExtendResourceName] = useState<string>("");
 
   const isReceived = tab === "received";
 
-  const STATS = [
-    {
-      label: "Được chia sẻ với tôi",
-      value: SHARED_WITH_ME.length,
-      icon: Share2,
-      color: "bg-blue-50 text-blue-600",
-    },
-    {
-      label: "Tôi đã chia sẻ",
-      value: MY_SHARES.length,
-      icon: Users,
-      color: "bg-violet-50 text-violet-600",
-    },
-    {
-      label: "Có quyền chỉnh sửa",
-      value: SHARED_WITH_ME.filter((i) => i.permission === "EDIT").length,
-      icon: ShieldCheck,
-      color: "bg-emerald-50 text-emerald-600",
-    },
-  ];
+  // SWR fetch for Received Shares
+  const {
+    data: receivedShares,
+    mutate: refreshReceived,
+    isLoading: isLoadingReceived,
+  } = useSWR(
+    isReceived
+      ? [
+        "shares-with-me",
+        receivedPage,
+        limit,
+        resourceTypeFilter === "ALL" ? undefined : resourceTypeFilter.toLowerCase(),
+      ]
+      : null,
+    () =>
+      listSharesWithMe({
+        page: receivedPage,
+        limit,
+        resourceType: resourceTypeFilter === "ALL" ? undefined : (resourceTypeFilter.toLowerCase() as any),
+      }),
+    { revalidateOnFocus: false }
+  );
+
+  // SWR fetch for Sent Shares
+  const {
+    data: sentShares,
+    mutate: refreshSent,
+    isLoading: isLoadingSent,
+  } = useSWR(
+    !isReceived
+      ? [
+        "shares-by-me",
+        sentPage,
+        limit,
+        resourceTypeFilter === "ALL" ? undefined : resourceTypeFilter.toLowerCase(),
+        statusFilter === "ALL" ? undefined : statusFilter,
+      ]
+      : null,
+    () =>
+      listSharesByMe({
+        page: sentPage,
+        limit,
+        resourceType: resourceTypeFilter === "ALL" ? undefined : (resourceTypeFilter.toLowerCase() as any),
+        status: statusFilter === "ALL" ? undefined : statusFilter,
+      }),
+    { revalidateOnFocus: false }
+  );
+
+  // Stats row numbers
+  const { data: statsReceived } = useSWR("stats-received-shares", () =>
+    listSharesWithMe({ page: 1, limit: 100 })
+  );
+  const { data: statsSent } = useSWR("stats-sent-shares", () =>
+    listSharesByMe({ page: 1, limit: 100 })
+  );
+
+  const totalReceivedCount = statsReceived?.totalElements ?? 0;
+  const totalSentCount = statsSent?.totalElements ?? 0;
+  const totalEditCount = (statsReceived?.data ?? []).filter((s) => s.permission === "EDIT").length;
+
+  const handleDownload = async (fileId: string, originalName: string) => {
+    try {
+      const { getUrl } = await getPresignedGetUrl(fileId);
+      const link = document.createElement("a");
+      link.href = getUrl;
+      link.setAttribute("download", originalName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      toast.error("Không thể lấy đường dẫn tải xuống");
+    }
+  };
+
+  const handleExtend = (shareId: string, resourceName: string) => {
+    setExtendShareId(shareId);
+    setExtendResourceName(resourceName);
+  };
+
+  const handleRevoke = async (shareId: string) => {
+    if (!confirm("Bạn có chắc chắn muốn thu hồi quyền chia sẻ này không?")) return;
+    try {
+      await revokeShare(shareId);
+      toast.success("Đã hủy chia sẻ thành công");
+      if (isReceived) refreshReceived();
+      else refreshSent();
+    } catch (err: any) {
+      toast.error(err instanceof Error ? err.message : "Hủy chia sẻ thất bại");
+    }
+  };
+
+  const handleCopyLink = async (fileId: string) => {
+    try {
+      const { getUrl } = await getPresignedGetUrl(fileId);
+      await navigator.clipboard.writeText(getUrl);
+      toast.success("Sao chép liên kết thành công!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Sao chép liên kết thất bại");
+    }
+  };
+
+  const handlePreviewOrOpen = (item: any) => {
+    const isFolder = item.resourceType === "folder" || item.resource?.type === "folder";
+    const resId = item.resource?.id || item.fileId || item.folderId;
+    const resName = item.resource?.name || item.name;
+    const permission: string = item.permission ?? "VIEW";
+
+    if (isFolder) {
+      // Redirect to All Files page with sharedPermission param
+      router.push(`/files?folderId=${resId}&sharedPermission=${permission}`);
+      return;
+    }
+
+    // It's a file: preview or download
+    const mimeType = item.resource?.mimeType || item.mimeType;
+    const sizeBytes = item.resource?.sizeBytes || item.sizeBytes || 0;
+    if (isFilePreviewable(mimeType, resName)) {
+      setFileToPreview({
+        id: resId,
+        originalName: resName,
+        mimeType: mimeType || null,
+        sizeBytes,
+        status: "ACTIVE",
+      });
+    } else {
+      toast.info("Tệp tin không được hỗ trợ xem trước, đang tải xuống máy...");
+      handleDownload(resId, resName);
+    }
+  };
+
+  // Filtering list locally using the search query
+  const filteredReceived = (receivedShares?.data ?? []).filter((i) =>
+    i.resource?.name?.toLowerCase().includes(search.toLowerCase()) ||
+    i.sharedBy?.fullName?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const filteredSent = (sentShares?.data ?? []).filter((i) =>
+    i.resource?.name?.toLowerCase().includes(search.toLowerCase()) ||
+    i.sharedWithUser?.fullName?.toLowerCase().includes(search.toLowerCase()) ||
+    i.sharedWithUser?.email?.toLowerCase().includes(search.toLowerCase()) ||
+    i.sharedWithTenant?.name?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const totalPages = isReceived
+    ? receivedShares?.totalPages ?? 1
+    : sentShares?.totalPages ?? 1;
+
+  const currentPage = isReceived ? receivedPage : sentPage;
+  const setCurrentPage = isReceived ? setReceivedPage : setSentPage;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-gray-50">
-      {/* ── Top bar ── */}
-      <div className="flex items-center border-b border-gray-200 bg-white px-6 py-3 shrink-0">
-        <div className="relative flex-1 max-w-lg">
+    <div className="flex h-full flex-col overflow-hidden bg-gray-50/70">
+      {/* ── Top navigation filter block ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-200 bg-white px-6 py-4 gap-4 shrink-0 shadow-sm z-10">
+        <div className="relative w-full sm:max-w-md">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
-            className="h-9 border-gray-200 bg-gray-50 pl-9 text-sm placeholder:text-gray-400 focus-visible:ring-[#7C3AED]/30"
-            placeholder="Tìm kiếm tệp được chia sẻ..."
+            className="h-9 border-gray-200 bg-gray-50 pl-9 text-sm placeholder:text-gray-400 focus-visible:ring-primary/30"
+            placeholder="Tìm kiếm theo tên tài nguyên, người gửi..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+
+        {/* Dropdowns */}
+        <div className="flex items-center gap-3 self-end sm:self-auto">
+          {/* Resource Type */}
+          <Select
+            value={resourceTypeFilter}
+            onValueChange={(v: any) => {
+              setResourceTypeFilter(v);
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger className="w-[140px] h-9 text-xs font-semibold">
+              <SelectValue placeholder="Loại tài nguyên" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tất cả định dạng</SelectItem>
+              <SelectItem value="FILE">Tệp tin (File)</SelectItem>
+              <SelectItem value="FOLDER">Thư mục (Folder)</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Status filter (Only for Sent shares) */}
+          {!isReceived && (
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => {
+                setStatusFilter(v);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[140px] h-9 text-xs font-semibold">
+                <SelectValue placeholder="Trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Tất cả trạng thái</SelectItem>
+                <SelectItem value="ACTIVE">Hoạt động (ACTIVE)</SelectItem>
+                <SelectItem value="EXPIRED">Hết hạn (EXPIRED)</SelectItem>
+                <SelectItem value="REVOKED">Bị thu hồi (REVOKED)</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        </div>
       </div>
 
-      {/* ── Scrollable body ── */}
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 min-h-0">
-        {/* Stats row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {STATS.map((s) => {
-            const Icon = s.icon;
-            return (
-              <div key={s.label} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-5 py-4">
-                <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg shrink-0", s.color)}>
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900 leading-none">{s.value}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      {/* ── Scrollable Body ── */}
+      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6 min-h-0 hide-scrollbar">
 
-        {/* Share CTA */}
-        <ShareCTACard />
-
-        {/* Tabs */}
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-0.5 rounded-xl border border-gray-200 bg-white p-1 w-fit">
+        {/* Dynamic tabs */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-white p-1 shadow-sm w-fit">
             <button
-              onClick={() => router.replace("/shared?view=received")}
+              onClick={() => {
+                router.replace("/shared?view=received");
+                setCurrentPage(1);
+              }}
               className={cn(
-                "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
+                "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all",
                 isReceived
-                  ? "bg-[#7C3AED] text-white shadow-sm"
+                  ? "bg-primary text-white shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
               )}
             >
-              <Share2 className="h-4 w-4" />
+              <Share2 className="h-3.5 w-3.5" />
               Được chia sẻ với tôi
-              <span className={cn(
-                "ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold",
-                isReceived ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
-              )}>
-                {SHARED_WITH_ME.length}
+              <span
+                className={cn(
+                  "ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold",
+                  isReceived ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
+                )}
+              >
+                {totalReceivedCount}
               </span>
             </button>
             <button
-              onClick={() => router.replace("/shared?view=sent")}
+              onClick={() => {
+                router.replace("/shared?view=sent");
+                setCurrentPage(1);
+              }}
               className={cn(
-                "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
+                "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all",
                 !isReceived
-                  ? "bg-[#7C3AED] text-white shadow-sm"
+                  ? "bg-primary text-white shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
               )}
             >
-              <Users className="h-4 w-4" />
+              <Users className="h-3.5 w-3.5" />
               Tôi đã chia sẻ
-              <span className={cn(
-                "ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold",
-                !isReceived ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
-              )}>
-                {MY_SHARES.length}
+              <span
+                className={cn(
+                  "ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold",
+                  !isReceived ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
+                )}
+              >
+                {totalSentCount}
               </span>
             </button>
           </div>
 
-          {/* Tab content */}
-          {isReceived ? (
-            <SharedWithMeTab search={search} />
-          ) : (
-            <MySharesTab search={search} />
+          {/* 1. Received Tab View */}
+          {isReceived && (
+            <>
+              {isLoadingReceived ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="h-16 w-full animate-pulse rounded-xl bg-white border border-gray-100" />
+                  ))}
+                </div>
+              ) : filteredReceived.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-gray-200 bg-white py-20">
+                  <Share2 className="h-10 w-10 text-gray-300 animate-bounce" />
+                  <p className="text-sm font-semibold text-gray-400">
+                    {search ? `Không tìm thấy kết quả cho "${search}"` : "Chưa có tài nguyên nào được chia sẻ với bạn."}
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                  <table className="w-full text-sm table-fixed">
+                    <colgroup>
+                      <col className="w-[45%]" />
+                      <col className="w-[20%]" />
+                      <col className="w-[15%]" />
+                      <col className="w-[15%]" />
+                      <col className="w-[5%]" />
+                    </colgroup>
+                    <thead className="border-b border-gray-100 bg-gray-50/70">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500">Tên tài nguyên</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500">Chia sẻ bởi</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500">Quyền truy cập</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500">Thời gian nhận</th>
+                        <th className="w-10" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredReceived.map((item) => {
+                        const resName = item.resource?.name ?? "Không rõ tên";
+                        const mimeType = item.resource?.mimeType;
+                        const isFolder = item.resourceType === "folder";
+
+                        return (
+                          <tr
+                            key={item.shareId}
+                            onClick={() => handlePreviewOrOpen(item)}
+                            className="group border-b border-gray-50 transition-colors hover:bg-gray-50/80 cursor-pointer"
+                          >
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                {renderFileIcon(isFolder ? null : mimeType, "h-5 w-5 shrink-0")}
+                                <span className="truncate font-semibold text-gray-800" title={resName}>
+                                  {resName}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Avatar className="h-6 w-6 shrink-0 border border-gray-100">
+                                  <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(item.sharedBy?.fullName || "User")}`} />
+                                  <AvatarFallback className="text-[10px] font-bold">{(item.sharedBy?.fullName || "U")[0]}</AvatarFallback>
+                                </Avatar>
+                                <span className="text-xs font-semibold text-gray-700 truncate">{item.sharedBy?.fullName}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <PermissionBadge permission={item.permission} />
+                            </td>
+                            <td className="px-4 py-3 text-gray-400 text-xs font-medium whitespace-nowrap">
+                              {item.expiresAt ? (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3 text-amber-500" />
+                                  Còn lại: {Math.max(0, Math.ceil((new Date(item.expiresAt).getTime() - Date.now()) / 60000))} phút
+                                </span>
+                              ) : (
+                                "Không giới hạn"
+                              )}
+                            </td>
+                            <td className="px-1 py-3">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                  <button className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  <DropdownMenuItem
+                                    onClick={() => handlePreviewOrOpen(item)}
+                                    className="gap-2 text-[12px] font-medium cursor-pointer"
+                                  >
+                                    <Eye className="h-3.5 w-3.5 text-gray-500" />
+                                    {isFolder ? "Mở thư mục" : "Xem tệp tin"}
+                                  </DropdownMenuItem>
+                                  {!isFolder && (
+                                    <>
+                                      <DropdownMenuItem
+                                        onClick={() => handleCopyLink(item.resource?.id)}
+                                        className="gap-2 text-[12px] font-medium cursor-pointer"
+                                      >
+                                        <Link className="h-3.5 w-3.5 text-gray-500" />
+                                        Sao chép liên kết
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => handleDownload(item.resource?.id, resName)}
+                                        className="gap-2 text-[12px] font-medium cursor-pointer"
+                                      >
+                                        <Download className="h-3.5 w-3.5 text-gray-500" />
+                                        Tải xuống máy
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => handleRevoke(item.shareId)}
+                                    className="gap-2 text-[12px] font-medium cursor-pointer text-red-600 focus:text-red-700 focus:bg-red-50"
+                                  >
+                                    <ShieldOff className="h-3.5 w-3.5" />
+                                    Rời khỏi chia sẻ
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
+
+          {/* 2. Sent Tab View (Created by Me) */}
+          {!isReceived && (
+            <>
+              {isLoadingSent ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="h-16 w-full animate-pulse rounded-xl bg-white border border-gray-100" />
+                  ))}
+                </div>
+              ) : filteredSent.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-gray-200 bg-white py-20">
+                  <Users className="h-10 w-10 text-gray-300" />
+                  <p className="text-sm font-semibold text-gray-400">
+                    {search ? `Không tìm thấy kết quả cho "${search}"` : "Bạn chưa chia sẻ tài nguyên nào."}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filteredSent.map((item) => {
+                    const isFolder = item.resourceType === "folder";
+                    const isUserType = item.recipientType === "USER";
+                    const labelName = isUserType
+                      ? item.sharedWithUser?.fullName || item.sharedWithUser?.email
+                      : item.sharedWithTenant?.name || "Tất cả tổ chức";
+                    const subLabel = isUserType ? item.sharedWithUser?.email : "Hệ thống / Truy cập tổ chức";
+
+                    const isExpired = item.status === "EXPIRED";
+                    const isRevoked = item.status === "REVOKED";
+
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => handlePreviewOrOpen(item)}
+                        className="group flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 hover:border-gray-300 hover:shadow-sm transition-all cursor-pointer relative"
+                      >
+                        {/* Action Dropdown positioned in top corner */}
+                        <div className="absolute right-2 top-2 z-10">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <button className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
+                                <MoreVertical className="h-4 w-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem
+                                onClick={() => handlePreviewOrOpen(item)}
+                                className="gap-2 text-[12px] font-medium cursor-pointer"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5 text-gray-500" />
+                                Mở chi tiết
+                              </DropdownMenuItem>
+                              {item.status !== "REVOKED" && (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={() => handleExtend(item.id, item.resource?.name || "")}
+                                    className="gap-2 text-[12px] font-medium cursor-pointer"
+                                  >
+                                    <Clock className="h-3.5 w-3.5 text-gray-500" />
+                                    Gia hạn chia sẻ
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => handleRevoke(item.id)}
+                                    className="gap-2 text-[12px] font-medium cursor-pointer text-red-600 focus:text-red-700 focus:bg-red-50"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    Hủy chia sẻ
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+
+                        {/* Icon */}
+                        <div className="mt-0.5 shrink-0">
+                          {renderFileIcon(isFolder ? null : item.resource?.mimeType, "h-8 w-8")}
+                        </div>
+
+                        {/* Text */}
+                        <div className="flex-1 min-w-0 pr-6">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-gray-900 text-sm truncate max-w-[200px]" title={item.resource?.name}>
+                              {item.resource?.name}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[9px] font-bold py-0.5 px-1.5 rounded-full shrink-0",
+                                item.status === "ACTIVE"
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : isExpired
+                                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                                    : "bg-rose-50 text-rose-700 border-rose-200"
+                              )}
+                            >
+                              {getStatusLabel(item.status)}
+                            </Badge>
+                          </div>
+
+                          <div className="mt-1 flex items-center gap-2.5 text-[11px] font-medium text-gray-400">
+                            <span className="flex items-center gap-0.5">
+                              <Calendar className="h-3 w-3" />
+                              {timeAgo(item.createdAt)}
+                            </span>
+                            {item.resource?.sizeBytes && <span>{formatBytes(item.resource.sizeBytes)}</span>}
+                          </div>
+
+                          {/* Recipient info row */}
+                          <div className="mt-3.5 flex items-center gap-2 border-t border-gray-50 pt-2.5">
+                            <Avatar className="h-6 w-6 shrink-0">
+                              <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(labelName || "User")}`} />
+                              <AvatarFallback className="text-[9px] font-bold">
+                                {isUserType ? <User className="h-3 w-3" /> : <Building className="h-3 w-3" />}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-bold text-gray-700 truncate leading-none">
+                                Gửi cho: {labelName}
+                              </p>
+                              <p className="text-[10px] text-gray-400 truncate mt-0.5">{subLabel}</p>
+                            </div>
+                            <div className="ml-auto">
+                              <PermissionBadge permission={item.permission} />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 rounded-xl shadow-sm mt-4">
+              <div className="flex flex-1 justify-between sm:hidden">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Trước
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Sau
+                </Button>
+              </div>
+              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs text-gray-400 font-bold">
+                    Trang <span className="font-extrabold text-gray-700">{currentPage}</span> /{" "}
+                    <span className="font-extrabold text-gray-700">{totalPages}</span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant={page === currentPage ? "default" : "outline"}
+                      className={cn("h-8 w-8 p-0 text-xs font-bold", page === currentPage && "bg-primary text-white")}
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                  <Button
+                    variant="outline"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+          </div>
         </div>
-      </div>
+
+      {/* ── File Preview Overlays ── */}
+      <FilePreviewDialog
+        open={!!fileToPreview}
+        onOpenChange={(open) => !open && setFileToPreview(null)}
+        file={fileToPreview}
+      />
+      <ExtendShareDialog
+        open={!!extendShareId}
+        onOpenChange={(open) => !open && setExtendShareId(null)}
+        shareId={extendShareId || ""}
+        resourceName={extendResourceName}
+        onSuccess={() => {
+          if (isReceived) refreshReceived();
+          else refreshSent();
+        }}
+      />
     </div>
   );
 }
@@ -580,7 +793,7 @@ export default function SharedPage() {
     <Suspense
       fallback={
         <div className="flex h-full items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#7C3AED] border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
       }
     >

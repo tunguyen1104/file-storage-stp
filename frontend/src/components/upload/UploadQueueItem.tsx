@@ -118,7 +118,7 @@ export function UploadQueueItem({
               size="icon"
               className="h-6 w-6 text-muted-foreground hover:text-destructive"
               onClick={onCancel}
-              title="Cancel"
+              title="Hủy"
             >
               <X className="h-3.5 w-3.5" />
             </Button>
@@ -129,7 +129,7 @@ export function UploadQueueItem({
               size="icon"
               className="h-6 w-6 text-primary"
               onClick={onResume}
-              title="Resume"
+              title="Tiếp tục"
             >
               <Play className="h-3.5 w-3.5" />
             </Button>
@@ -140,7 +140,7 @@ export function UploadQueueItem({
               size="icon"
               className="h-6 w-6 text-primary"
               onClick={onRetry}
-              title="Retry"
+              title="Thử lại"
             >
               <RotateCcw className="h-3.5 w-3.5" />
             </Button>
@@ -164,7 +164,7 @@ export function UploadQueueItem({
             <span>{formatSpeed(item.speedBps)}</span>
           )}
           {item.etaSeconds !== undefined && (
-            <span>· {formatEta(item.etaSeconds)} remaining</span>
+            <span>· còn lại {formatEta(item.etaSeconds)}</span>
           )}
         </div>
       )}

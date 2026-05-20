@@ -31,6 +31,7 @@ import {
   Info,
   Trash2,
   RotateCcw,
+  Link,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,6 +58,8 @@ import { RenameFolderDialog } from "@/components/folders/RenameFolderDialog";
 import { DeleteFolderDialog } from "@/components/folders/DeleteFolderDialog";
 import { MoveItemDialog } from "@/components/files/MoveItemDialog";
 import { ItemInfoDialog } from "@/components/files/ItemInfoDialog";
+import { FilePreviewDialog } from "@/components/files/FilePreviewDialog";
+import { ShareItemDialog } from "@/components/files/ShareItemDialog";
 import {
   DEFAULT_PAGE_SIZE,
   FILE_STATUS,
@@ -90,18 +93,47 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
+function isFilePreviewable(fileName: string | null, mimeType: string | null): boolean {
+  if (!fileName) return false;
+  const ext = fileName.split(".").pop()?.toLowerCase();
+  if (!ext) return false;
+  
+  const PREVIEWABLE_EXTENSIONS = [
+    "pdf",
+    "png", "jpg", "jpeg", "gif", "webp", "svg",
+    "mp4", "webm",
+    "mp3", "ogg", "wav",
+    "txt"
+  ];
+  
+  if (!PREVIEWABLE_EXTENSIONS.includes(ext)) {
+    return false;
+  }
+  
+  if (mimeType) {
+    if (mimeType.startsWith("image/") || mimeType.startsWith("video/") || mimeType.startsWith("audio/")) {
+      return true;
+    }
+    if (mimeType === "application/pdf" || mimeType === "text/plain") {
+      return true;
+    }
+  }
+  
+  return PREVIEWABLE_EXTENSIONS.includes(ext);
+}
+
 function getTypeName(mimeType: string | null): string {
-  if (!mimeType) return "Folder";
+  if (!mimeType) return "Thư mục";
   if (mimeType.includes("pdf")) return "PDF";
   if (mimeType.includes("spreadsheet") || mimeType.includes("excel") || mimeType.includes("xlsx")) return "Excel";
-  if (mimeType.includes("document") || mimeType.includes("word") || mimeType.includes("docx")) return "Doc";
-  if (mimeType.includes("presentation") || mimeType.includes("powerpoint")) return "PPT";
-  if (mimeType.startsWith("image/")) return mimeType.split("/")[1]?.toUpperCase() ?? "Image";
+  if (mimeType.includes("document") || mimeType.includes("word") || mimeType.includes("docx")) return "Word";
+  if (mimeType.includes("presentation") || mimeType.includes("powerpoint")) return "PowerPoint";
+  if (mimeType.startsWith("image/")) return "Ảnh";
   if (mimeType.startsWith("video/")) return "Video";
-  if (mimeType.startsWith("audio/")) return "Audio";
-  if (mimeType.includes("zip") || mimeType.includes("tar")) return "Archive";
-  if (mimeType === "application/octet-stream") return "Binary";
-  return mimeType.split("/")[1] ?? "File";
+  if (mimeType.startsWith("audio/")) return "Âm thanh";
+  if (mimeType.includes("zip") || mimeType.includes("tar")) return "Lưu trữ";
+  if (mimeType === "application/octet-stream") return "Nhị phân";
+  return mimeType.split("/")[1]?.toUpperCase() ?? "Tệp tin";
 }
 
 // ─── Inner page (uses useSearchParams inside Suspense) ───────────
@@ -113,10 +145,10 @@ function FilesPageInner() {
 
   // Determine status filter based on tab
   const statusFilter = isTrash ? FILE_STATUS.PENDING_DELETE : FILE_STATUS.ACTIVE;
-  const pageLabel = isTrash ? "Trash" : "All Files";
+  const pageLabel = isTrash ? "Thùng rác" : "Tất cả tệp tin";
   const emptyLabel = isTrash
-    ? "No files in trash."
-    : "No files yet. Upload one to get started.";
+    ? "Thùng rác trống."
+    : "Chưa có tệp tin nào. Hãy tải lên tệp tin mới để bắt đầu.";
 
   // ── State ──
   const [currentPage, setCurrentPage] = useState(1);
@@ -142,6 +174,8 @@ function FilesPageInner() {
   const [fileToDelete, setFileToDelete] = useState<any>(null); // FileMetadataResponse
   const [fileToRename, setFileToRename] = useState<{ id: string; name: string } | null>(null);
   const [itemToShowInfo, setItemToShowInfo] = useState<{ id: string; type: "folder" | "file" } | null>(null);
+  const [fileToPreview, setFileToPreview] = useState<{ id: string; originalName: string; mimeType: string | null; sizeBytes: number; status: string } | null>(null);
+  const [itemToShare, setItemToShare] = useState<{ id: string; name: string; type: "FOLDER" | "FILE"; mimeType?: string | null } | null>(null);
 
   // ── Context menu state ──
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: any } | null>(null);
@@ -150,7 +184,22 @@ function FilesPageInner() {
     e.preventDefault();
     e.stopPropagation();
     const menuW = 224; // ~w-56
-    const menuH = isTrash ? 120 : 280;
+
+    let menuH = 280;
+    const isFolder = item.type === "folder" || !item.mimeType;
+    const isPendingScanOrError =
+      !isFolder &&
+      (item.status === "PENDING" ||
+        item.status === "SCANNING" ||
+        item.status === "UPLOAD_FAILED" ||
+        item.status === "INFECTED");
+
+    if (isPendingScanOrError) {
+      menuH = 50;
+    } else if (isTrash) {
+      menuH = 120;
+    }
+
     const x = e.clientX + menuW > window.innerWidth ? e.clientX - menuW : e.clientX;
     const y = e.clientY + menuH > window.innerHeight ? e.clientY - menuH : e.clientY;
     setContextMenu({ x, y, item });
@@ -174,6 +223,18 @@ function FilesPageInner() {
     setSearch("");
     setCurrentFolderId(null);
   }, [tab]);
+
+  // Initialize folderId from URL param (used when navigating from Shared page)
+  const urlFolderId = searchParams.get("folderId");
+  const sharedPermission = searchParams.get("sharedPermission"); // "VIEW" | "EDIT" | null
+  const isViewOnly = sharedPermission === "VIEW";
+
+  useEffect(() => {
+    if (urlFolderId) {
+      setCurrentFolderId(urlFolderId);
+      setCurrentPage(1);
+    }
+  }, [urlFolderId]);
 
   const newFileButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -229,29 +290,58 @@ function FilesPageInner() {
     setItemToMove(null);
   }
 
+  const handleDirectDownload = async (fileId: string, originalName: string) => {
+    try {
+      const { getUrl } = await getPresignedGetUrl(fileId);
+      const link = document.createElement("a");
+      link.href = getUrl;
+      link.setAttribute("download", originalName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error("Direct download failed", err);
+    }
+  };
+
   function handleItemSelect(item: any) {
     if (item.type === "folder") {
       setCurrentFolderId(item.id);
       setCurrentPage(1);
     } else {
-      // Just preview the file
-      handlePreview({
-        id: item.id,
-        originalName: item.name ?? item.originalName,
-        mimeType: item.mimeType ?? "application/octet-stream",
-        sizeBytes: item.sizeBytes ?? 0,
-        status: item.status ?? "ACTIVE",
-        folderId: item.parentId ?? null,
-        tenantId: null,
-        checksumMd5: null,
-        thumbnailKey: null,
-        isIndexed: false,
-        uploadedBy: item.actor ?? { id: "", fullName: "—" },
-        deletedAt: null,
-        scheduledDeleteAt: null,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt ?? item.createdAt,
-      });
+      if (item.status === "ACTIVE") {
+        const fileName = item.name ?? item.originalName;
+        if (isFilePreviewable(fileName, item.mimeType)) {
+          setFileToPreview({
+            id: item.id,
+            originalName: fileName,
+            mimeType: item.mimeType ?? "application/octet-stream",
+            sizeBytes: item.sizeBytes ?? 0,
+            status: item.status ?? "ACTIVE",
+          });
+        } else {
+          handleDirectDownload(item.id, fileName);
+        }
+      } else {
+        // Just preview the file
+        handlePreview({
+          id: item.id,
+          originalName: item.name ?? item.originalName,
+          mimeType: item.mimeType ?? "application/octet-stream",
+          sizeBytes: item.sizeBytes ?? 0,
+          status: item.status ?? "ACTIVE",
+          folderId: item.parentId ?? null,
+          tenantId: null,
+          checksumMd5: null,
+          thumbnailKey: null,
+          isIndexed: false,
+          uploadedBy: item.actor ?? { id: "", fullName: "—" },
+          deletedAt: null,
+          scheduledDeleteAt: null,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt ?? item.createdAt,
+        });
+      }
     }
   }
 
@@ -272,7 +362,7 @@ function FilesPageInner() {
 
     switch (action) {
       case "download":
-        if (isFolder) toast("Folder download coming soon");
+        if (isFolder) toast("Tính năng tải xuống thư mục sắp ra mắt");
         else handleDownload({ id: item.id, originalName: itemName } as FileMetadataResponse);
         break;
       case "rename":
@@ -280,10 +370,15 @@ function FilesPageInner() {
         else setFileToRename({ id: item.id, name: itemName });
         break;
       case "copy":
-        toast("Make a copy coming soon");
+        toast("Tính năng nhân bản sắp ra mắt");
         break;
       case "share":
-        toast("Share coming soon");
+        setItemToShare({
+          id: item.id,
+          name: itemName,
+          type: isFolder ? "FOLDER" : "FILE",
+          mimeType: item.mimeType || null
+        });
         break;
       case "move":
         setItemToMove({
@@ -312,6 +407,15 @@ function FilesPageInner() {
           toast.error(err instanceof Error ? err.message : "Khôi phục thất bại");
         }
         break;
+      case "copy-link":
+        try {
+          const { getUrl } = await getPresignedGetUrl(item.id);
+          await navigator.clipboard.writeText(getUrl);
+          toast.success("Sao chép liên kết thành công!");
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Sao chép liên kết thất bại");
+        }
+        break;
       case "delete-permanent":
         try {
           await deleteFileDirect(item.id);
@@ -335,7 +439,7 @@ function FilesPageInner() {
       a.click();
       document.body.removeChild(a);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to download file");
+      toast.error(err instanceof Error ? err.message : "Tải xuống tệp tin thất bại");
     }
   }, []);
 
@@ -345,7 +449,7 @@ function FilesPageInner() {
 
       window.open(getUrl, "_blank", "noopener,noreferrer");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to preview file");
+      toast.error(err instanceof Error ? err.message : "Không thể xem trước tệp tin");
     }
   }, []);
 
@@ -360,7 +464,7 @@ function FilesPageInner() {
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
             className="h-9 border-gray-200 bg-gray-50 pl-9 text-sm placeholder:text-gray-400 focus-visible:ring-[#7C3AED]/30"
-            placeholder="Search files, folder"
+            placeholder="Tìm kiếm tệp tin, thư mục..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -385,7 +489,7 @@ function FilesPageInner() {
                 }}
               >
                 <Home className="h-3.5 w-3.5" />
-                My Files
+                Tệp tin của tôi
               </span>
 
               {!isTrash && (
@@ -403,7 +507,7 @@ function FilesPageInner() {
                       }
                     }}
                   >
-                    All Files
+                    {isViewOnly ? "Thư mục được chia sẻ" : "Tất cả tệp tin"}
                   </span>
                 </>
               )}
@@ -467,8 +571,8 @@ function FilesPageInner() {
                 </button>
               </div>
 
-              {/* Choose button (only on All Files, not Trash) */}
-              {!isTrash && (
+              {/* Choose button (only on All Files, not Trash, not view-only shared) */}
+              {!isTrash && !isViewOnly && (
                 <div className="relative">
                   <Button
                     ref={newFileButtonRef}
@@ -477,7 +581,7 @@ function FilesPageInner() {
                     onClick={() => setNewFileMenuOpen((v) => !v)}
                   >
                     <Plus className="h-4 w-4" />
-                    Choose
+                    Thêm mới
                   </Button>
                   <NewFileMenu
                     open={newFileMenuOpen}
@@ -504,7 +608,7 @@ function FilesPageInner() {
               <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <span className="flex-1">
-                  {error instanceof Error ? error.message : "Failed to load files"}
+                  {error instanceof Error ? error.message : "Không thể tải danh sách tệp tin"}
                 </span>
                 <Button
                   size="sm"
@@ -513,13 +617,13 @@ function FilesPageInner() {
                   onClick={() => mutate()}
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
-                  Retry
+                  Thử lại
                 </Button>
               </div>
             )}
 
-            {/* Upload drop zone (only on All Files) */}
-            {!isTrash && (
+            {/* Upload drop zone (only on All Files, not Trash, not view-only shared) */}
+            {!isTrash && !isViewOnly && (
               <div
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                 onDragLeave={() => setIsDragging(false)}
@@ -528,7 +632,7 @@ function FilesPageInner() {
                   setIsDragging(false);
                   const files = Array.from(e.dataTransfer.files);
                   if (files.length > 0) {
-                    addFiles(files, currentFolderId ?? undefined);
+                     addFiles(files, currentFolderId ?? undefined);
                   }
                 }}
                 onClick={() => fileInputRef.current?.click()}
@@ -546,8 +650,8 @@ function FilesPageInner() {
                   <CloudUpload className={cn("h-6 w-6 transition-colors", isDragging ? "text-[#7C3AED]" : "text-gray-400")} />
                 </div>
                 <div className="text-center">
-                  <p className="text-sm font-medium text-gray-700">Click or drag files to this area to upload</p>
-                  <p className="text-xs text-gray-400 mt-0.5">All file types supported · Max {MAX_FILE_SIZE / (1024 * 1024 * 1024)} GB per file</p>
+                  <p className="text-sm font-medium text-gray-700">Click hoặc kéo thả tệp tin vào khu vực này để tải lên</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Hỗ trợ mọi loại tệp tin · Tối đa {(MAX_FILE_SIZE / (1024 * 1024 * 1024)).toFixed(0)} GB mỗi tệp</p>
                 </div>
               </div>
             )}
@@ -580,6 +684,7 @@ function FilesPageInner() {
                 onContextMenu={handleContextMenu}
                 isTrash={isTrash}
                 emptyMessage={emptyLabel}
+                isViewOnly={isViewOnly}
               />
             ) : (
               <FileGridView
@@ -643,74 +748,121 @@ function FilesPageInner() {
             style={{ left: contextMenu.x, top: contextMenu.y }}
             onClick={(e) => e.stopPropagation()}
           >
-            {isTrash ? (
-              <>
-                <button
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
-                  onClick={(e) => { closeContextMenu(); handleAction(e, "restore", contextMenu.item); }}
-                >
-                  <RotateCcw className="h-4 w-4 text-gray-500" />
-                  Khôi phục
-                </button>
-                <div className="my-1 border-t border-gray-100" />
-                <button
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-red-600 hover:bg-red-50 cursor-pointer"
-                  onClick={(e) => { closeContextMenu(); handleAction(e, "delete-permanent", contextMenu.item); }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Xóa vĩnh viễn
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
-                  onClick={(e) => { closeContextMenu(); handleAction(e, "download", contextMenu.item); }}
-                >
-                  <Download className="h-4 w-4 text-gray-500" />
-                  Tải xuống
-                </button>
-                <button
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
-                  onClick={(e) => { closeContextMenu(); handleAction(e, "rename", contextMenu.item); }}
-                >
-                  <Pencil className="h-4 w-4 text-gray-500" />
-                  Đổi tên
-                </button>
-                <div className="my-1 border-t border-gray-100" />
-                <button
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
-                  onClick={(e) => { closeContextMenu(); handleAction(e, "share", contextMenu.item); }}
-                >
-                  <Share2 className="h-4 w-4 text-gray-500" />
-                  Chia sẻ
-                </button>
-                <button
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
-                  onClick={(e) => { closeContextMenu(); handleAction(e, "move", contextMenu.item); }}
-                >
-                  <MoveRight className="h-4 w-4 text-gray-500" />
-                  Di chuyển
-                </button>
-                <button
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
-                  onClick={(e) => { closeContextMenu(); handleAction(e, "info", contextMenu.item); }}
-                >
-                  <Info className="h-4 w-4 text-gray-500" />
-                  {contextMenu.item.type === "folder" || !contextMenu.item.mimeType
-                    ? "Thông tin về thư mục"
-                    : "Thông tin về tệp"}
-                </button>
-                <div className="my-1 border-t border-gray-100" />
-                <button
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
-                  onClick={(e) => { closeContextMenu(); handleAction(e, "delete", contextMenu.item); }}
-                >
-                  <Trash2 className="h-4 w-4 text-gray-500" />
-                  Chuyển vào thùng rác
-                </button>
-              </>
-            )}
+            {(() => {
+              const isFolder = contextMenu.item.type === "folder" || !contextMenu.item.mimeType;
+              const isPendingScanOrError =
+                !isFolder &&
+                (contextMenu.item.status === "PENDING" ||
+                  contextMenu.item.status === "SCANNING" ||
+                  contextMenu.item.status === "UPLOAD_FAILED" ||
+                  contextMenu.item.status === "INFECTED");
+
+              if (isPendingScanOrError) {
+                return (
+                  <button
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-red-600 hover:bg-red-50 cursor-pointer font-medium"
+                    onClick={(e) => { closeContextMenu(); handleAction(e, "delete-permanent", contextMenu.item); }}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500 mr-2" />
+                    Xóa vĩnh viễn
+                  </button>
+                );
+              }
+
+              if (isTrash) {
+                return (
+                  <>
+                    <button
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
+                      onClick={(e) => { closeContextMenu(); handleAction(e, "restore", contextMenu.item); }}
+                    >
+                      <RotateCcw className="h-4 w-4 text-gray-500" />
+                      Khôi phục
+                    </button>
+                    <div className="my-1 border-t border-gray-100" />
+                    <button
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-red-600 hover:bg-red-50 cursor-pointer"
+                      onClick={(e) => { closeContextMenu(); handleAction(e, "delete-permanent", contextMenu.item); }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Xóa vĩnh viễn
+                    </button>
+                  </>
+                );
+              }
+
+              return (
+                <>
+                  {!isFolder && (
+                    <button
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
+                      onClick={(e) => { closeContextMenu(); handleAction(e, "download", contextMenu.item); }}
+                    >
+                      <Download className="h-4 w-4 text-gray-500" />
+                      Tải xuống
+                    </button>
+                  )}
+                  {!isViewOnly && (
+                    <button
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
+                      onClick={(e) => { closeContextMenu(); handleAction(e, "rename", contextMenu.item); }}
+                    >
+                      <Pencil className="h-4 w-4 text-gray-500" />
+                      Đổi tên
+                    </button>
+                  )}
+                  <div className="my-1 border-t border-gray-100" />
+                  {!isFolder && contextMenu.item.status === "ACTIVE" && (
+                    <button
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
+                      onClick={(e) => { closeContextMenu(); handleAction(e, "copy-link", contextMenu.item); }}
+                    >
+                      <Link className="h-4 w-4 text-gray-500" />
+                      Sao chép liên kết
+                    </button>
+                  )}
+                  {!isViewOnly && (
+                    <>
+                      <button
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
+                        onClick={(e) => { closeContextMenu(); handleAction(e, "share", contextMenu.item); }}
+                      >
+                        <Share2 className="h-4 w-4 text-gray-500" />
+                        Chia sẻ
+                      </button>
+                      <button
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
+                        onClick={(e) => { closeContextMenu(); handleAction(e, "move", contextMenu.item); }}
+                      >
+                        <MoveRight className="h-4 w-4 text-gray-500" />
+                        Di chuyển
+                      </button>
+                    </>
+                  )}
+                  <button
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
+                    onClick={(e) => { closeContextMenu(); handleAction(e, "info", contextMenu.item); }}
+                  >
+                    <Info className="h-4 w-4 text-gray-500" />
+                    {contextMenu.item.type === "folder" || !contextMenu.item.mimeType
+                      ? "Thông tin về thư mục"
+                      : "Thông tin về tệp"}
+                  </button>
+                  {!isViewOnly && (
+                    <>
+                      <div className="my-1 border-t border-gray-100" />
+                      <button
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 cursor-pointer"
+                        onClick={(e) => { closeContextMenu(); handleAction(e, "delete", contextMenu.item); }}
+                      >
+                        <Trash2 className="h-4 w-4 text-gray-500" />
+                        Chuyển vào thùng rác
+                      </button>
+                    </>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -768,6 +920,16 @@ function FilesPageInner() {
         itemId={itemToShowInfo?.id ?? null}
         itemType={itemToShowInfo?.type ?? "file"}
       />
+      <FilePreviewDialog
+        open={!!fileToPreview}
+        onOpenChange={(open) => !open && setFileToPreview(null)}
+        file={fileToPreview}
+      />
+      <ShareItemDialog
+        open={!!itemToShare}
+        onOpenChange={(open) => !open && setItemToShare(null)}
+        item={itemToShare}
+      />
     </div>
   );
 }
@@ -821,6 +983,7 @@ function FileListView({
   onContextMenu,
   isTrash,
   emptyMessage,
+  isViewOnly = false,
 }: {
   items: any[];
   isLoading: boolean;
@@ -831,6 +994,7 @@ function FileListView({
   onContextMenu: (e: React.MouseEvent, item: any) => void;
   isTrash: boolean;
   emptyMessage: string;
+  isViewOnly?: boolean;
 }) {
   if (isLoading) {
     return (
@@ -924,7 +1088,7 @@ function FileListView({
                   </div>
                 </td>
                 <td className="px-4 py-2.5 text-gray-400 hidden sm:table-cell whitespace-nowrap">
-                  {date && new Date(date).toLocaleString(undefined, {
+                  {date && new Date(date).toLocaleString("vi-VN", {
                     month: "short",
                     day: "numeric",
                     year: "numeric",
@@ -936,7 +1100,7 @@ function FileListView({
                   {item.type === "folder" || !item.sizeBytes ? "—" : formatBytes(item.sizeBytes)}
                 </td>
                 <td className="px-1 py-2.5">
-                  <FileActionMenu item={item} onAction={onAction} isTrash={isTrash} />
+                  <FileActionMenu item={item} onAction={onAction} isTrash={isTrash} isViewOnly={isViewOnly} />
                 </td>
               </tr>
             );
@@ -957,6 +1121,7 @@ function FileGridView({
   onContextMenu,
   isTrash,
   emptyMessage,
+  isViewOnly = false,
 }: {
   items: any[];
   isLoading: boolean;
@@ -965,6 +1130,7 @@ function FileGridView({
   onContextMenu: (e: React.MouseEvent, item: any) => void;
   isTrash: boolean;
   emptyMessage: string;
+  isViewOnly?: boolean;
 }) {
   if (isLoading) {
     return (
@@ -1003,7 +1169,7 @@ function FileGridView({
             className="group relative rounded-xl border border-gray-100 bg-white p-4 cursor-pointer transition-all space-y-3 hover:border-gray-200 hover:bg-gray-50 hover:shadow-sm"
           >
             <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <FileActionMenu item={item} onAction={onAction} isTrash={isTrash} />
+              <FileActionMenu item={item} onAction={onAction} isTrash={isTrash} isViewOnly={isViewOnly} />
             </div>
 
             <div className="flex h-12 items-center justify-center">

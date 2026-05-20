@@ -71,7 +71,7 @@ function CheckEmailForm() {
         <CardContent className="pt-8 pb-8 flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            Password reset successful. Redirecting to sign in…
+            Đặt lại mật khẩu thành công. Đang chuyển hướng đến trang đăng nhập…
           </p>
         </CardContent>
       </Card>
@@ -79,14 +79,14 @@ function CheckEmailForm() {
   }
 
   // #12: Mask email to prevent phishing via crafted URLs
-  const displayEmail = email ? maskEmail(email) : "your email";
-  const headline = flow === "reset" ? "Reset link sent" : "Check your email";
+  const displayEmail = email ? maskEmail(email) : "email của bạn";
+  const headline = flow === "reset" ? "Đã gửi liên kết đặt lại mật khẩu" : "Kiểm tra email của bạn";
   const helperText =
     flow === "reset"
-      ? "We’ve sent a password reset link to:"
-      : "We’ve sent a verification link to:";
+      ? "Chúng tôi đã gửi liên kết đặt lại mật khẩu đến:"
+      : "Chúng tôi đã gửi liên kết xác nhận tài khoản đến:";
   const resendLabel =
-    flow === "reset" ? "Resend reset email" : "Resend verification email";
+    flow === "reset" ? "Gửi lại email đặt lại mật khẩu" : "Gửi lại email xác nhận";
 
   return (
     <Card className="w-full max-w-md shadow-lg">
@@ -104,7 +104,7 @@ function CheckEmailForm() {
 
       <CardContent className="text-center space-y-6">
         <p className="text-sm text-muted-foreground">
-          Didn&apos;t receive it? Check your spam or junk folder.
+          Bạn không nhận được email? Hãy kiểm tra thư mục thư rác hoặc spam.
         </p>
 
         <Button
@@ -115,10 +115,10 @@ function CheckEmailForm() {
         >
           {loading ? (
             <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Resending...
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang gửi lại...
             </>
           ) : cooldown > 0 ? (
-            `Resend in ${cooldown}s`
+            `Gửi lại sau ${cooldown}s`
           ) : (
             resendLabel
           )}
@@ -129,7 +129,7 @@ function CheckEmailForm() {
           variant="link"
           onClick={() => router.push("/login")}
         >
-          Back to sign in
+          Quay lại trang đăng nhập
         </Button>
       </CardContent>
     </Card>

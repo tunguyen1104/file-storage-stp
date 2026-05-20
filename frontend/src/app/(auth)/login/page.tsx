@@ -29,7 +29,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const { signIn } = useAuth();
   const [error, setError] = useState<string | null>(null);
-  
+
   const verified = searchParams.get("verified") === "true";
   const resetSuccess = searchParams.get("reset") === "success";
 
@@ -63,7 +63,7 @@ function LoginForm() {
         }
         return;
       }
-      setError(appError.message || "Invalid email or password. Please try again.");
+      setError(appError.message || "Email hoặc mật khẩu không chính xác. Vui lòng thử lại.");
     }
   };
 
@@ -77,7 +77,7 @@ function LoginForm() {
             <div className="flex items-center justify-center w-10 h-10 bg-primary rounded-xl text-white">
               <HardDrive className="w-6 h-6" />
             </div>
-            <span className="text-xl font-bold text-primary">DocuKeep</span>
+            <span className="text-xl font-bold text-primary">DataFlow Pro</span>
           </div>
         </div>
 
@@ -90,7 +90,7 @@ function LoginForm() {
           {verified && (
             <Alert className="bg-green-50 text-green-700 border-green-200 mb-6">
               <AlertDescription>
-                Email verified successfully! You can now sign in.
+                Xác thực email thành công! Bây giờ bạn có thể đăng nhập.
               </AlertDescription>
             </Alert>
           )}
@@ -98,7 +98,7 @@ function LoginForm() {
           {resetSuccess && (
             <Alert className="bg-green-50 text-green-700 border-green-200 mb-6">
               <AlertDescription>
-                Password has been reset successfully. Please log in.
+                Đặt lại mật khẩu thành công. Vui lòng đăng nhập.
               </AlertDescription>
             </Alert>
           )}
@@ -171,7 +171,7 @@ function LoginForm() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <div className="flex items-center space-x-2">
                     <Checkbox id="remember" className="border-gray-300 text-primary focus-visible:ring-primary" />
                     <label
@@ -216,14 +216,14 @@ function LoginForm() {
         <div className="absolute top-[20%] -right-[20%] w-[60%] h-[60%] rounded-full border border-white/10" />
         <div className="absolute -bottom-[20%] -left-[10%] w-[70%] h-[70%] rounded-full border border-white/10" />
         <div className="absolute bottom-[10%] right-[10%] w-[40%] h-[40%] rounded-full border border-white/10" />
-        
+
         <div className="relative z-10 max-w-xl mx-auto flex flex-col justify-center h-full">
           <h2 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">
             Lưu trữ thông minh.<br />
             Truy cập mọi nơi.
           </h2>
           <p className="text-white/80 text-lg mb-12 leading-relaxed">
-            DocuKeep giúp doanh nghiệp và cá nhân quản lý tài liệu một cách khoa học, an toàn tuyệt đối trên nền tảng đám mây tiên tiến nhất.
+            DataFlow Pro giúp doanh nghiệp và cá nhân quản lý tài liệu một cách khoa học, an toàn tuyệt đối trên nền tảng đám mây tiên tiến nhất.
           </p>
 
           <div className="space-y-6">
@@ -280,7 +280,7 @@ export default function LoginPage() {
       fallback={
         <div className="flex flex-col items-center justify-center min-h-screen gap-3">
           <Loader2 className="w-10 h-10 animate-spin text-primary" />
-          <p className="text-sm font-medium text-gray-500">Loading workspace...</p>
+          <p className="text-sm font-medium text-gray-500">Đang tải không gian làm việc...</p>
         </div>
       }
     >

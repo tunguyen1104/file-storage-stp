@@ -34,6 +34,10 @@ const ROLE_ROUTE_MAP: Record<string, string[]> = {
     "/audit-logs",
     "/tenants",
     "/users",
+    "/admin-files",
+    "/admin-shares",
+    "/shared",
+    "/profile",
     "/unauthorized",
   ],
   TENANT_ADMIN: [
@@ -42,9 +46,18 @@ const ROLE_ROUTE_MAP: Record<string, string[]> = {
     "/search",
     "/audit-logs",
     "/users",
+    "/admin-shares",
+    "/profile",
     "/unauthorized",
   ],
-  MEMBER: ["/files", "/shared", "/upload", "/search", "/unauthorized"],
+  MEMBER: [
+    "/files",
+    "/shared",
+    "/upload",
+    "/search",
+    "/profile",
+    "/unauthorized"
+  ],
 };
 
 const BACKEND_URL_FOR_REFRESH =

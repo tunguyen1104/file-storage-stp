@@ -4,7 +4,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { useRouter } from "next/navigation";
-import { Plus, Search, UserCircle2, Pencil, UserMinus, UserPlus, MoreVertical, Trash2, ArrowRight, HardDrive } from "lucide-react";
+import { Plus, Search, UserCircle2, Pencil, UserMinus, UserPlus, MoreVertical, Trash2, ArrowRight, HardDrive, ShieldAlert } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,7 @@ import {
   DeactivateUserDialog,
   ActivateUserDialog,
 } from "@/components/users/user-dialogs";
+import { BulkRevokeSharesDialog } from "@/components/users/BulkRevokeSharesDialog";
 import { formatBytes } from "@/lib/utils/storage";
 import type { UserResponse } from "@/types/user/user";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -60,14 +61,14 @@ function RoleBadge({ role }: { role: string }) {
   if (role === ROLES.SUPER_ADMIN) {
     return (
       <Badge className="bg-violet-100 text-violet-700 hover:bg-violet-100 border-violet-200 border">
-        Super Admin
+        Quản trị hệ thống
       </Badge>
     );
   }
   if (role === ROLES.TENANT_ADMIN) {
-    return <Badge>Tenant Admin</Badge>;
+    return <Badge>Quản trị tổ chức</Badge>;
   }
-  return <Badge variant="secondary">Member</Badge>;
+  return <Badge variant="secondary">Thành viên</Badge>;
 }
 
 export default function UsersPage() {
@@ -91,10 +92,9 @@ function TenantAdminDashboard() {
   const [editUser, setEditUser] = useState<UserResponse | null>(null);
   const [deactivateUser, setDeactivateUser] = useState<UserResponse | null>(null);
   const [activateUser, setActivateUser] = useState<UserResponse | null>(null);
+  const [bulkRevokeUser, setBulkRevokeUser] = useState<UserResponse | null>(null);
 
-  // Security settings states
-  const [ssoEnabled, setSsoEnabled] = useState(true);
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
+
 
   const debouncedSearch = useDebounce(search, 400);
 
@@ -143,8 +143,8 @@ function TenantAdminDashboard() {
     <div className="bg-gray-50 min-h-[calc(100vh-2rem)] p-4 md:p-8">
       {/* Header section matching screenshot exactly */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 leading-tight">Organization Dashboard</h1>
-        <p className="text-base text-gray-500 mt-1">Manage your team, resources, and organization-wide security protocols.</p>
+        <h1 className="text-2xl font-bold text-gray-900 leading-tight">Bảng điều khiển Tổ chức</h1>
+        <p className="text-base text-gray-500 mt-1">Quản lý thành viên, tài nguyên và cấu hình bảo mật của tổ chức.</p>
       </div>
 
       {/* Search and Invite Member */}
@@ -153,7 +153,7 @@ function TenantAdminDashboard() {
           <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
           <Input
             className="h-12 pl-10 border-0 shadow-sm bg-white focus-visible:ring-[#7C3AED] rounded-lg text-base w-full"
-            placeholder="Search member"
+            placeholder="Tìm kiếm thành viên..."
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
           />
@@ -162,7 +162,7 @@ function TenantAdminDashboard() {
           className="h-12 bg-[#5B5CEF] hover:bg-[#4C4DE0] text-white px-6 font-medium rounded-lg text-base shadow-sm"
           onClick={() => setCreateOpen(true)}
         >
-          Invite Member
+          Thêm thành viên
         </Button>
       </div>
 
@@ -175,20 +175,20 @@ function TenantAdminDashboard() {
                 <UserCircle2 className="w-5 h-5 text-gray-500" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-gray-900">Team Members</h2>
-                <p className="text-sm text-gray-500">Manage roles and workspace access for {totalElements} users</p>
+                <h2 className="text-lg font-bold text-gray-900">Thành viên nhóm</h2>
+                <p className="text-sm text-gray-500">Quản lý vai trò và quyền truy cập cho {totalElements} người dùng</p>
               </div>
             </div>
 
             <div className="w-[180px]">
               <Select value={filterByStatus} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger className="w-full h-10 border-gray-200 text-sm">
-                  <SelectValue placeholder="Filter by status" />
+                  <SelectValue placeholder="Lọc theo trạng thái" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                  <SelectItem value="active">Hoạt động</SelectItem>
+                  <SelectItem value="inactive">Vô hiệu hóa</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -198,21 +198,21 @@ function TenantAdminDashboard() {
             <Table className="min-w-[600px]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent border-b border-gray-100 uppercase">
-                  <TableHead className="text-xs font-semibold text-gray-500 py-3 px-6 h-auto tracking-wider">MEMBER</TableHead>
-                  <TableHead className="text-xs font-semibold text-gray-500 py-3 h-auto tracking-wider">STATUS</TableHead>
-                  <TableHead className="text-xs font-semibold text-gray-500 py-3 h-auto tracking-wider">ROLE ASSIGNMENT</TableHead>
-                  <TableHead className="text-xs font-semibold text-gray-500 py-3 h-auto text-right tracking-wider pr-6">ACTIONS</TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 py-3 px-6 h-auto tracking-wider">THÀNH VIÊN</TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 py-3 h-auto tracking-wider">TRẠNG THÁI</TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 py-3 h-auto tracking-wider">VAI TRÒ</TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 py-3 h-auto text-right tracking-wider pr-6">THAO TÁC</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-32 text-center text-gray-500">Loading...</TableCell>
+                    <TableCell colSpan={4} className="h-32 text-center text-gray-500">Đang tải...</TableCell>
                   </TableRow>
                 ) : users.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="h-32 text-center text-gray-500">
-                      {debouncedSearch ? `No members found for "${debouncedSearch}"` : "No members found."}
+                      {debouncedSearch ? `Không tìm thấy thành viên nào khớp với "${debouncedSearch}"` : "Không tìm thấy thành viên nào."}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -235,22 +235,30 @@ function TenantAdminDashboard() {
                       <TableCell className="py-4">
                         {member.isActive ? (
                           <Badge variant="outline" className="bg-white text-gray-700 border-gray-200 font-medium px-3 flex items-center justify-center w-fit">
-                            Active
+                            Hoạt động
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="bg-gray-50 text-gray-500 border-gray-200 font-medium px-3 flex items-center justify-center w-fit">
-                            Inactive
+                            Vô hiệu hóa
                           </Badge>
                         )}
                       </TableCell>
                       <TableCell className="py-4">
                         <div className="flex shadow-sm rounded-md overflow-hidden bg-gray-50/50 border border-gray-200 w-fit">
-                          <div className={`px-4 py-1.5 text-xs font-medium ${member.role === ROLES.TENANT_ADMIN ? 'bg-white text-[#5B5CEF] shadow-sm' : 'text-gray-500'}`}>Admin</div>
-                          <div className={`px-4 py-1.5 text-xs font-medium ${member.role !== ROLES.TENANT_ADMIN ? 'bg-white text-[#5B5CEF] shadow-sm' : 'text-gray-500'}`}>Member</div>
+                          <div className={`px-4 py-1.5 text-xs font-medium ${member.role === ROLES.TENANT_ADMIN ? 'bg-white text-[#5B5CEF] shadow-sm' : 'text-gray-500'}`}>Quản trị</div>
+                          <div className={`px-4 py-1.5 text-xs font-medium ${member.role !== ROLES.TENANT_ADMIN ? 'bg-white text-[#5B5CEF] shadow-sm' : 'text-gray-500'}`}>Thành viên</div>
                         </div>
                       </TableCell>
                       <TableCell className="py-4 pr-6 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 px-3 text-xs font-semibold uppercase tracking-wider font-medium rounded-lg"
+                            onClick={() => setBulkRevokeUser(member)}
+                          >
+                            Thu hồi chia sẻ
+                          </Button>
                           {member.isActive ? (
                             <Button
                               variant="default"
@@ -258,7 +266,7 @@ function TenantAdminDashboard() {
                               className="h-8 bg-[#EF4444] hover:bg-[#DC2626] text-white px-3 text-xs font-semibold uppercase tracking-wider"
                               onClick={() => setDeactivateUser(member)}
                             >
-                              Delete
+                              Vô hiệu hóa
                             </Button>
                           ) : (
                             <Button
@@ -267,7 +275,7 @@ function TenantAdminDashboard() {
                               className="h-8 bg-green-500 hover:bg-green-600 text-white px-3 text-xs font-semibold uppercase tracking-wider"
                               onClick={() => setActivateUser(member)}
                             >
-                              Active
+                              Kích hoạt
                             </Button>
                           )}
                           <Button
@@ -276,7 +284,7 @@ function TenantAdminDashboard() {
                             className="h-8 bg-[#5B5CEF] hover:bg-[#4C4DE0] text-white px-4 text-xs font-semibold uppercase tracking-wider"
                             onClick={() => setEditUser(member)}
                           >
-                            Detail
+                            Chi tiết
                           </Button>
                         </div>
                       </TableCell>
@@ -288,7 +296,7 @@ function TenantAdminDashboard() {
           </div>
 
           <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between text-sm text-gray-500">
-            <span>Showing {users.length} of {totalElements} members</span>
+            <span>Hiển thị {users.length} trên tổng số {totalElements} thành viên</span>
 
             <div className="flex gap-2">
               <Button
@@ -297,7 +305,7 @@ function TenantAdminDashboard() {
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               >
-                Previous
+                Trước
               </Button>
               <Button
                 variant="outline"
@@ -305,7 +313,7 @@ function TenantAdminDashboard() {
                 disabled={currentPage === totalPages || totalPages === 0}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               >
-                Next
+                Sau
               </Button>
             </div>
           </div>
@@ -320,69 +328,20 @@ function TenantAdminDashboard() {
                 <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-500">
                   <HardDrive className="w-4 h-4" />
                 </div>
-                <h3 className="font-bold text-gray-900">Storage Quota</h3>
+                <h3 className="font-bold text-gray-900">Hạn mức dung lượng</h3>
               </div>
             </div>
 
             <div className="mt-8 flex items-end justify-between">
               <div>
                 <span className="text-3xl font-bold text-gray-900 leading-none">{formatBytes(storageUsedBytes)}</span>
-                <span className="text-sm text-gray-500 ml-1">used of {formatBytes(storageQuotaBytes)}</span>
+                <span className="text-sm text-gray-500 ml-1">đã dùng trên {formatBytes(storageQuotaBytes)}</span>
               </div>
               <span className="text-[#5B5CEF] font-medium text-sm mb-1">{storagePercent}%</span>
             </div>
 
             <div className="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden mt-3 relative">
               <div className="h-full bg-[#5B5CEF] rounded-full transition-all duration-500" style={{ width: `${storagePercent}%` }}></div>
-            </div>
-          </div>
-
-          {/* Security Settings Card */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-8 h-8 rounded-lg bg-gray-50 flex flex-col items-center justify-center text-gray-700">
-                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-              </div>
-              <h3 className="font-bold text-gray-900">Security Settings</h3>
-            </div>
-
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex gap-3">
-                  <div className="mt-0.5 text-gray-400">
-                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-gray-900">Single Sign-On (SSO)</h4>
-                    <p className="text-xs text-gray-500">Force users to login via Okta or Azure AD</p>
-                  </div>
-                </div>
-                <Switch checked={ssoEnabled} onCheckedChange={setSsoEnabled} className="data-[state=checked]:bg-[#5B5CEF] cursor-pointer" />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex gap-3">
-                  <div className="mt-0.5 text-gray-400">
-                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-gray-900">Two-Factor Auth (2FA)</h4>
-                    <p className="text-xs text-gray-500">Mandatory 2FA for all team members</p>
-                  </div>
-                </div>
-                <Switch checked={twoFactorEnabled} onCheckedChange={setTwoFactorEnabled} className="data-[state=checked]:bg-[#5B5CEF] cursor-pointer" />
-              </div>
-            </div>
-
-            <div
-              onClick={() => router.push('/audit-logs')}
-              className="mt-8 pt-4 border-t border-gray-100 flex items-center justify-between cursor-pointer group hover:bg-gray-50 -mx-6 px-6 -mb-6 pb-6"
-            >
-              <div className="flex items-center gap-2">
-                <svg className="text-gray-400" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                <span className="text-sm font-bold text-gray-700">View Audit Logs</span>
-              </div>
-              <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 group-hover:translate-x-1 transition-transform" />
             </div>
           </div>
         </div>
@@ -422,6 +381,13 @@ function TenantAdminDashboard() {
           handleSuccess();
         }}
       />
+
+      <BulkRevokeSharesDialog
+        user={bulkRevokeUser}
+        open={bulkRevokeUser !== null}
+        onOpenChange={(open) => !open && setBulkRevokeUser(null)}
+        onSuccess={handleSuccess}
+      />
     </div>
   );
 }
@@ -434,6 +400,7 @@ function SuperAdminView() {
   const [editUser, setEditUser] = useState<UserResponse | null>(null);
   const [deactivateUser, setDeactivateUser] = useState<UserResponse | null>(null);
   const [activateUser, setActivateUser] = useState<UserResponse | null>(null);
+  const [bulkRevokeUser, setBulkRevokeUser] = useState<UserResponse | null>(null);
 
   const isSuperAdmin = user?.role === ROLES.SUPER_ADMIN;
   const debouncedSearch = useDebounce(search, 400);
@@ -467,14 +434,14 @@ function SuperAdminView() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="h-10 pl-9"
-              placeholder="Search by name or email..."
+              placeholder="Tìm kiếm theo tên hoặc email..."
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
             />
           </div>
           <Button className="gap-2" onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4" />
-            Create New User
+            Tạo người dùng mới
           </Button>
         </div>
 
@@ -483,12 +450,12 @@ function SuperAdminView() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
+                <TableHead>Họ tên</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Tenant</TableHead>
-                <TableHead>Storage Quota</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Vai trò</TableHead>
+                <TableHead>Tổ chức</TableHead>
+                <TableHead>Hạn mức dung lượng</TableHead>
+                <TableHead>Trạng thái</TableHead>
                 <TableHead className="w-[80px]" />
               </TableRow>
             </TableHeader>
@@ -496,13 +463,13 @@ function SuperAdminView() {
               {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={colSpan} className="py-10 text-center text-muted-foreground">
-                    Loading...
+                    Đang tải...
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={colSpan} className="py-10 text-center text-muted-foreground">
-                    {debouncedSearch ? `No users found for "${debouncedSearch}"` : "No users found."}
+                    {debouncedSearch ? `Không tìm thấy người dùng nào khớp với "${debouncedSearch}"` : "Không tìm thấy người dùng nào."}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -519,7 +486,7 @@ function SuperAdminView() {
                       <RoleBadge role={member.role} />
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {member.tenantName ?? <span className="italic text-muted-foreground/60">System</span>}
+                      {member.tenantName ?? <span className="italic text-muted-foreground/60">Hệ thống</span>}
                     </TableCell>
                     <TableCell className="tabular-nums text-muted-foreground">
                       {formatBytes(member.storageQuotaBytes)}
@@ -529,7 +496,7 @@ function SuperAdminView() {
                         variant={member.isActive ? "default" : "secondary"}
                         className={member.isActive ? "bg-green-100 text-green-700 hover:bg-green-100 border border-green-200" : ""}
                       >
-                        {member.isActive ? "Active" : "Inactive"}
+                        {member.isActive ? "Hoạt động" : "Vô hiệu hóa"}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -539,14 +506,29 @@ function SuperAdminView() {
                             <Button
                               size="icon"
                               variant="ghost"
+                              className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                              onClick={() => setBulkRevokeUser(member)}
+                            >
+                              <ShieldAlert className="h-4 w-4" />
+                              <span className="sr-only">Thu hồi chia sẻ</span>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Thu hồi liên kết chia sẻ hàng loạt</TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
                               className="h-8 w-8"
                               onClick={() => setEditUser(member)}
                             >
                               <Pencil className="h-4 w-4" />
-                              <span className="sr-only">Edit</span>
+                              <span className="sr-only">Sửa</span>
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Edit user</TooltipContent>
+                          <TooltipContent>Chỉnh sửa người dùng</TooltipContent>
                         </Tooltip>
 
                         <Tooltip>
@@ -559,7 +541,7 @@ function SuperAdminView() {
                                 onClick={() => setDeactivateUser(member)}
                               >
                                 <UserMinus className="h-4 w-4" />
-                                <span className="sr-only">Deactivate</span>
+                                <span className="sr-only">Vô hiệu hóa</span>
                               </Button>
                             ) : (
                               <Button
@@ -569,12 +551,12 @@ function SuperAdminView() {
                                 onClick={() => setActivateUser(member)}
                               >
                                 <UserPlus className="h-4 w-4" />
-                                <span className="sr-only">Activate</span>
+                                <span className="sr-only">Kích hoạt</span>
                               </Button>
                             )}
                           </TooltipTrigger>
                           <TooltipContent>
-                            {member.isActive ? "Deactivate user" : "Activate user"}
+                            {member.isActive ? "Vô hiệu hóa người dùng" : "Kích hoạt người dùng"}
                           </TooltipContent>
                         </Tooltip>
                       </div>
@@ -587,8 +569,8 @@ function SuperAdminView() {
 
           <div className="border-t border-border px-4 py-3 flex items-center justify-between text-sm text-muted-foreground">
             <span>
-              Showing {users.length > 0 ? (currentPage - 1) * PAGE_SIZE + 1 : 0}-
-              {Math.min(currentPage * PAGE_SIZE, totalElements)} of {totalElements} users
+              Hiển thị {users.length > 0 ? (currentPage - 1) * PAGE_SIZE + 1 : 0}-
+              {Math.min(currentPage * PAGE_SIZE, totalElements)} trên tổng số {totalElements} người dùng
             </span>
             {totalPages > 1 && (
               <Pagination className="mx-0 w-auto">
@@ -661,6 +643,13 @@ function SuperAdminView() {
           user={activateUser}
           open={activateUser !== null}
           onOpenChange={(open: boolean) => { if (!open) setActivateUser(null); }}
+          onSuccess={handleSuccess}
+        />
+
+        <BulkRevokeSharesDialog
+          user={bulkRevokeUser}
+          open={bulkRevokeUser !== null}
+          onOpenChange={(open) => !open && setBulkRevokeUser(null)}
           onSuccess={handleSuccess}
         />
       </section>

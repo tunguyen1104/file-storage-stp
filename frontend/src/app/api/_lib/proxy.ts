@@ -44,6 +44,7 @@ const ALLOWED_PREFIXES = [
   "/api/v1/tenants",
   "/api/v1/audit-logs",
   "/api/v1/search",
+  "/api/v1/shares",
 ];
 
 // HTTP methods that change server state and therefore require CSRF protection.

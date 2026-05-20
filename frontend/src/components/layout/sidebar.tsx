@@ -42,40 +42,54 @@ type NavSection = {
   separator?: boolean; // separator before this section
 };
 
+const ROLE_LABELS: Record<Role, string> = {
+  SUPER_ADMIN: "Quản trị hệ thống",
+  TENANT_ADMIN: "Quản trị tổ chức",
+  MEMBER: "Thành viên",
+};
+
 const NAV_SECTIONS_BY_ROLE: Record<Role, NavSection[]> = {
   SUPER_ADMIN: [
     {
       items: [
-        { href: "/tenants", label: "Tenant Management", icon: Building2 },
-        { href: "/users", label: "User Management", icon: Users },
-        { href: "/files", label: "File Management", icon: FolderOpen },
-        { href: "/admin-files", label: "Admin Files", icon: HardDrive },
+        { href: "/tenants", label: "Quản lý tổ chức", icon: Building2 },
+        { href: "/users", label: "Quản lý người dùng", icon: Users },
+        { href: "/admin-files", label: "Quản lý tệp tin", icon: FolderOpen },
+        { href: "/admin-shares", label: "Quản lý chia sẻ", icon: Share2 },
+      ],
+    },
+    {
+      separator: true,
+      items: [
+        { href: "/files", label: "Tài liệu của tôi", icon: HardDrive },
+        { href: "/files?tab=trash", label: "Thùng rác", icon: Trash2 },
+        { href: "/shared", label: "Được chia sẻ", icon: Share2 },
       ],
     },
   ],
   TENANT_ADMIN: [
     {
       items: [
-        { href: "/users", label: "Team Members", icon: Users },
-        { href: "/security", label: "Security", icon: Shield },
-        { href: "/audit-logs", label: "Usage Logs", icon: ClipboardList },
+        { href: "/users", label: "Thành viên nhóm", icon: Users },
+        { href: "/admin-shares", label: "Quản lý chia sẻ", icon: Share2 },
+        { href: "/audit-logs", label: "Nhật ký hoạt động", icon: ClipboardList },
       ],
     },
     {
       separator: true,
       items: [
-        { href: "/files", label: "All Files", icon: FolderOpen },
-        { href: "/files?tab=trash", label: "Trash", icon: Trash2 },
-        { href: "/shared", label: "Shared", icon: Share2 },
+        { href: "/files", label: "Tài liệu của tôi", icon: FolderOpen },
+        { href: "/files?tab=trash", label: "Thùng rác", icon: Trash2 },
+        { href: "/shared", label: "Được chia sẻ", icon: Share2 },
       ],
     },
   ],
   MEMBER: [
     {
       items: [
-        { href: "/files", label: "All Files", icon: FolderOpen },
-        { href: "/files?tab=trash", label: "Trash", icon: Trash2 },
-        { href: "/shared", label: "Shared", icon: Share2 },
+        { href: "/files", label: "Tài liệu của tôi", icon: FolderOpen },
+        { href: "/files?tab=trash", label: "Thùng rác", icon: Trash2 },
+        { href: "/shared", label: "Được chia sẻ", icon: Share2 },
       ],
     },
   ],
@@ -136,7 +150,7 @@ export function DashboardSidebar({
       )}>
         {!isCollapsed && (
           <span className="text-xs font-bold text-gray-500 tracking-wider whitespace-nowrap">
-            {user.role.replace(/_/g, " ")}
+            {ROLE_LABELS[user.role] ?? user.role}
           </span>
         )}
         {onToggleCollapse && (
@@ -196,35 +210,35 @@ export function DashboardSidebar({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <div className={cn(
-              "flex items-center w-full hover:bg-gray-50 rounded-lg cursor-pointer transition-colors focus:outline-none",
+              "flex items-center w-full hover:bg-gray-50 rounded-lg cursor-pointer transition-colors focus:outline-none min-w-0",
               isCollapsed ? "justify-center p-0" : "justify-between p-2"
             )}>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <Avatar className="h-9 w-9 shadow-sm border border-gray-200 shrink-0">
                   <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} />
                   <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                 </Avatar>
                 {!isCollapsed && (
-                  <div className="flex flex-col text-left overflow-hidden">
+                  <div className="flex flex-col text-left overflow-hidden min-w-0 flex-1">
                     <span className="text-sm font-medium text-gray-900 leading-none truncate">{user.name}</span>
                     <span className="text-xs text-gray-500 mt-1 truncate">{user.email}</span>
                   </div>
                 )}
               </div>
-              {!isCollapsed && <ChevronsUpDown className="h-4 w-4 text-gray-400 shrink-0" />}
+              {!isCollapsed && <ChevronsUpDown className="h-4 w-4 text-gray-400 shrink-0 ml-2" />}
             </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[200px]" sideOffset={12}>
             <DropdownMenuItem asChild className="cursor-pointer">
               <Link href="/profile" className="flex items-center gap-2 w-full">
                 <User className="h-4 w-4 text-gray-500" />
-                <span>Profile</span>
+                <span>Thông tin cá nhân</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => void logOut()}>
               <LogOut className="h-4 w-4 text-gray-500" />
-              <span>Log out</span>
+              <span>Đăng xuất</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

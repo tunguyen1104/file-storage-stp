@@ -68,7 +68,7 @@ function ResetPasswordForm() {
         router.push("/login?reset=success");
         return;
       }
-      setError(result.message ?? "Failed to reset password.");
+      setError(result.message ?? "Không thể đặt lại mật khẩu.");
     } catch (err: unknown) {
       const appError = toAppError(err);
       if (appError.validationErrors) {
@@ -85,7 +85,7 @@ function ResetPasswordForm() {
         }
         return;
       }
-      setError(appError.message || "Failed to reset password. The link may have expired.");
+      setError(appError.message || "Không thể đặt lại mật khẩu. Liên kết có thể đã hết hạn.");
     }
   };
 
@@ -101,9 +101,9 @@ function ResetPasswordForm() {
     return (
       <Card className="w-full max-w-md shadow-lg">
         <CardContent className="pt-6 text-center space-y-4">
-          <p className="font-medium">Invalid or expired reset link.</p>
+          <p className="font-medium">Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.</p>
           <Link href="/forgot-password" className="text-sm text-muted-foreground hover:underline">
-            Request a new reset link
+            Yêu cầu liên kết đặt lại mật khẩu mới
           </Link>
         </CardContent>
       </Card>
@@ -113,9 +113,9 @@ function ResetPasswordForm() {
   return (
     <Card className="w-full max-w-md shadow-lg">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-bold">Reset Password</CardTitle>
+        <CardTitle className="text-2xl font-bold">Đặt lại mật khẩu</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Enter your new password below.
+          Nhập mật khẩu mới của bạn bên dưới.
         </p>
       </CardHeader>
       <CardContent>
@@ -126,7 +126,7 @@ function ResetPasswordForm() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>New Password</FormLabel>
+                  <FormLabel>Mật khẩu mới</FormLabel>
                   <FormControl>
                     <PasswordInput
                       placeholder="••••••••"
@@ -143,7 +143,7 @@ function ResetPasswordForm() {
               name="confirmPassword"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Confirm Password</FormLabel>
+                  <FormLabel>Xác nhận mật khẩu</FormLabel>
                   <FormControl>
                     <PasswordInput
                       placeholder="••••••••"
@@ -163,17 +163,17 @@ function ResetPasswordForm() {
             >
               {form.formState.isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Resetting...
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang đặt lại...
                 </>
               ) : (
-                "Reset Password"
+                "Đặt lại mật khẩu"
               )}
             </Button>
           </form>
         </Form>
         <div className="mt-4 text-center text-sm">
           <Link href="/login" className="text-muted-foreground hover:underline">
-            Back to sign in
+            Quay lại trang đăng nhập
           </Link>
         </div>
       </CardContent>

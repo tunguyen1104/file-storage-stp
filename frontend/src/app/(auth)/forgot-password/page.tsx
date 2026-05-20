@@ -42,7 +42,7 @@ export default function ForgotPasswordPage() {
         `/check-email?flow=reset&email=${encodeURIComponent(data.email)}`
       );
     } catch {
-      setError("Failed to send reset link. Please try again.");
+      setError("Không thể gửi liên kết đặt lại mật khẩu. Vui lòng thử lại.");
     }
   };
 
@@ -57,20 +57,20 @@ export default function ForgotPasswordPage() {
                 <KeyRound className="h-6 w-6 text-primary" />
               </div>
               <CardTitle className="text-2xl font-bold tracking-tight">
-                Secure account recovery
+                Khôi phục tài khoản an toàn
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                We&apos;ll send a reset link to your email so you can set a new password.
+                Chúng tôi sẽ gửi một liên kết đặt lại mật khẩu đến email của bạn để thiết lập mật khẩu mới.
               </p>
             </CardHeader>
             <CardContent className="space-y-4 pb-8">
               <div className="flex items-start gap-3 text-sm text-muted-foreground">
                 <Mail className="mt-0.5 h-4 w-4 text-primary" />
-                <span>Use the work email associated with your tenant account.</span>
+                <span>Sử dụng email công việc được liên kết với tài khoản tổ chức của bạn.</span>
               </div>
               <div className="flex items-start gap-3 text-sm text-muted-foreground">
                 <ShieldCheck className="mt-0.5 h-4 w-4 text-primary" />
-                <span>Recovery links are time-limited for security.</span>
+                <span>Liên kết khôi phục có giới hạn thời gian để đảm bảo bảo mật.</span>
               </div>
             </CardContent>
           </Card>
@@ -81,10 +81,10 @@ export default function ForgotPasswordPage() {
                 <KeyRound className="h-6 w-6 text-primary" />
               </div>
               <CardTitle className="text-2xl font-bold tracking-tight">
-                Forgot Password
+                Quên mật khẩu
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Enter your account email to receive a reset link.
+                Nhập email tài khoản của bạn để nhận liên kết đặt lại mật khẩu.
               </p>
             </CardHeader>
             <CardContent>
@@ -99,7 +99,7 @@ export default function ForgotPasswordPage() {
                         <FormControl>
                           <Input
                             type="email"
-                            placeholder="you@example.com"
+                            placeholder="email@example.com"
                             autoComplete="email"
                             className="h-11"
                             {...field}
@@ -117,17 +117,17 @@ export default function ForgotPasswordPage() {
                   >
                     {form.formState.isSubmitting ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang gửi...
                       </>
                     ) : (
-                      "Send Reset Link"
+                      "Gửi liên kết đặt lại mật khẩu"
                     )}
                   </Button>
                 </form>
               </Form>
               <div className="mt-5 text-center text-sm">
                 <Link href="/login" className="text-muted-foreground hover:underline">
-                  Back to sign in
+                  Quay lại trang đăng nhập
                 </Link>
               </div>
             </CardContent>

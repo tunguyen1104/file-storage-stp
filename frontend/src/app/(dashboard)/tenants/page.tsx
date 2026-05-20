@@ -31,7 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { listTenants, updateTenant } from "@/lib/api/tenants";
+import { listTenants, updateTenant, activateTenant } from "@/lib/api/tenants";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
   CreateTenantDialog,
@@ -84,16 +84,11 @@ export default function TenantsPage() {
   async function handleActivateTenant(tenant: TenantResponse) {
     try {
       setIsActivating(tenant.id);
-      await updateTenant(tenant.id, { 
-        name: tenant.name,
-        slug: tenant.slug,
-        storageQuotaBytes: tenant.storageQuotaBytes.toString(),
-        isActive: true 
-      });
-      toast.success(`Tenant "${tenant.name}" activated`);
+      await activateTenant(tenant.id);
+      toast.success(`Đã kích hoạt tổ chức "${tenant.name}"`);
       mutate();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to activate tenant");
+      toast.error(error instanceof Error ? error.message : "Không thể kích hoạt tổ chức");
     } finally {
       setIsActivating(null);
     }
@@ -107,24 +102,24 @@ export default function TenantsPage() {
     if (isSuspended) {
       return (
         <Badge variant="outline" className="bg-red-50 text-red-600 border-red-100 font-medium px-3 flex items-center justify-center min-w-[80px]">
-          Suspended
+          Đình chỉ
         </Badge>
       );
     }
     if (isPending) {
       return (
         <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-200 font-medium px-3 flex items-center justify-center min-w-[80px]">
-          Pending
+          Chờ duyệt
         </Badge>
       );
     }
     return isActive ? (
       <Badge variant="outline" className="bg-white text-gray-700 border-gray-200 font-medium px-3 flex items-center justify-center min-w-[80px]">
-        Active
+        Hoạt động
       </Badge>
     ) : (
       <Badge variant="outline" className="bg-gray-50 text-gray-500 border-gray-200 font-medium px-3 flex items-center justify-center min-w-[80px]">
-        Inactive
+        Vô hiệu hóa
       </Badge>
     );
   };
@@ -137,7 +132,7 @@ export default function TenantsPage() {
           <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
           <Input
             className="h-12 pl-10 border-0 shadow-sm bg-white focus-visible:ring-[#7C3AED] rounded-lg text-base"
-            placeholder="Search tenants"
+            placeholder="Tìm kiếm tổ chức..."
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
           />
@@ -147,7 +142,7 @@ export default function TenantsPage() {
           onClick={() => setCreateOpen(true)}
         >
           <Plus className="h-5 w-5" />
-          Add New Tenant
+          Thêm tổ chức mới
         </Button>
       </div>
 
@@ -156,19 +151,19 @@ export default function TenantsPage() {
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold text-gray-900 leading-tight">Tenant Management</h2>
-            <p className="text-sm text-gray-500 mt-1">Manage organization accounts, storage quotas, and platform access.</p>
+            <h2 className="text-xl font-bold text-gray-900 leading-tight">Quản lý Tổ chức</h2>
+            <p className="text-sm text-gray-500 mt-1">Quản lý các tài khoản tổ chức, hạn mức dung lượng và quyền truy cập nền tảng.</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
               <Select value={filterByStatus} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger className="w-[180px] h-10 border-gray-200">
-                  <SelectValue placeholder="Filter by status" />
+                  <SelectValue placeholder="Lọc theo trạng thái" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                  <SelectItem value="active">Hoạt động</SelectItem>
+                  <SelectItem value="inactive">Vô hiệu hóa</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -183,25 +178,25 @@ export default function TenantsPage() {
           <Table className="min-w-[800px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent border-b border-gray-100">
-                <TableHead className="font-semibold text-gray-700 py-4 h-auto px-6">Organization</TableHead>
-                <TableHead className="font-semibold text-gray-700 py-4 h-auto">Storage</TableHead>
-                <TableHead className="font-semibold text-gray-700 py-4 h-auto text-center">Status</TableHead>
-                <TableHead className="font-semibold text-gray-700 py-4 h-auto">Members</TableHead>
-                <TableHead className="font-semibold text-gray-700 py-4 h-auto">Updated At</TableHead>
-                <TableHead className="font-semibold text-gray-700 py-4 h-auto text-center">Actions</TableHead>
+                <TableHead className="font-semibold text-gray-700 py-4 h-auto px-6">Tổ chức</TableHead>
+                <TableHead className="font-semibold text-gray-700 py-4 h-auto">Dung lượng</TableHead>
+                <TableHead className="font-semibold text-gray-700 py-4 h-auto text-center">Trạng thái</TableHead>
+                <TableHead className="font-semibold text-gray-700 py-4 h-auto">Thành viên</TableHead>
+                <TableHead className="font-semibold text-gray-700 py-4 h-auto">Cập nhật lúc</TableHead>
+                <TableHead className="font-semibold text-gray-700 py-4 h-auto text-center">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-32 text-center text-gray-500">
-                    Loading...
+                    Đang tải...
                   </TableCell>
                 </TableRow>
               ) : tenants.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-32 text-center text-gray-500">
-                    {debouncedSearch ? `No tenants found for "${debouncedSearch}"` : "No tenants found."}
+                    {debouncedSearch ? `Không tìm thấy tổ chức nào khớp với "${debouncedSearch}"` : "Không tìm thấy tổ chức nào."}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -231,7 +226,7 @@ export default function TenantsPage() {
                               {formatBytes(tenant.storageUsedBytes)}
                             </span>
                             <span className="text-xs text-gray-500">
-                              / {tenant.storageQuotaBytes ? formatBytes(tenant.storageQuotaBytes) : 'Unlimited'}
+                              / {tenant.storageQuotaBytes ? formatBytes(tenant.storageQuotaBytes) : 'Không giới hạn'}
                             </span>
                           </div>
                           <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
@@ -270,7 +265,7 @@ export default function TenantsPage() {
                               className="bg-[#E11D48] hover:bg-[#BE123C] text-white h-9 px-6 rounded-md font-medium shadow-none"
                               onClick={() => setDeactivateTenant(tenant)}
                             >
-                              Delete
+                              Vô hiệu hóa
                             </Button>
                           ) : (
                             <Button
@@ -279,7 +274,7 @@ export default function TenantsPage() {
                               onClick={() => handleActivateTenant(tenant)}
                               disabled={isActivating === tenant.id}
                             >
-                              {isActivating === tenant.id ? "Activating..." : "Active"}
+                              {isActivating === tenant.id ? "Đang kích hoạt..." : "Kích hoạt"}
                             </Button>
                           )}
                           <Button
@@ -287,7 +282,7 @@ export default function TenantsPage() {
                             className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white h-9 px-6 rounded-md font-medium shadow-none"
                             onClick={() => setEditTenant(tenant)}
                           >
-                            Detail
+                            Chi tiết
                           </Button>
                         </div>
                       </TableCell>
@@ -302,7 +297,7 @@ export default function TenantsPage() {
         {/* Pagination */}
         <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
           <p className="text-sm text-gray-500">
-            Showing <span className="font-semibold text-gray-700">{(currentPage - 1) * 5 + 1}-{Math.min(currentPage * 5, (data?.totalElements ?? 0))}</span> of <span className="font-semibold text-gray-700">{data?.totalElements ?? 0}</span> tenants
+            Hiển thị <span className="font-semibold text-gray-700">{(currentPage - 1) * 5 + 1}-{Math.min(currentPage * 5, (data?.totalElements ?? 0))}</span> trên tổng số <span className="font-semibold text-gray-700">{data?.totalElements ?? 0}</span> tổ chức
           </p>
           <div className="flex items-center">
             {totalPages > 1 && (

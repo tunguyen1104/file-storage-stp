@@ -7,8 +7,8 @@ export default function SecurityPage() {
         <Shield className="h-8 w-8 text-[#7C3AED]" />
       </div>
       <div className="space-y-1">
-        <h1 className="text-xl font-semibold text-gray-900">Security Settings</h1>
-        <p className="text-sm text-gray-500">Security configuration is coming soon.</p>
+        <h1 className="text-xl font-semibold text-gray-900">Cài đặt bảo mật</h1>
+        <p className="text-sm text-gray-500">Cấu hình bảo mật sẽ sớm được ra mắt.</p>
       </div>
     </div>
   );
