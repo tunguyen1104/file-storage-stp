@@ -98,12 +98,12 @@ export function CreateTenantDialog({
           ? convertToBytes(Number(values.storageQuotaValue), values.storageQuotaUnit || "GB").toString()
           : "",
       });
-      toast.success("Tenant created successfully");
+      toast.success("Tạo tổ chức thành công");
       form.reset();
       onOpenChange(false);
       onSuccess();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to create tenant");
+      toast.error(error instanceof Error ? error.message : "Không thể tạo tổ chức");
     } finally {
       setIsSubmitting(false);
     }
@@ -113,9 +113,9 @@ export function CreateTenantDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create New Tenant</DialogTitle>
+          <DialogTitle>Tạo tổ chức mới</DialogTitle>
           <DialogDescription>
-            Add a new organization tenant. The slug must be unique and URL-safe.
+            Thêm tổ chức mới. Đường dẫn định danh (slug) phải là duy nhất và an toàn cho URL.
           </DialogDescription>
         </DialogHeader>
 
@@ -126,7 +126,7 @@ export function CreateTenantDialog({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Organization Name *</FormLabel>
+                  <FormLabel>Tên tổ chức *</FormLabel>
                   <FormControl>
                     <Input
                       placeholder="Acme Corp"
@@ -144,12 +144,12 @@ export function CreateTenantDialog({
               name="slug"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Slug *</FormLabel>
+                  <FormLabel>Đường dẫn định danh (Slug) *</FormLabel>
                   <FormControl>
                     <Input placeholder="acme-corp" {...field} />
                   </FormControl>
                   <FormDescription>
-                    Unique identifier — lowercase letters, numbers, hyphens only
+                    Định danh duy nhất — chỉ chứa chữ thường, số và dấu gạch ngang
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -164,7 +164,7 @@ export function CreateTenantDialog({
                   <FormLabel>
                     <span className="flex items-center gap-1.5">
                       <HardDrive className="h-3.5 w-3.5" />
-                      Storage Quota
+                      Hạn mức dung lượng
                     </span>
                   </FormLabel>
                   <div className="flex gap-2">
@@ -173,7 +173,7 @@ export function CreateTenantDialog({
                         type="number"
                         min="0"
                         step="0.01"
-                        placeholder="e.g. 5"
+                        placeholder="Ví dụ: 5"
                         {...field}
                         value={field.value ?? ""}
                         className="flex-1"
@@ -186,7 +186,7 @@ export function CreateTenantDialog({
                         <Select onValueChange={unitField.onChange} value={unitField.value}>
                           <FormControl>
                             <SelectTrigger className="w-[100px]">
-                              <SelectValue placeholder="Unit" />
+                              <SelectValue placeholder="Đơn vị" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -199,7 +199,7 @@ export function CreateTenantDialog({
                       )}
                     />
                   </div>
-                  <FormDescription>Leave empty to use the system default</FormDescription>
+                  <FormDescription>Để trống để sử dụng hạn mức mặc định của hệ thống</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -207,11 +207,11 @@ export function CreateTenantDialog({
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => handleClose(false)}>
-                Cancel
+                Hủy
               </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Tenant
+                Tạo tổ chức
               </Button>
             </DialogFooter>
           </form>
@@ -261,15 +261,15 @@ export function EditTenantDialog({
         : undefined;
 
       await updateTenant(tenant.id, {
-        name: values.name,
-        slug: values.slug,
+        name: values.name ?? "",
+        slug: values.slug ?? "",
         storageQuotaBytes: newQuotaBytes ? newQuotaBytes.toString() : "",
       });
-      toast.success("Tenant updated successfully");
+      toast.success("Cập nhật tổ chức thành công");
       onOpenChange(false);
       onSuccess();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update tenant");
+      toast.error(error instanceof Error ? error.message : "Không thể cập nhật tổ chức");
     } finally {
       setIsSubmitting(false);
     }
@@ -279,33 +279,33 @@ export function EditTenantDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Tenant Details</DialogTitle>
+          <DialogTitle>Chi tiết tổ chức</DialogTitle>
           <DialogDescription>
-            View and update organization information. The slug must remain unique.
+            Xem và cập nhật thông tin tổ chức. Đường dẫn định danh (slug) phải là duy nhất.
           </DialogDescription>
         </DialogHeader>
 
         {tenant && (
           <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg text-sm mb-2">
             <div>
-              <span className="text-gray-500 block text-xs mb-1">Status</span>
-              <span className="font-medium">{tenant.isActive ? "Active" : "Inactive"}</span>
+              <span className="text-gray-500 block text-xs mb-1">Trạng thái</span>
+              <span className="font-medium">{tenant.isActive ? "Hoạt động" : "Vô hiệu hóa"}</span>
             </div>
             <div>
-              <span className="text-gray-500 block text-xs mb-1">Members</span>
+              <span className="text-gray-500 block text-xs mb-1">Thành viên</span>
               <span className="font-medium">{tenant.userCount}</span>
             </div>
             <div>
-              <span className="text-gray-500 block text-xs mb-1">Storage Used</span>
+              <span className="text-gray-500 block text-xs mb-1">Dung lượng đã dùng</span>
               <span className="font-medium">{formatBytes(tenant.storageUsedBytes)}</span>
             </div>
             <div>
-              <span className="text-gray-500 block text-xs mb-1">Created At</span>
+              <span className="text-gray-500 block text-xs mb-1">Ngày tạo</span>
               <span className="font-medium">{new Date(tenant.createdAt).toLocaleString()}</span>
             </div>
             <div>
-              <span className="text-gray-500 block text-xs mb-1">Updated At</span>
-              <span className="font-medium">{tenant.updatedAt ? new Date(tenant.updatedAt).toLocaleString() : "N/A"}</span>
+              <span className="text-gray-500 block text-xs mb-1">Cập nhật lúc</span>
+              <span className="font-medium">{tenant.updatedAt ? new Date(tenant.updatedAt).toLocaleString() : "Chưa có"}</span>
             </div>
           </div>
         )}
@@ -317,7 +317,7 @@ export function EditTenantDialog({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Organization Name</FormLabel>
+                  <FormLabel>Tên tổ chức</FormLabel>
                   <FormControl>
                     <Input placeholder="Acme Corp" {...field} />
                   </FormControl>
@@ -331,12 +331,12 @@ export function EditTenantDialog({
               name="slug"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Slug</FormLabel>
+                  <FormLabel>Đường dẫn định danh (Slug)</FormLabel>
                   <FormControl>
                     <Input placeholder="acme-corp" {...field} />
                   </FormControl>
                   <FormDescription>
-                    Lowercase letters, numbers, hyphens only
+                    Chỉ chứa chữ thường, số và dấu gạch ngang
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -351,7 +351,7 @@ export function EditTenantDialog({
                   <FormLabel>
                     <span className="flex items-center gap-1.5">
                       <HardDrive className="h-3.5 w-3.5" />
-                      Storage Quota
+                      Hạn mức dung lượng
                     </span>
                   </FormLabel>
                   <div className="flex gap-2">
@@ -360,7 +360,7 @@ export function EditTenantDialog({
                         type="number"
                         min="0"
                         step="0.01"
-                        placeholder="e.g. 5"
+                        placeholder="Ví dụ: 5"
                         {...field}
                         value={field.value ?? ""}
                         className="flex-1"
@@ -373,7 +373,7 @@ export function EditTenantDialog({
                         <Select onValueChange={unitField.onChange} value={unitField.value}>
                           <FormControl>
                             <SelectTrigger className="w-[100px]">
-                              <SelectValue placeholder="Unit" />
+                              <SelectValue placeholder="Đơn vị" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -393,11 +393,11 @@ export function EditTenantDialog({
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
+                Hủy
               </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
+                Lưu thay đổi
               </Button>
             </DialogFooter>
           </form>
@@ -429,11 +429,11 @@ export function DeactivateTenantDialog({
     setIsSubmitting(true);
     try {
       await deactivateTenant(tenant.id);
-      toast.success(`Tenant "${tenant.name}" deactivated`);
+      toast.success(`Đã vô hiệu hóa tổ chức "${tenant.name}"`);
       onOpenChange(false);
       onSuccess();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to deactivate tenant");
+      toast.error(error instanceof Error ? error.message : "Không thể vô hiệu hóa tổ chức");
     } finally {
       setIsSubmitting(false);
     }
@@ -443,22 +443,22 @@ export function DeactivateTenantDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Deactivate Tenant</AlertDialogTitle>
+          <AlertDialogTitle>Vô hiệu hóa tổ chức</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to deactivate{" "}
-            <span className="font-semibold">{tenant?.name}</span>? All users under
-            this tenant will lose access immediately.
+            Bạn có chắc chắn muốn vô hiệu hóa tổ chức{" "}
+            <span className="font-semibold">{tenant?.name}</span>? Tất cả người dùng thuộc
+            tổ chức này sẽ mất quyền truy cập ngay lập tức.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isSubmitting}>Hủy</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDeactivate}
             disabled={isSubmitting}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Deactivate
+            Vô hiệu hóa
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

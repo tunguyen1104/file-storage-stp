@@ -29,10 +29,17 @@ function formatBytes(bytes: number): string {
 }
 
 const profileSchema = z.object({
-  fullName: z.string().min(1, "Full name is required"),
+  fullName: z.string().min(1, "Vui lòng nhập họ tên"),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
+
+const getRoleLabel = (role?: string) => {
+  if (role === "SUPER_ADMIN") return "Quản trị hệ thống";
+  if (role === "TENANT_ADMIN") return "Quản trị tổ chức";
+  if (role === "MEMBER") return "Thành viên";
+  return role?.replace("_", " ") || "";
+};
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -76,7 +83,7 @@ export default function ProfilePage() {
         roleCode: profile.role as Role,
         storageQuotaBytes: profile.storageQuotaBytes?.toString() || "",
       });
-      toast.success("Profile updated successfully");
+      toast.success("Cập nhật thông tin cá nhân thành công");
       await mutateProfile();
     } catch (error) {
       toast.error(toAppError(error).message);
@@ -123,7 +130,7 @@ export default function ProfilePage() {
               </Avatar>
               <div 
                 className="absolute bottom-0 right-0 bg-[#7C3AED] text-white p-1.5 rounded-full cursor-not-allowed shadow-sm border-2 border-white flex items-center justify-center" 
-                title="Avatar upload coming soon"
+                title="Tính năng tải lên ảnh đại diện sắp ra mắt"
               >
                 <Camera className="h-3.5 w-3.5" />
               </div>
@@ -141,7 +148,7 @@ export default function ProfilePage() {
               onClick={handleCancel}
               disabled={isSaving}
             >
-              Cancel
+              Hủy
             </Button>
             <Button 
               type="submit" 
@@ -149,7 +156,7 @@ export default function ProfilePage() {
               disabled={!isDirty || isSaving}
             >
               {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Changes
+              Lưu thay đổi
             </Button>
           </div>
         </div>
@@ -158,17 +165,17 @@ export default function ProfilePage() {
           {/* Form Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
             <div className="space-y-2">
-              <Label htmlFor="fullName" className="text-sm font-semibold text-gray-700">Full Name</Label>
+              <Label htmlFor="fullName" className="text-sm font-semibold text-gray-700">Họ tên</Label>
               <Input 
                 id="fullName" 
                 {...register("fullName")} 
                 className={errors.fullName ? "border-red-500" : ""}
-                placeholder="Enter full name"
+                placeholder="Nhập họ tên"
               />
               {errors.fullName && <p className="text-xs text-red-500">{errors.fullName.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-semibold text-gray-700">Email Address</Label>
+              <Label htmlFor="email" className="text-sm font-semibold text-gray-700">Địa chỉ email</Label>
               <Input 
                 id="email" 
                 value={profile?.email || ""} 
@@ -178,7 +185,7 @@ export default function ProfilePage() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="role" className="text-sm font-semibold text-gray-700">Role</Label>
+              <Label htmlFor="role" className="text-sm font-semibold text-gray-700">Vai trò</Label>
               <div className="relative">
                 <select 
                   id="role" 
@@ -186,7 +193,7 @@ export default function ProfilePage() {
                   disabled 
                   className="flex h-10 w-full rounded-md border border-input bg-gray-50/80 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 text-gray-500 appearance-none"
                 >
-                  <option value={profile?.role}>{profile?.role?.replace("_", " ")}</option>
+                  <option value={profile?.role}>{getRoleLabel(profile?.role)}</option>
                 </select>
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
                   <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -197,17 +204,17 @@ export default function ProfilePage() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="tenant" className="text-sm font-semibold text-gray-700">Tenant</Label>
+              <Label htmlFor="tenant" className="text-sm font-semibold text-gray-700">Tổ chức</Label>
               <Input 
                 id="tenant" 
-                value={profile?.tenantName || "N/A"} 
+                value={profile?.tenantName || "Hệ thống"} 
                 disabled 
                 className="bg-gray-50/80 text-gray-500 cursor-not-allowed"
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-semibold text-gray-700">Password</Label>
+              <Label htmlFor="password" className="text-sm font-semibold text-gray-700">Mật khẩu</Label>
               <div className="flex items-center gap-3">
                 <Input 
                   id="password" 
@@ -222,7 +229,7 @@ export default function ProfilePage() {
                   onClick={() => setIsPasswordDialogOpen(true)}
                 >
                   <KeyRound className="h-4 w-4" />
-                  Change Password
+                  Đổi mật khẩu
                 </Button>
               </div>
             </div>
@@ -230,24 +237,24 @@ export default function ProfilePage() {
 
           {/* Storage Management Block */}
           <div className="bg-[#FAFAFA] rounded-xl p-6 border border-gray-100">
-            <h3 className="font-bold text-gray-900 mb-6 text-[15px]">Storage Management</h3>
+            <h3 className="font-bold text-gray-900 mb-6 text-[15px]">Quản lý dung lượng</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-end">
               <div className="md:col-span-7 space-y-2.5">
                 <div className="flex justify-between items-center text-sm font-semibold">
-                  <span className="text-gray-500">Usage Progress</span>
-                  <span className="text-[#7C3AED]">{usagePercent.toFixed(0)}% Used</span>
+                  <span className="text-gray-500">Tiến trình sử dụng</span>
+                  <span className="text-[#7C3AED]">Đã dùng {usagePercent.toFixed(0)}%</span>
                 </div>
                 <Progress value={usagePercent} className="h-2.5 bg-gray-200" indicatorClassName="bg-[#7C3AED]" />
               </div>
 
               <div className="md:col-span-5 flex items-end justify-between md:justify-start md:gap-10">
                 <div className="space-y-1.5">
-                  <p className="text-[11px] uppercase tracking-wider font-bold text-gray-500">Storage Used</p>
+                  <p className="text-[11px] uppercase tracking-wider font-bold text-gray-500">Dung lượng đã dùng</p>
                   <p className="text-xl font-extrabold text-gray-900">{storageUsedStr}</p>
                 </div>
                 <div className="space-y-1.5">
-                  <p className="text-[11px] uppercase tracking-wider font-bold text-gray-500">Storage Quota</p>
+                  <p className="text-[11px] uppercase tracking-wider font-bold text-gray-500">Hạn mức dung lượng</p>
                   <p className="text-xl font-extrabold text-gray-900">{storageQuotaStr}</p>
                 </div>
               </div>

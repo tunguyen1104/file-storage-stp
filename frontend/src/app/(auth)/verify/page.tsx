@@ -47,26 +47,26 @@ function VerifyEmailContent() {
       {status === "loading" && (
         <>
           <Loader2 className="h-10 w-10 animate-spin" />
-          <p className="mt-4 font-medium">Verifying your email...</p>
+          <p className="mt-4 font-medium">Đang xác thực email của bạn...</p>
         </>
       )}
 
       {status === "success" && (
         <>
           <CheckCircle className="h-10 w-10 text-green-500" />
-          <p className="mt-4 font-medium">Email verified! Redirecting...</p>
+          <p className="mt-4 font-medium">Xác thực email thành công! Đang chuyển hướng...</p>
         </>
       )}
 
       {status === "error" && (
         <>
           <XCircle className="h-10 w-10 text-red-500" />
-          <p className="mt-4 font-medium">Invalid or expired link.</p>
+          <p className="mt-4 font-medium">Liên kết không hợp lệ hoặc đã hết hạn.</p>
           <button
             className="mt-4 underline"
             onClick={() => router.push("/login")}
           >
-            Return to sign in
+            Quay lại trang đăng nhập
           </button>
         </>
       )}
@@ -81,7 +81,7 @@ export default function VerifyEmailPage() {
         fallback={
           <div className="flex flex-col items-center">
             <Loader2 className="h-10 w-10 animate-spin" />
-            <p className="mt-4 font-medium">Loading verification...</p>
+            <p className="mt-4 font-medium">Đang tải thông tin xác thực...</p>
           </div>
         }
       >

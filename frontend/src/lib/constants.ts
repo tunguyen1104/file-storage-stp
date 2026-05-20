@@ -132,6 +132,7 @@ export const API_ROUTES = {
     BY_ID: (id: string) => `${API_PREFIX}/tenants/${id}`,
     OPTIONS: `${API_PREFIX}/tenants/options`,
     ME: `${API_PREFIX}/tenants/me`,
+    ACTIVATE: (id: string) => `${API_PREFIX}/tenants/${id}/activate`,
   },
   USERS: {
     LIST: `${API_PREFIX}/users`,
@@ -140,6 +141,10 @@ export const API_ROUTES = {
     PASSWORD: (id: string) => `${API_PREFIX}/users/${id}/password`,
     STORAGE: (id: string) => `${API_PREFIX}/users/${id}/storage`,
     ACTIVATE: (id: string) => `${API_PREFIX}/users/${id}/activate`,
+  },
+  SHARES: {
+    ADMIN_LIST: `${API_PREFIX}/shares/admin`,
+    ADMIN_REVOKE: (id: string) => `${API_PREFIX}/shares/admin/${id}`,
   },
   AUDIT_LOGS: `${API_PREFIX}/audit-logs`,
   SEARCH: `${API_PREFIX}/search`,

@@ -44,18 +44,18 @@ export function UploadFloatingWidget() {
         <div className="flex items-center gap-2">
           <UploadCloud className="h-4 w-4 text-primary shrink-0" />
           <span className="text-sm font-medium">
-            {activeCount > 0 ? `Uploading ${activeCount} file(s)…` : "Uploads"}
+            {activeCount > 0 ? `Đang tải lên ${activeCount} tệp…` : "Danh sách tải lên"}
           </span>
         </div>
         <div className="flex items-center gap-1.5">
           {doneCount > 0 && (
             <Badge className="text-xs bg-green-500 hover:bg-green-500 text-white border-0">
-              {doneCount} done
+              {doneCount} hoàn thành
             </Badge>
           )}
           {errorCount > 0 && (
             <Badge variant="destructive" className="text-xs">
-              {errorCount} failed
+              {errorCount} lỗi
             </Badge>
           )}
           <ChevronUp
@@ -95,7 +95,7 @@ export function UploadFloatingWidget() {
               className="flex-1 text-xs"
               onClick={clearDone}
             >
-              Clear completed
+              Xóa đã hoàn thành
             </Button>
           )}
           {errorCount > 0 && (
@@ -105,7 +105,7 @@ export function UploadFloatingWidget() {
               className="flex-1 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={clearErrors}
             >
-              Clear failed
+              Xóa tệp lỗi
             </Button>
           )}
         </div>

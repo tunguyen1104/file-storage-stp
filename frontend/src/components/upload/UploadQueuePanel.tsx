@@ -31,16 +31,16 @@ export function UploadQueuePanel({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-3">
         <CardTitle className="text-base font-semibold">
-          Upload Queue ({items.length})
+          Hàng đợi tải lên ({items.length})
         </CardTitle>
         {doneCount > 0 && (
           <Button variant="ghost" size="sm" onClick={onClearDone} className="text-xs">
-            Clear completed
+            Xóa đã hoàn thành
           </Button>
         )}
         {errorCount > 0 && (
           <Button variant="ghost" size="sm" onClick={onClearErrors} className="text-xs text-destructive hover:text-destructive hover:bg-destructive/10">
-            Clear failed
+            Xóa tệp lỗi
           </Button>
         )}
       </CardHeader>

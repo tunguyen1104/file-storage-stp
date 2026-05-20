@@ -26,13 +26,30 @@ const DEFAULT_ROUTE_BY_ROLE = {
 } as const;
 
 const ALLOWED_ROUTES_BY_ROLE: Record<string, string[]> = {
-  SUPER_ADMIN: ["/tenants", "/users", "/files", "/admin-files", "/search", "/audit-logs", "/profile"],
-  TENANT_ADMIN: ["/users", "/files", "/shared", "/search", "/security", "/audit-logs", "/profile"],
+  SUPER_ADMIN: ["/tenants", "/users", "/files", "/admin-files", "/admin-shares", "/shared", "/search", "/audit-logs", "/profile"],
+  TENANT_ADMIN: ["/users", "/files", "/admin-shares", "/shared", "/search", "/audit-logs", "/profile"],
   MEMBER: ["/files", "/shared", "/search", "/profile"],
 };
 
-function toTitle(value: string) {
-  return value
+const SEGMENT_TRANSLATIONS: Record<string, string> = {
+  "files": "Tài liệu của tôi",
+  "shared": "Được chia sẻ",
+  "users": "Quản lý người dùng",
+  "tenants": "Quản lý tổ chức",
+  "admin-files": "Quản lý tệp tin",
+  "admin-shares": "Quản lý chia sẻ",
+  "audit-logs": "Nhật ký hoạt động",
+  "profile": "Thông tin cá nhân",
+  "security": "Bảo mật",
+  "upload": "Tải lên",
+  "search": "Tìm kiếm",
+};
+
+function getBreadcrumbLabel(segment: string): string {
+  if (SEGMENT_TRANSLATIONS[segment.toLowerCase()]) {
+    return SEGMENT_TRANSLATIONS[segment.toLowerCase()];
+  }
+  return segment
     .replace(/-/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
@@ -113,13 +130,13 @@ export default function DashboardLayout({
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>
-                  <BreadcrumbPage>Dashboard</BreadcrumbPage>
+                  <BreadcrumbPage>Hệ thống</BreadcrumbPage>
                 </BreadcrumbItem>
                 {pathSegments.map((segment) => (
                   <React.Fragment key={segment}>
                     <BreadcrumbSeparator />
                     <BreadcrumbItem>
-                      <BreadcrumbPage>{toTitle(segment)}</BreadcrumbPage>
+                      <BreadcrumbPage>{getBreadcrumbLabel(segment)}</BreadcrumbPage>
                     </BreadcrumbItem>
                   </React.Fragment>
                 ))}
@@ -133,7 +150,7 @@ export default function DashboardLayout({
             onClick={() => void logOut()}
           >
             <LogOut className="h-4 w-4" />
-            Logout
+            Đăng xuất
           </Button>
         </header>
 

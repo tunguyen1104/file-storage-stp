@@ -31,10 +31,10 @@ export function UploadPage() {
     <div className="flex flex-col gap-6 p-6 max-w-4xl mx-auto">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Upload Files</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Tải lên tệp tin</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Drag and drop files or click to browse. Files are virus-scanned before activation.
-          Large files (&ge;100 MB) use resumable multipart upload.
+          Kéo thả tệp tin hoặc click để chọn. Tệp tin được quét virus trước khi kích hoạt.
+          Tệp tin lớn (&ge;100 MB) sử dụng cơ chế tải lên phân đoạn có thể tiếp tục.
         </p>
       </div>
 

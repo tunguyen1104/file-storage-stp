@@ -97,10 +97,10 @@ export function UploadDropZone({ onFilesSelected }: UploadDropZoneProps) {
 
           <div className="space-y-1">
             <p className="text-base font-semibold text-foreground">
-              {isDragging ? "Drop files here" : "Click or drag files to upload"}
+              {isDragging ? "Thả các tệp tin tại đây" : "Click hoặc kéo thả tệp tin để tải lên"}
             </p>
             <p className="text-sm text-muted-foreground">
-              Supports multiple files at once
+              Hỗ trợ chọn nhiều tệp cùng lúc
             </p>
             <p className="text-xs text-muted-foreground/70 mt-2">{ALLOWED_MIME_LABEL}</p>
           </div>
@@ -126,8 +126,8 @@ export function UploadDropZone({ onFilesSelected }: UploadDropZoneProps) {
             >
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span className="truncate">
-                <span className="font-medium">{name}</span> exceeds the{" "}
-                {formatBytes(MAX_FILE_SIZE)} limit — skipped.
+                Tệp <span className="font-medium">{name}</span> vượt quá giới hạn{" "}
+                {formatBytes(MAX_FILE_SIZE)} — đã bỏ qua.
               </span>
               <button
                 className="ml-auto shrink-0 text-destructive/60 hover:text-destructive"

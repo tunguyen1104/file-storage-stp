@@ -27,7 +27,7 @@ export function InterruptedUploadBanner({
     // Validate that the re-selected file matches the interrupted upload
     if (file.name !== record.fileName || file.size !== record.fileSizeBytes) {
       toast.error(
-        "File does not match. Please select the original file to resume."
+        "Tệp tin không khớp. Vui lòng chọn tệp tin gốc để tiếp tục tải lên."
       );
       e.target.value = "";
       return;
@@ -40,7 +40,7 @@ export function InterruptedUploadBanner({
       <CardContent className="flex items-start gap-3 p-4">
         <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground">Upload interrupted</p>
+          <p className="text-sm font-medium text-foreground">Quá trình tải lên bị gián đoạn</p>
           <p
             className="text-xs text-muted-foreground mt-0.5 truncate"
             title={record.fileName}
@@ -51,17 +51,17 @@ export function InterruptedUploadBanner({
             {formatBytes(record.fileSizeBytes)}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Re-select the file to resume from where it left off.
+            Chọn lại tệp tin để tiếp tục từ vị trí đã dừng.
           </p>
           <div className="flex gap-2 mt-3">
             <Button
               size="sm"
               onClick={() => fileInputRef.current?.click()}
             >
-              Select file to resume
+              Chọn tệp để tiếp tục
             </Button>
             <Button size="sm" variant="ghost" onClick={onDiscard}>
-              Discard
+              Bỏ qua
             </Button>
           </div>
           <input

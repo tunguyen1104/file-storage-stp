@@ -22,11 +22,11 @@ import { changeUserPassword } from "@/lib/api/users";
 import { toAppError } from "@/lib/api/core/api-error";
 
 const schema = z.object({
-  currentPassword: z.string().min(1, "Current password is required"),
-  newPassword: z.string().min(6, "Password must be at least 6 characters"),
-  confirmPassword: z.string().min(1, "Confirm password is required"),
+  currentPassword: z.string().min(1, "Vui lòng nhập mật khẩu hiện tại"),
+  newPassword: z.string().min(6, "Mật khẩu mới phải có ít nhất 6 ký tự"),
+  confirmPassword: z.string().min(1, "Vui lòng xác nhận mật khẩu mới"),
 }).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "Passwords don't match",
+  message: "Mật khẩu mới không trùng khớp",
   path: ["confirmPassword"],
 });
 
@@ -58,7 +58,7 @@ export function ChangePasswordDialog({ userId, open, onOpenChange }: ChangePassw
     setIsLoading(true);
     try {
       await changeUserPassword(userId, data);
-      toast.success("Password changed successfully");
+      toast.success("Đổi mật khẩu thành công");
       reset();
       onOpenChange(false);
     } catch (error) {
@@ -79,15 +79,15 @@ export function ChangePasswordDialog({ userId, open, onOpenChange }: ChangePassw
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <KeyRound className="h-5 w-5 text-[#7C3AED]" />
-            Change Password
+            Đổi mật khẩu
           </DialogTitle>
           <DialogDescription>
-            Enter your current password and a new password to update your account security.
+            Nhập mật khẩu hiện tại và mật khẩu mới để cập nhật bảo mật tài khoản.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="currentPassword">Current Password</Label>
+            <Label htmlFor="currentPassword">Mật khẩu hiện tại</Label>
             <Input
               id="currentPassword"
               type="password"
@@ -99,7 +99,7 @@ export function ChangePasswordDialog({ userId, open, onOpenChange }: ChangePassw
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="newPassword">New Password</Label>
+            <Label htmlFor="newPassword">Mật khẩu mới</Label>
             <Input
               id="newPassword"
               type="password"
@@ -111,7 +111,7 @@ export function ChangePasswordDialog({ userId, open, onOpenChange }: ChangePassw
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm New Password</Label>
+            <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
             <Input
               id="confirmPassword"
               type="password"
@@ -129,7 +129,7 @@ export function ChangePasswordDialog({ userId, open, onOpenChange }: ChangePassw
               onClick={() => handleOpenChange(false)}
               disabled={isLoading}
             >
-              Cancel
+              Hủy
             </Button>
             <Button
               type="submit"
@@ -137,7 +137,7 @@ export function ChangePasswordDialog({ userId, open, onOpenChange }: ChangePassw
               className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
             >
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Password
+              Lưu mật khẩu
             </Button>
           </DialogFooter>
         </form>

@@ -37,12 +37,18 @@ export function DeleteFileDialog({
   isDirectDelete,
 }: DeleteFileDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isPendingScanOrError =
+    file?.status === "PENDING" ||
+    file?.status === "SCANNING" ||
+    file?.status === "UPLOAD_FAILED" ||
+    file?.status === "INFECTED";
+  const direct = isDirectDelete || isPendingScanOrError;
 
   async function handleDelete() {
     if (!file) return;
     setIsSubmitting(true);
     try {
-      if (isDirectDelete) {
+      if (direct) {
         await deleteFileDirect(file.id);
         toast.success(`"${file.originalName}" has been permanently deleted`);
       } else {
@@ -62,11 +68,11 @@ export function DeleteFileDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{isDirectDelete ? "Permanently Delete File" : "Delete File"}</AlertDialogTitle>
+          <AlertDialogTitle>{direct ? "Permanently Delete File" : "Delete File"}</AlertDialogTitle>
           <AlertDialogDescription>
             Are you sure you want to delete{" "}
             <span className="font-semibold">{file?.originalName}</span>?
-            {isDirectDelete 
+            {direct 
               ? " This action cannot be undone and the file will be permanently removed."
               : " The file will be moved to trash and scheduled for permanent deletion."}
           </AlertDialogDescription>

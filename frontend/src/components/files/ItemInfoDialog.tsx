@@ -88,11 +88,11 @@ function getMimeLabel(mimeType: string): string {
   if (mimeType.includes("spreadsheet") || mimeType.includes("excel") || mimeType.includes("xlsx")) return "Excel";
   if (mimeType.includes("document") || mimeType.includes("word") || mimeType.includes("docx")) return "Word";
   if (mimeType.includes("presentation") || mimeType.includes("powerpoint")) return "PowerPoint";
-  if (mimeType.startsWith("image/")) return mimeType.split("/")[1]?.toUpperCase() ?? "Image";
+  if (mimeType.startsWith("image/")) return "Ảnh";
   if (mimeType.startsWith("video/")) return "Video";
-  if (mimeType.startsWith("audio/")) return "Audio";
-  if (mimeType.includes("zip") || mimeType.includes("tar")) return "Archive";
-  return mimeType.split("/")[1] ?? "File";
+  if (mimeType.startsWith("audio/")) return "Âm thanh";
+  if (mimeType.includes("zip") || mimeType.includes("tar")) return "Lưu trữ";
+  return mimeType.split("/")[1]?.toUpperCase() ?? "Tệp tin";
 }
 
 function getFileStatusLabel(status: string): { label: string; color: string } {

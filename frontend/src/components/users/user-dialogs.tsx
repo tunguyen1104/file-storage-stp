@@ -93,7 +93,7 @@ export function CreateUserDialog({
   async function onSubmit(values: CreateUserInput) {
     // Tenant is required for super admin
     if (isSuperAdmin && !values.tenantId) {
-      form.setError("tenantId", { message: "Please select a tenant" });
+      form.setError("tenantId", { message: "Vui lòng chọn một tổ chức" });
       return;
     }
     setIsSubmitting(true);
@@ -107,12 +107,12 @@ export function CreateUserDialog({
           ? convertToBytes(Number(values.storageQuotaValue), values.storageQuotaUnit || "GB").toString()
           : "",
       });
-      toast.success("User created successfully");
+      toast.success("Tạo người dùng thành công");
       form.reset();
       onOpenChange(false);
       onSuccess();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to create user");
+      toast.error(error instanceof Error ? error.message : "Không thể tạo người dùng");
     } finally {
       setIsSubmitting(false);
     }
@@ -122,9 +122,9 @@ export function CreateUserDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create New User</DialogTitle>
+          <DialogTitle>Tạo người dùng mới</DialogTitle>
           <DialogDescription>
-            Add a new user to the system. Fields marked with * are required.
+            Thêm người dùng mới vào hệ thống. Các trường đánh dấu * là bắt buộc.
           </DialogDescription>
         </DialogHeader>
 
@@ -135,9 +135,9 @@ export function CreateUserDialog({
               name="fullName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Full Name *</FormLabel>
+                  <FormLabel>Họ tên *</FormLabel>
                   <FormControl>
-                    <Input placeholder="John Doe" {...field} />
+                    <Input placeholder="Nguyễn Văn A" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -151,7 +151,7 @@ export function CreateUserDialog({
                 <FormItem>
                   <FormLabel>Email *</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="john@example.com" {...field} />
+                    <Input type="email" placeholder="email@example.com" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -163,19 +163,19 @@ export function CreateUserDialog({
               name="roleCode"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Role *</FormLabel>
+                  <FormLabel>Vai trò *</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a role" />
+                        <SelectValue placeholder="Chọn vai trò" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {isSuperAdmin && (
-                        <SelectItem value={ROLES.SUPER_ADMIN}>Super Admin</SelectItem>
+                        <SelectItem value={ROLES.SUPER_ADMIN}>Quản trị hệ thống</SelectItem>
                       )}
-                      <SelectItem value={ROLES.TENANT_ADMIN}>Tenant Admin</SelectItem>
-                      <SelectItem value={ROLES.MEMBER}>Member</SelectItem>
+                      <SelectItem value={ROLES.TENANT_ADMIN}>Quản trị tổ chức</SelectItem>
+                      <SelectItem value={ROLES.MEMBER}>Thành viên</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -189,7 +189,7 @@ export function CreateUserDialog({
                 name="tenantId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Tenant *</FormLabel>
+                    <FormLabel>Tổ chức *</FormLabel>
                     <FormControl>
                       <TenantSelect
                         value={field.value || ""}
@@ -210,7 +210,7 @@ export function CreateUserDialog({
                   <FormLabel>
                     <span className="flex items-center gap-1.5">
                       <HardDrive className="h-3.5 w-3.5" />
-                      Storage Quota
+                      Hạn mức dung lượng
                     </span>
                   </FormLabel>
                   <div className="flex gap-2">
@@ -219,7 +219,7 @@ export function CreateUserDialog({
                         type="number"
                         min="0"
                         step="0.01"
-                        placeholder="e.g. 5"
+                        placeholder="Ví dụ: 5"
                         {...field}
                         value={field.value ?? ""}
                         className="flex-1"
@@ -232,7 +232,7 @@ export function CreateUserDialog({
                         <Select onValueChange={unitField.onChange} value={unitField.value}>
                           <FormControl>
                             <SelectTrigger className="w-[100px]">
-                              <SelectValue placeholder="Unit" />
+                              <SelectValue placeholder="Đơn vị" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -245,7 +245,7 @@ export function CreateUserDialog({
                       )}
                     />
                   </div>
-                  <FormDescription>Leave empty to use the default quota</FormDescription>
+                  <FormDescription>Để trống để sử dụng hạn mức mặc định</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -253,11 +253,11 @@ export function CreateUserDialog({
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => handleClose(false)}>
-                Cancel
+                Hủy
               </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create User
+                Tạo người dùng
               </Button>
             </DialogFooter>
           </form>
@@ -313,11 +313,11 @@ export function EditUserDialog({
         roleCode: values.roleCode,
         storageQuotaBytes: newQuotaBytes ? newQuotaBytes.toString() : "",
       });
-      toast.success("User updated successfully");
+      toast.success("Cập nhật người dùng thành công");
       onOpenChange(false);
       onSuccess();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update user");
+      toast.error(error instanceof Error ? error.message : "Không thể cập nhật người dùng");
     } finally {
       setIsSubmitting(false);
     }
@@ -327,8 +327,8 @@ export function EditUserDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit User</DialogTitle>
-          <DialogDescription>Update user information.</DialogDescription>
+          <DialogTitle>Chỉnh sửa người dùng</DialogTitle>
+          <DialogDescription>Cập nhật thông tin người dùng.</DialogDescription>
         </DialogHeader>
 
         {/* Read-only email display — outside the form, not submitted */}
@@ -339,7 +339,7 @@ export function EditUserDialog({
             disabled
             className="bg-muted/50 text-muted-foreground"
           />
-          <p className="text-xs text-muted-foreground">Email cannot be changed after creation.</p>
+          <p className="text-xs text-muted-foreground">Không thể thay đổi email sau khi tạo.</p>
         </div>
 
         <Form {...form}>
@@ -349,9 +349,9 @@ export function EditUserDialog({
               name="fullName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Full Name</FormLabel>
+                  <FormLabel>Họ tên</FormLabel>
                   <FormControl>
-                    <Input placeholder="John Doe" {...field} />
+                    <Input placeholder="Nguyễn Văn A" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -363,19 +363,19 @@ export function EditUserDialog({
               name="roleCode"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Role</FormLabel>
+                  <FormLabel>Vai trò</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a role" />
+                        <SelectValue placeholder="Chọn vai trò" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {isSuperAdmin && (
-                        <SelectItem value={ROLES.SUPER_ADMIN}>Super Admin</SelectItem>
+                        <SelectItem value={ROLES.SUPER_ADMIN}>Quản trị hệ thống</SelectItem>
                       )}
-                      <SelectItem value={ROLES.TENANT_ADMIN}>Tenant Admin</SelectItem>
-                      <SelectItem value={ROLES.MEMBER}>Member</SelectItem>
+                      <SelectItem value={ROLES.TENANT_ADMIN}>Quản trị tổ chức</SelectItem>
+                      <SelectItem value={ROLES.MEMBER}>Thành viên</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -391,7 +391,7 @@ export function EditUserDialog({
                   <FormLabel>
                     <span className="flex items-center gap-1.5">
                       <HardDrive className="h-3.5 w-3.5" />
-                      Storage Quota
+                      Hạn mức dung lượng
                     </span>
                   </FormLabel>
                   <div className="flex gap-2">
@@ -400,7 +400,7 @@ export function EditUserDialog({
                         type="number"
                         min="0"
                         step="0.01"
-                        placeholder="e.g. 5"
+                        placeholder="Ví dụ: 5"
                         {...field}
                         value={field.value ?? ""}
                         className="flex-1"
@@ -413,7 +413,7 @@ export function EditUserDialog({
                         <Select onValueChange={unitField.onChange} value={unitField.value}>
                           <FormControl>
                             <SelectTrigger className="w-[100px]">
-                              <SelectValue placeholder="Unit" />
+                              <SelectValue placeholder="Đơn vị" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -433,11 +433,11 @@ export function EditUserDialog({
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
+                Hủy
               </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
+                Lưu thay đổi
               </Button>
             </DialogFooter>
           </form>
@@ -469,11 +469,11 @@ export function DeactivateUserDialog({
     setIsSubmitting(true);
     try {
       await deactivateUser(user.id);
-      toast.success(`User "${user.fullName}" deactivated`);
+      toast.success(`Đã vô hiệu hóa người dùng "${user.fullName}"`);
       onOpenChange(false);
       onSuccess();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to deactivate user");
+      toast.error(error instanceof Error ? error.message : "Không thể vô hiệu hóa người dùng");
     } finally {
       setIsSubmitting(false);
     }
@@ -483,22 +483,22 @@ export function DeactivateUserDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Deactivate User</AlertDialogTitle>
+          <AlertDialogTitle>Vô hiệu hóa người dùng</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to deactivate{" "}
+            Bạn có chắc chắn muốn vô hiệu hóa{" "}
             <span className="font-semibold">{user?.fullName}</span> ({user?.email})?
-            The user will lose access immediately.
+            Người dùng này sẽ mất quyền truy cập ngay lập tức.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isSubmitting}>Hủy</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDeactivate}
             disabled={isSubmitting}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Deactivate
+            Vô hiệu hóa
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -526,11 +526,11 @@ export function ActivateUserDialog({
     setIsSubmitting(true);
     try {
       await activateUser(user.id);
-      toast.success(`User "${user.fullName}" activated`);
+      toast.success(`Đã kích hoạt người dùng "${user.fullName}"`);
       onOpenChange(false);
       onSuccess();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to activate user");
+      toast.error(error instanceof Error ? error.message : "Không thể kích hoạt người dùng");
     } finally {
       setIsSubmitting(false);
     }
@@ -540,22 +540,22 @@ export function ActivateUserDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Activate User</AlertDialogTitle>
+          <AlertDialogTitle>Kích hoạt người dùng</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to activate{" "}
+            Bạn có chắc chắn muốn kích hoạt{" "}
             <span className="font-semibold">{user?.fullName}</span> ({user?.email})?
-            The user will regain access immediately.
+            Người dùng này sẽ khôi phục lại quyền truy cập ngay lập tức.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isSubmitting}>Hủy</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleActivate}
             disabled={isSubmitting}
             className="bg-[#5B5CEF] hover:bg-[#4C4DE0] text-white"
           >
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Activate
+            Kích hoạt
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
