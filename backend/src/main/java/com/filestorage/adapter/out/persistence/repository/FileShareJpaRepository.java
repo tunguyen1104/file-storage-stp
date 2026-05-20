@@ -277,4 +277,34 @@ public interface FileShareJpaRepository extends JpaRepository<FileShare, UUID>, 
     boolean hasActiveAllTenantsShareOnAnyAncestor(
             @Param("folderId") UUID folderId
     );
+
+    @Query("""
+            SELECT fs.fileId FROM FileShare fs
+            WHERE fs.fileId IS NOT NULL
+              AND fs.status = com.filestorage.domain.model.enums.ShareStatus.ACTIVE
+              AND fs.expiresAt > :now
+              AND (fs.sharedWithUserId = :userId
+                   OR fs.sharedWithTenantId = :tenantId
+                   OR fs.allTenants = true)
+            """)
+    List<UUID> findAccessibleFileIdsForUser(
+            @Param("userId") UUID userId,
+            @Param("tenantId") UUID tenantId,
+            @Param("now") Instant now
+    );
+
+    @Query("""
+            SELECT fs.folderId FROM FileShare fs
+            WHERE fs.folderId IS NOT NULL
+              AND fs.status = com.filestorage.domain.model.enums.ShareStatus.ACTIVE
+              AND fs.expiresAt > :now
+              AND (fs.sharedWithUserId = :userId
+                   OR fs.sharedWithTenantId = :tenantId
+                   OR fs.allTenants = true)
+            """)
+    List<UUID> findAccessibleFolderIdsForUser(
+            @Param("userId") UUID userId,
+            @Param("tenantId") UUID tenantId,
+            @Param("now") Instant now
+    );
 }

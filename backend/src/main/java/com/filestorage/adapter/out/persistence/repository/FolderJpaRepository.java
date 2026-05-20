@@ -3,6 +3,9 @@ package com.filestorage.adapter.out.persistence.repository;
 import com.filestorage.adapter.out.persistence.entity.Folder;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -13,6 +16,11 @@ public interface FolderJpaRepository extends JpaRepository<Folder, UUID>, JpaSpe
 
 
 	Optional<Folder> findByIdAndTenantId(UUID id, UUID tenantId);
+
+
+	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Query("UPDATE Folder f SET f.name = :name WHERE f.id = :id")
+	void updateName(@Param("id") UUID id, @Param("name") String name);
 
 	boolean existsByIdAndTenantId(UUID id, UUID tenantId);
 
