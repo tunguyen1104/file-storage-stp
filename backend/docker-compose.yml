@@ -162,12 +162,51 @@ services:
     networks:
       - file-storage-network
 
+  elasticsearch:
+    # Custom image with analysis-icu pre-installed (see docker/elasticsearch/Dockerfile).
+    # The plugin enables icu_analyzer which IndexInitializer requires; falling back to
+    # the standard analyzer would silently break Vietnamese diacritic matching.
+    build: ./docker/elasticsearch
+    container_name: elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - ./elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks:
+      - file-storage-network
+
+  kibana:
+    image: kibana:8.13.4
+    container_name: kibana
+    restart: unless-stopped
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    networks:
+      - file-storage-network
+
 volumes:
   postgres_data:
     driver: local
   redis_data:
     driver: local
   minio_data:
+    driver: local
+  elasticsearch_data:
     driver: local
 
 networks:

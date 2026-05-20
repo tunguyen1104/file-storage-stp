@@ -1,0 +1,30 @@
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "icu_analyzer": {
+          "tokenizer": "icu_tokenizer",
+          "filter": ["icu_folding", "lowercase"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "tenantId":  { "type": "keyword" },
+      "parentId":  { "type": "keyword" },
+      "createdBy": { "type": "keyword" },
+      "createdAt": { "type": "date" },
+      "name": {
+        "type": "text",
+        "analyzer": "icu_analyzer",
+        "fields": {
+          "sayt": {
+            "type": "search_as_you_type",
+            "max_shingle_size": 3
+          }
+        }
+      }
+    }
+  }
+}
