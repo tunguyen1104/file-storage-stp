@@ -10,7 +10,8 @@ import { useSuggest } from "@/hooks/use-suggest";
 import { useSearchInput } from "@/contexts/search-input-context";
 import { cn } from "@/lib/utils";
 import {
-  hitHref,
+  folderHitHref,
+  openFileHit,
   renderHitIcon,
 } from "@/components/search/search-helpers";
 
@@ -62,7 +63,12 @@ export function SearchBar({ className, placeholder }: SearchBarProps) {
   // (to know whether the displayed results match what the user is typing).
   const { draft: value, setDraft: setValue } = useSearchInput();
   const [isOpen, setIsOpen] = useState(false);
+  // Keyboard-driven selection (ArrowUp/Down). Enter commits this when >= 0.
   const [activeIndex, setActiveIndex] = useState(-1);
+  // Mouse-hover index — visual only, never drives Enter. Decoupling these
+  // prevents the bug where hovering an item and moving the mouse away left
+  // activeIndex set, so Enter would open that file instead of /search.
+  const [hoverIndex, setHoverIndex] = useState(-1);
 
   const debounced = useDebounce(value, 500);
   const { items, isLoading } = useSuggest(debounced, {
@@ -74,6 +80,7 @@ export function SearchBar({ className, placeholder }: SearchBarProps) {
   // Reset active highlight whenever the result set changes.
   useEffect(() => {
     setActiveIndex(-1);
+    setHoverIndex(-1);
   }, [items]);
 
   // URL → input sync (only on /search, only when the user isn't mid-typing).
@@ -122,8 +129,17 @@ export function SearchBar({ className, placeholder }: SearchBarProps) {
     const item = items[index];
     if (!item) return;
     setIsOpen(false);
-    setValue("");
-    router.push(hitHref(item.id, item.type, item.folderId));
+    if (item.type === "FOLDER") {
+      // Navigating away to /files — clear the input so the navbar
+      // doesn't show a stale query on the destination page.
+      setValue("");
+      router.push(folderHitHref(item.id));
+      return;
+    }
+    // FILE: opens in a new tab via a presigned URL. The user stays on
+    // the current page, so preserve the query in the input — they can
+    // re-open the dropdown without retyping.
+    void openFileHit(item.id);
   }
 
   function submitSearch(): void {
@@ -225,14 +241,19 @@ export function SearchBar({ className, placeholder }: SearchBarProps) {
           ) : (
             <ul className="max-h-80 overflow-y-auto py-1">
               {items.map((item, idx) => {
-                const isActive = idx === activeIndex;
+                const isKeyboardActive = idx === activeIndex;
+                const isHovered = idx === hoverIndex;
+                const isHighlighted = isKeyboardActive || isHovered;
                 return (
                   <li
                     key={item.id}
                     id={`${listboxId}-opt-${idx}`}
                     role="option"
-                    aria-selected={isActive}
-                    onMouseEnter={() => setActiveIndex(idx)}
+                    aria-selected={isKeyboardActive}
+                    onMouseEnter={() => setHoverIndex(idx)}
+                    onMouseLeave={() =>
+                      setHoverIndex((prev) => (prev === idx ? -1 : prev))
+                    }
                     onMouseDown={(e) => {
                       // mousedown so the click fires before the input blurs.
                       e.preventDefault();
@@ -240,7 +261,7 @@ export function SearchBar({ className, placeholder }: SearchBarProps) {
                     }}
                     className={cn(
                       "flex cursor-pointer items-center gap-3 px-3 py-2 transition-colors",
-                      isActive ? "bg-[#F3E8FF]" : "hover:bg-gray-50"
+                      isHighlighted ? "bg-[#F3E8FF]" : "hover:bg-gray-50"
                     )}
                   >
                     <span className="shrink-0">

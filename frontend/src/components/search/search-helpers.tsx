@@ -7,7 +7,9 @@ import {
   FileVideo,
   Folder as FolderIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 
+import { getPresignedGetUrl } from "@/lib/api/file";
 import { cn } from "@/lib/utils";
 import type { SearchHitType } from "@/types/search";
 
@@ -66,18 +68,17 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
-/**
- * Pick the URL the user should land on when they click a hit. We never
- * infer FILE/FOLDER from mimeType — the backend's `type` field is the
- * source of truth.
- */
-export function hitHref(
-  id: string,
-  type: SearchHitType,
-  _folderId: string | null
-): string {
-  if (type === "FOLDER") return `/files?folderId=${id}`;
-  return `/files/${id}`;
+export function folderHitHref(id: string): string {
+  return `/files?folderId=${id}`;
+}
+
+export async function openFileHit(fileId: string): Promise<void> {
+  try {
+    const { getUrl } = await getPresignedGetUrl(fileId);
+    window.open(getUrl, "_blank", "noopener,noreferrer");
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : "Không thể mở tệp tin");
+  }
 }
 
 /** Friendly Vietnamese label for a MIME type — used by the filter sidebar. */

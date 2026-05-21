@@ -5,8 +5,9 @@ import { ChevronRight, FolderOpen } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
-  hitHref,
+  folderHitHref,
   mimeLabel,
+  openFileHit,
   renderHitIcon,
   sanitizeHighlight,
 } from "@/components/search/search-helpers";
@@ -38,15 +39,13 @@ function escapeText(s: string): string {
 }
 
 export function SearchResultRow({ hit }: { hit: SearchHitItem }) {
-  const href = hitHref(hit.id, hit.type, hit.folderId);
   const titleHtml = pickTitleHtml(hit);
   const contentSnippets = hit.type === "FILE" ? hit.highlights.content : undefined;
 
-  return (
-    <Link
-      href={href}
-      className="group flex items-start gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 transition-all hover:border-gray-200 hover:bg-gray-50 hover:shadow-sm"
-    >
+  // Shared visual content — wrapped by either a Link (folders) or a
+  // button (files, which open via a presigned URL fetched on click).
+  const inner = (
+    <>
       <span className="mt-0.5 shrink-0">
         {renderHitIcon(hit.type, hit.mimeType, "h-6 w-6")}
       </span>
@@ -96,6 +95,27 @@ export function SearchResultRow({ hit }: { hit: SearchHitItem }) {
           <ChevronRight className="ml-auto h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
         </div>
       </div>
-    </Link>
+    </>
+  );
+
+  const containerClass =
+    "group flex w-full items-start gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 text-left transition-all hover:border-gray-200 hover:bg-gray-50 hover:shadow-sm";
+
+  if (hit.type === "FOLDER") {
+    return (
+      <Link href={folderHitHref(hit.id)} className={containerClass}>
+        {inner}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void openFileHit(hit.id)}
+      className={containerClass}
+    >
+      {inner}
+    </button>
   );
 }
