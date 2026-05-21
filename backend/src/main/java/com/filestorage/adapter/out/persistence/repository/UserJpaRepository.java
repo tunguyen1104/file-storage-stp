@@ -51,6 +51,14 @@ public interface UserJpaRepository extends JpaRepository<User, UUID>, JpaSpecifi
             """)
     List<TenantUserCount> countUsersByTenantIds(@Param("tenantIds") Collection<UUID> tenantIds);
 
+    @Query("""
+            SELECT COUNT(u.id)
+            FROM User u
+            WHERE u.id IN :userIds
+              AND u.tenant.id = :tenantId
+            """)
+    long countByIdsAndTenantId(@Param("userIds") Collection<UUID> userIds, @Param("tenantId") UUID tenantId);
+
     /**
      * Atomically increments storageUsedBytes by {@code size} only if the result
      * would not exceed storageQuotaBytes.  Returns 1 if the update succeeded,

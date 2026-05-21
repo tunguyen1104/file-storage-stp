@@ -42,6 +42,7 @@ public class InitMultipartUploadService implements InitMultipartUploadUseCase {
     private final ObjectStoragePort objectStoragePort;
     private final CachePort cachePort;
     private final UploadProperties uploadProperties;
+    private final FolderAccessPolicy folderAccessPolicy;
 
     @Override
     @Transactional

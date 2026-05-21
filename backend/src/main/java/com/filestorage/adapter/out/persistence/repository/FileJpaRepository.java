@@ -38,8 +38,6 @@ public interface FileJpaRepository extends JpaRepository<File, UUID>, JpaSpecifi
 	 */
 	List<File> findByStatusAndCreatedAtBefore(FileStatus status, Instant cutoff);
 
-	List<File> findByStatusAndScheduledDeleteAtBefore(FileStatus status, Instant cutoff);
-
 	/**
 	 * Sums sizeBytes of all PENDING and SCANNING files for a user.
 	 * Used to account for in-flight uploads when checking quota.

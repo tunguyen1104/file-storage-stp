@@ -34,6 +34,7 @@ public class InitPresignedUploadService implements InitPresignedUploadUseCase {
     private final UserJpaRepository userRepository;
     private final ObjectStoragePort objectStoragePort;
     private final UploadProperties uploadProperties;
+    private final FolderAccessPolicy folderAccessPolicy;
 
     @Override
     @Transactional

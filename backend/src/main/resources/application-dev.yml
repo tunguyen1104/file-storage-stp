@@ -143,3 +143,4 @@ app:
       max-scan-file-size-bytes: ${CLAMAV_MAX_SCAN_FILE_SIZE_BYTES:209715200}
 server:
   port: 8081
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}

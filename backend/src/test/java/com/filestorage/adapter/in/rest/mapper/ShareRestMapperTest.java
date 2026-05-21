@@ -37,6 +37,7 @@ class ShareRestMapperTest {
         var view = new ShareView(
                 shareId,
                 tenantId,
+                "Tenant A",
                 "folder",
                 null,
                 folderId,
@@ -55,6 +56,7 @@ class ShareRestMapperTest {
 
         assertEquals(shareId, response.id());
         assertEquals(tenantId, response.tenantId());
+        assertEquals("Tenant A", response.tenantName());
         assertEquals("folder", response.resourceType());
         assertEquals(folderId, response.folderId());
         assertEquals(PermissionFile.EDIT, response.permission());

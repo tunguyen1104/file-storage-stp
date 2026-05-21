@@ -7,6 +7,7 @@ import com.filestorage.domain.port.out.ShareRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -149,6 +150,23 @@ public class SharePersistenceAdapter implements ShareRepositoryPort {
     }
 
     @Override
+    public Page<FileShare> findAdminShares(
+            List<UUID> tenantIds,
+            List<UUID> sharedByIds,
+            String resourceType,
+            List<ShareStatus> statuses,
+            Pageable pageable
+    ) {
+        return shareRepository.findAll(
+                Specification.where(byTenantIds(tenantIds))
+                        .and(bySharedByIds(sharedByIds))
+                        .and(byResourceType(normalizeResourceType(resourceType)))
+                        .and(byStatuses(statuses)),
+                pageable
+        );
+    }
+
+    @Override
     public List<FileShare> findActiveSharesByUserScope(UUID userId, String scope) {
         String normalizedScope = normalizeScope(scope);
         Instant now = Instant.now();
@@ -165,6 +183,39 @@ public class SharePersistenceAdapter implements ShareRepositoryPort {
             );
         }
         throw new IllegalArgumentException("Unsupported share revoke scope: " + scope);
+    }
+
+    private Specification<FileShare> byTenantIds(List<UUID> tenantIds) {
+        return (root, query, cb) -> tenantIds == null || tenantIds.isEmpty()
+                ? cb.conjunction()
+                : root.get("tenantId").in(tenantIds);
+    }
+
+    private Specification<FileShare> bySharedByIds(List<UUID> sharedByIds) {
+        return (root, query, cb) -> sharedByIds == null || sharedByIds.isEmpty()
+                ? cb.conjunction()
+                : root.get("sharedBy").in(sharedByIds);
+    }
+
+    private Specification<FileShare> byResourceType(String resourceType) {
+        return (root, query, cb) -> {
+            if (resourceType == null) {
+                return cb.conjunction();
+            }
+            if ("file".equals(resourceType)) {
+                return cb.isNotNull(root.get("fileId"));
+            }
+            if ("folder".equals(resourceType)) {
+                return cb.isNotNull(root.get("folderId"));
+            }
+            return cb.conjunction();
+        };
+    }
+
+    private Specification<FileShare> byStatuses(List<ShareStatus> statuses) {
+        return (root, query, cb) -> statuses == null || statuses.isEmpty()
+                ? cb.conjunction()
+                : root.get("status").in(statuses);
     }
 
     private String normalizeResourceType(String resourceType) {
