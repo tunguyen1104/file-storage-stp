@@ -90,6 +90,7 @@ class ShareFileServiceTest {
         ShareView expected = new ShareView(
                 shareId,
                 tenantId,
+                "Tenant",
                 "file",
                 fileId,
                 null,

@@ -61,6 +61,7 @@ public enum ErrorCode {
     SHARE_NOT_FOUND(1047, "error.share.not-found", HttpStatus.NOT_FOUND),
     SHARE_REVOKED_RESHARE_REQUIRED(1048, "error.share.revoked-reshare-required", HttpStatus.CONFLICT),
     FORBIDDEN_ADMIN_REQUIRED(1049, "error.share.admin-required", HttpStatus.FORBIDDEN),
+    SHARED_BY_OUT_OF_TENANT(1050, "error.share.shared-by-out-of-tenant", HttpStatus.FORBIDDEN),
     SSE_CONNECTION_LIMIT_EXCEEDED(1041, "error.sse-connection-limit-exceeded", HttpStatus.TOO_MANY_REQUESTS),
     INTERNAL_SERVER_ERROR(1500, "error.internal-server-error", HttpStatus.INTERNAL_SERVER_ERROR);
 

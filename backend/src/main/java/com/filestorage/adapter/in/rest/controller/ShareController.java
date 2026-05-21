@@ -15,14 +15,19 @@ import com.filestorage.adapter.in.rest.dto.response.share.SharedWithMeResponse;
 import com.filestorage.adapter.in.rest.mapper.ShareRestMapper;
 import com.filestorage.adapter.in.rest.security.SecurityUser;
 import com.filestorage.domain.model.enums.RoleCode;
+import com.filestorage.domain.model.enums.ShareSortBy;
 import com.filestorage.domain.model.enums.ShareStatus;
+import com.filestorage.domain.model.enums.SortDirection;
 import com.filestorage.domain.model.share.AdminBulkRevokeResultView;
 import com.filestorage.domain.model.share.ShareExpirationView;
+import com.filestorage.domain.model.share.ShareListPageView;
 import com.filestorage.domain.model.share.SharePageView;
 import com.filestorage.domain.model.share.ShareView;
 import com.filestorage.domain.model.share.SharedWithMePageView;
 import com.filestorage.domain.port.in.share.AdminRevokeShareUseCase;
 import com.filestorage.domain.port.in.share.AdminRevokeUserSharesUseCase;
+import com.filestorage.domain.port.in.share.GetAdminSharesQuery;
+import com.filestorage.domain.port.in.share.GetAdminSharesUseCase;
 import com.filestorage.domain.port.in.share.GetMySharesQuery;
 import com.filestorage.domain.port.in.share.GetMySharesUseCase;
 import com.filestorage.domain.port.in.share.GetSharesWithMeQuery;
@@ -55,6 +60,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -67,6 +73,7 @@ public class ShareController {
     private final ShareFileWithTenantUseCase shareFileWithTenantUseCase;
     private final ShareFolderWithTenantUseCase shareFolderWithTenantUseCase;
     private final RenewShareExpirationUseCase renewShareExpirationUseCase;
+    private final GetAdminSharesUseCase getAdminSharesUseCase;
     private final GetMySharesUseCase getMySharesUseCase;
     private final GetSharesWithMeUseCase getSharesWithMeUseCase;
     private final RevokeShareUseCase revokeShareUseCase;
@@ -180,6 +187,33 @@ public class ShareController {
                 limit
         ));
         return ResponseEntity.ok(ApiResponse.buildSuccess(shareRestMapper.toSharedWithMePageResponse(view)));
+    }
+
+    @GetMapping("/admin")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<PageResponse<ShareResponse>>> getAdminShares(
+            @RequestParam(name = "tenantId", required = false) List<UUID> tenantIds,
+            @RequestParam(name = "sharedBy", required = false) List<UUID> sharedByIds,
+            @RequestParam(required = false) String resourceType,
+            @RequestParam(name = "status", required = false) List<ShareStatus> statuses,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(required = false) List<ShareSortBy> sortBy,
+            @RequestParam(required = false) List<SortDirection> sortDirection
+    ) {
+        SecurityUser actor = currentUserOrThrow();
+        ShareListPageView view = getAdminSharesUseCase.getAdminShares(new GetAdminSharesQuery(
+                actorId(actor),
+                tenantIds,
+                sharedByIds,
+                resourceType,
+                statuses,
+                page,
+                limit,
+                sortBy,
+                sortDirection
+        ));
+        return ResponseEntity.ok(ApiResponse.buildSuccess(shareRestMapper.toSharePageResponse(view)));
     }
 
     @DeleteMapping("/{shareId}")

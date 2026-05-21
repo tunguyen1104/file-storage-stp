@@ -69,6 +69,13 @@ class ShareServiceSupport {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
     }
 
+    boolean allUsersBelongToTenant(java.util.List<UUID> userIds, UUID tenantId) {
+        if (userIds == null || userIds.isEmpty()) {
+            return true;
+        }
+        return userRepository.countByIdsAndTenantId(userIds, tenantId) == userIds.size();
+    }
+
     File findShareableFile(UUID fileId, UUID tenantId) {
         File file = fileRepository.findByIdAndTenantId(fileId, tenantId)
                 .orElseThrow(() -> new AppException(ErrorCode.FILE_NOT_FOUND));
@@ -145,6 +152,7 @@ class ShareServiceSupport {
         return new ShareView(
                 share.getId(),
                 share.getTenantId(),
+                tenantName(share.getTenantId()),
                 resourceType(share),
                 share.getFileId(),
                 share.getFolderId(),
@@ -225,6 +233,15 @@ class ShareServiceSupport {
         return tenantRepository.findById(tenantId)
                 .map(tenant -> new ShareTenantView(tenant.getId(), tenant.getName()))
                 .orElse(new ShareTenantView(tenantId, null));
+    }
+
+    private String tenantName(UUID tenantId) {
+        if (tenantId == null) {
+            return null;
+        }
+        return tenantRepository.findById(tenantId)
+                .map(Tenant::getName)
+                .orElse(null);
     }
 
     private SharedByView sharedByView(UUID userId) {

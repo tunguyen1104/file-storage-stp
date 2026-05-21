@@ -10,6 +10,7 @@ import java.util.UUID;
 public record ShareResponse(
         UUID id,
         UUID tenantId,
+        String tenantName,
         String resourceType,
         UUID fileId,
         UUID folderId,

@@ -12,6 +12,7 @@ import com.filestorage.adapter.in.rest.dto.response.share.SharedByResponse;
 import com.filestorage.adapter.in.rest.dto.response.share.SharedWithMeResponse;
 import com.filestorage.domain.model.share.AdminBulkRevokeResultView;
 import com.filestorage.domain.model.share.PaginationView;
+import com.filestorage.domain.model.share.ShareListPageView;
 import com.filestorage.domain.model.share.ShareExpirationView;
 import com.filestorage.domain.model.share.SharePageView;
 import com.filestorage.domain.model.share.ShareResourceView;
@@ -35,6 +36,7 @@ public interface ShareRestMapper {
         return new ShareResponse(
                 view.id(),
                 view.tenantId(),
+                view.tenantName(),
                 view.resourceType(),
                 view.fileId(),
                 view.folderId(),
@@ -120,6 +122,20 @@ public interface ShareRestMapper {
         PaginationView pagination = pageView.pagination();
         return PageResponse.<ShareWithResourceResponse>builder()
                 .data(pageView.data().stream().map(this::toShareWithResourceResponse).toList())
+                .currentPage(pagination.page())
+                .pageSize(pagination.limit())
+                .totalElements(pagination.total())
+                .totalPages(pagination.totalPages())
+                .build();
+    }
+
+    default PageResponse<ShareResponse> toSharePageResponse(ShareListPageView pageView) {
+        if (pageView == null) {
+            return null;
+        }
+        PaginationView pagination = pageView.pagination();
+        return PageResponse.<ShareResponse>builder()
+                .data(pageView.data().stream().map(this::toShareResponse).toList())
                 .currentPage(pagination.page())
                 .pageSize(pagination.limit())
                 .totalElements(pagination.total())

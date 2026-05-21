@@ -49,5 +49,13 @@ public interface ShareRepositoryPort {
 
     Page<FileShare> findSharesWithMe(UUID userId, UUID tenantId, String resourceType, Pageable pageable);
 
+    Page<FileShare> findAdminShares(
+            List<UUID> tenantIds,
+            List<UUID> sharedByIds,
+            String resourceType,
+            List<ShareStatus> statuses,
+            Pageable pageable
+    );
+
     List<FileShare> findActiveSharesByUserScope(UUID userId, String scope);
 }

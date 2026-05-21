@@ -13,6 +13,7 @@ Authentication: Bearer token required on all endpoints.
 | `ShareRecipientType` | `USER`, `TENANT` |
 | `PermissionFile` | `VIEW`, `EDIT` |
 | `ShareRevokeScope` | `GRANTED`, `RECEIVED`, `BOTH` |
+| `ShareSortBy` | `CREATED_AT`, `EXPIRES_AT`, `REVOKED_AT`, `STATUS`, `TENANT_ID` |
 
 ---
 
@@ -73,6 +74,17 @@ Giống `ShareResponse` nhưng bỏ `tenantId`, thêm:
   "expiresAt": "ISO-8601",
   "revokedAt": "ISO-8601 | null",
   "updatedAt": "ISO-8601"
+}
+```
+
+### PageResponse<T>
+```json
+{
+  "data": ["T"],
+  "currentPage": 1,
+  "pageSize": 10,
+  "totalElements": 100,
+  "totalPages": 10
 }
 ```
 
@@ -372,7 +384,138 @@ GET /api/v1/shares/with-me
 
 ---
 
-## 8. Thu hồi share (owner)
+## 8. Admin lấy danh sách share
+
+```
+GET /api/v1/shares/admin
+```
+
+**Chức năng:** Trả về danh sách share trong phạm vi quản trị của admin. API hỗ trợ lọc theo nhiều tenant, nhiều trạng thái, người tạo share (`sharedBy`), loại resource, phân trang và sort nhiều trường.
+
+**Sử dụng khi nào:**
+- Trang quản trị cần xem toàn bộ share đang tồn tại trong tenant hoặc toàn hệ thống.
+- Admin cần tra cứu share theo người tạo để kiểm tra/audit.
+- Admin cần lọc các share `ACTIVE`, `EXPIRED`, `REVOKED` trước khi thu hồi hoặc gia hạn chính sách.
+
+**Roles:** `TENANT_ADMIN`, `SUPER_ADMIN`.
+
+**Query params:**
+
+| Param | Type | Default | Mô tả |
+|---|---|---|---|
+| `tenantId` | UUID[] | null | Lọc theo một hoặc nhiều tenant. Truyền lặp param: `tenantId=id1&tenantId=id2` |
+| `sharedBy` | UUID[] | null | Lọc theo một hoặc nhiều user đã tạo share. Truyền lặp param: `sharedBy=id1&sharedBy=id2` |
+| `resourceType` | `file` \| `folder` | null (all) | Lọc theo loại resource |
+| `status` | `ShareStatus[]` | null (all) | Lọc theo một hoặc nhiều trạng thái. Truyền lặp param: `status=ACTIVE&status=REVOKED` |
+| `page` | number | 1 | Trang hiện tại |
+| `limit` | number | 10 | Số item mỗi trang, max 100 |
+| `sortBy` | `ShareSortBy[]` | `CREATED_AT` | Sort theo một hoặc nhiều trường. Truyền lặp param |
+| `sortDirection` | `SortDirection[]` (`ASC` \| `DESC`) | Theo `sortBy` | Direction tương ứng theo index với `sortBy` |
+
+**Sort fields:**
+
+| `sortBy` | Field DB | Default direction |
+|---|---|---|
+| `CREATED_AT` | `createdAt` | `DESC` |
+| `EXPIRES_AT` | `expiresAt` | `DESC` |
+| `REVOKED_AT` | `revokedAt` | `DESC` |
+| `STATUS` | `status` | `ASC` |
+| `TENANT_ID` | `tenantId` | `ASC` |
+
+**Sort rules:**
+- Nếu không truyền `sortBy`, mặc định `CREATED_AT DESC`.
+- Nếu truyền nhiều `sortBy`, API xử lý giống `GET /api/v1/files`: field truyền sau có độ ưu tiên cao hơn do service reverse danh sách `Sort.Order`.
+- Nếu thiếu `sortDirection` ở cùng index với `sortBy`, dùng default direction của field đó.
+
+**Authorization rules:**
+
+| Role | Hành vi |
+|---|---|
+| `TENANT_ADMIN` | Chỉ xem share có `tenantId = actor.tenantId` |
+| `TENANT_ADMIN` + không truyền `tenantId` | Tự động filter theo tenant của admin |
+| `TENANT_ADMIN` + truyền tenant khác | `403 FORBIDDEN` |
+| `TENANT_ADMIN` + truyền `sharedBy` là user ngoài tenant mình | `403 SHARED_BY_OUT_OF_TENANT` |
+| `SUPER_ADMIN` + không truyền `tenantId` | Xem tất cả tenant |
+| `SUPER_ADMIN` + truyền một/nhiều `tenantId` | Filter theo danh sách tenant đó |
+
+**Filter rules:**
+- Không truyền `status` thì trả tất cả status.
+- Không truyền `sharedBy` thì không filter người tạo share.
+- `sharedBy` là user tạo share (`FileShare.sharedBy`), không phải user nhận share (`sharedWithUserId`).
+- `TENANT_ADMIN` vẫn luôn bị giới hạn bởi tenant của mình, kể cả khi truyền `sharedBy`.
+- Nếu `TENANT_ADMIN` truyền bất kỳ `sharedBy` nào không thuộc tenant của mình, API trả `403` với message rõ ràng.
+
+**Examples:**
+
+```http
+GET /api/v1/shares/admin
+```
+
+```http
+GET /api/v1/shares/admin?status=ACTIVE&status=REVOKED&resourceType=file
+```
+
+```http
+GET /api/v1/shares/admin?tenantId=11111111-1111-1111-1111-111111111111&tenantId=22222222-2222-2222-2222-222222222222
+```
+
+```http
+GET /api/v1/shares/admin?sharedBy=33333333-3333-3333-3333-333333333333&sortBy=STATUS&sortDirection=ASC&sortBy=EXPIRES_AT
+```
+
+**Response:** `200 ApiResponse<PageResponse<ShareResponse>>`
+
+```json
+{
+  "success": true,
+  "message": null,
+  "data": {
+    "data": [
+      {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "tenantId": "11111111-1111-1111-1111-111111111111",
+        "resourceType": "file",
+        "fileId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "folderId": null,
+        "permission": "VIEW",
+        "status": "ACTIVE",
+        "recipientType": "USER",
+        "sharedWithUser": {
+          "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+          "email": "receiver@example.com",
+          "fullName": "Receiver"
+        },
+        "sharedWithTenant": null,
+        "sharedBy": {
+          "id": "33333333-3333-3333-3333-333333333333",
+          "fullName": "Owner"
+        },
+        "expiresAt": "2026-05-21T10:00:00Z",
+        "createdAt": "2026-05-20T10:00:00Z",
+        "revokedAt": null
+      }
+    ],
+    "currentPage": 1,
+    "pageSize": 10,
+    "totalElements": 1,
+    "totalPages": 1
+  }
+}
+```
+
+**Errors:**
+
+| Code | HTTP | Mô tả |
+|---|---|---|
+| 1 | 400 | `resourceType` không hợp lệ hoặc enum query param không hợp lệ |
+| 2 | 401 | Chưa xác thực |
+| 3 | 403 | `TENANT_ADMIN` truyền tenant khác tenant của mình |
+| 1049 | 403 | Không đủ quyền admin |
+| 1050 | 403 | `sharedBy` chứa user không thuộc tenant của admin |
+
+---
+
+## 9. Thu hồi share (owner)
 
 ```
 DELETE /api/v1/shares/{shareId}
@@ -399,7 +542,7 @@ DELETE /api/v1/shares/{shareId}
 
 ---
 
-## 9. Admin thu hồi share
+## 10. Admin thu hồi share
 
 ```
 DELETE /api/v1/shares/admin/{shareId}
@@ -427,7 +570,7 @@ DELETE /api/v1/shares/admin/{shareId}
 
 ---
 
-## 10. Admin bulk revoke share của một user
+## 11. Admin bulk revoke share của một user
 
 ```
 POST /api/v1/shares/admin/users/{userId}/revoke
