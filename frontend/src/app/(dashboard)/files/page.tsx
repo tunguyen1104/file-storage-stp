@@ -458,21 +458,6 @@ function FilesPageInner() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-gray-50">
-      {/* ── Top search bar ── */}
-      <div className="flex items-center border-b border-gray-200 bg-white px-6 py-3 shrink-0">
-        <div className="relative flex-1 max-w-lg">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            className="h-9 border-gray-200 bg-gray-50 pl-9 text-sm placeholder:text-gray-400 focus-visible:ring-[#7C3AED]/30"
-            placeholder="Tìm kiếm tệp tin, thư mục..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
-        </div>
-      </div>
 
       {/* ── Main content area ── */}
       <div className="flex flex-1 overflow-hidden min-h-0">

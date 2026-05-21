@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { LogOut, Menu } from "lucide-react";
 
 import { DashboardSidebar } from "@/components/layout/sidebar";
+import { SearchBar } from "@/components/search/SearchBar";
+import { SearchInputProvider } from "@/contexts/search-input-context";
 import { UploadProvider } from "@/contexts/upload-context";
 import { UploadFloatingWidget } from "@/components/upload/UploadFloatingWidget";
 import {
@@ -93,6 +95,7 @@ export default function DashboardLayout({
 
   return (
     <UploadProvider>
+    <SearchInputProvider>
     <div className="flex h-screen overflow-hidden bg-gray-50 text-gray-900">
       <aside className={cn(
         "fixed inset-y-0 left-0 z-30 hidden border-r border-gray-200 bg-white md:flex md:flex-col transition-all duration-300",
@@ -110,47 +113,52 @@ export default function DashboardLayout({
         "flex flex-1 flex-col overflow-hidden transition-all duration-300",
         isSidebarCollapsed ? "md:pl-[80px]" : "md:pl-64"
       )}>
-        <header className="sticky top-0 md:hidden z-20 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 md:px-6">
-          <div className="flex items-center gap-3">
-            <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="icon" className="md:hidden">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-72 p-0">
-                <DashboardSidebar
-                  user={user}
-                  pathname={pathname}
-                  onNavigate={() => setIsMobileSidebarOpen(false)}
-                />
-              </SheetContent>
-            </Sheet>
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-gray-200 bg-white px-4 md:px-6">
+          <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="md:hidden">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-72 p-0">
+              <DashboardSidebar
+                user={user}
+                pathname={pathname}
+                onNavigate={() => setIsMobileSidebarOpen(false)}
+              />
+            </SheetContent>
+          </Sheet>
 
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbPage>Hệ thống</BreadcrumbPage>
-                </BreadcrumbItem>
-                {pathSegments.map((segment) => (
-                  <React.Fragment key={segment}>
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>{getBreadcrumbLabel(segment)}</BreadcrumbPage>
-                    </BreadcrumbItem>
-                  </React.Fragment>
-                ))}
-              </BreadcrumbList>
-            </Breadcrumb>
+          <Breadcrumb className="hidden lg:flex">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbPage>Hệ thống</BreadcrumbPage>
+              </BreadcrumbItem>
+              {pathSegments.map((segment) => (
+                <React.Fragment key={segment}>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>{getBreadcrumbLabel(segment)}</BreadcrumbPage>
+                  </BreadcrumbItem>
+                </React.Fragment>
+              ))}
+            </BreadcrumbList>
+          </Breadcrumb>
+
+          <div className="flex flex-1 justify-center lg:justify-end">
+            <div className="w-full max-w-xl">
+              <SearchBar />
+            </div>
           </div>
 
           <Button
             variant="outline"
-            className="gap-2"
+            size="icon"
+            className="md:hidden"
             onClick={() => void logOut()}
+            aria-label="Đăng xuất"
           >
             <LogOut className="h-4 w-4" />
-            Đăng xuất
           </Button>
         </header>
 
@@ -163,6 +171,7 @@ export default function DashboardLayout({
       </div>
     </div>
     <UploadFloatingWidget />
+    </SearchInputProvider>
     </UploadProvider>
   );
 }

@@ -16,6 +16,7 @@ import {
   ClipboardList,
   Trash2,
   Share2,
+  Search,
 } from "lucide-react";
 
 import type { AuthUser } from "@/contexts/auth-context";
@@ -62,6 +63,7 @@ const NAV_SECTIONS_BY_ROLE: Record<Role, NavSection[]> = {
       separator: true,
       items: [
         { href: "/files", label: "Tài liệu của tôi", icon: HardDrive },
+        { href: "/search", label: "Tìm kiếm", icon: Search },
         { href: "/files?tab=trash", label: "Thùng rác", icon: Trash2 },
         { href: "/shared", label: "Được chia sẻ", icon: Share2 },
       ],
@@ -79,6 +81,7 @@ const NAV_SECTIONS_BY_ROLE: Record<Role, NavSection[]> = {
       separator: true,
       items: [
         { href: "/files", label: "Tài liệu của tôi", icon: FolderOpen },
+        { href: "/search", label: "Tìm kiếm", icon: Search },
         { href: "/files?tab=trash", label: "Thùng rác", icon: Trash2 },
         { href: "/shared", label: "Được chia sẻ", icon: Share2 },
       ],
@@ -88,6 +91,7 @@ const NAV_SECTIONS_BY_ROLE: Record<Role, NavSection[]> = {
     {
       items: [
         { href: "/files", label: "Tài liệu của tôi", icon: FolderOpen },
+        { href: "/search", label: "Tìm kiếm", icon: Search },
         { href: "/files?tab=trash", label: "Thùng rác", icon: Trash2 },
         { href: "/shared", label: "Được chia sẻ", icon: Share2 },
       ],
