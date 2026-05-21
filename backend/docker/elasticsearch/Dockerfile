@@ -9,6 +9,6 @@
 # Same image is used for dev (docker-compose) and prod, so analyzer behavior is
 # identical across environments — important for Vietnamese diacritic handling.
 
-FROM elasticsearch:8.13.4
+FROM elasticsearch:9.0.3
 
 RUN elasticsearch-plugin install --batch analysis-icu

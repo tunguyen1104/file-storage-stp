@@ -79,6 +79,63 @@ public class FileController {
     private final ConfirmUploadUseCase confirmUploadUseCase;
     private final FileRestMapper fileRestMapper;
 
+    @PostMapping(value = "/uploads/single", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<FileResponse>> uploadSingle(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(required = false) UUID folderId) throws IOException {
+        SecurityUser actor = currentUserOrThrow();
+        if (file == null || file.isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_PAYLOAD);
+        }
+
+        String effectiveOriginalName = resolveOriginalName(file.getOriginalFilename());
+        FileView view = uploadFileUseCase.execute(new UploadFileUseCase.UploadFileCommand(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                folderId,
+                effectiveOriginalName,
+                file.getContentType(),
+                file.getBytes()
+        ));
+
+        return ResponseEntity.status(201).body(ApiResponse.buildSuccess(fileRestMapper.toFileResponse(view)));
+    }
+
+    @PostMapping(value = "/uploads/bulk", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<List<FileResponse>>> uploadBulk(
+            @RequestParam("files") List<MultipartFile> files,
+            @RequestParam(required = false) UUID folderId) throws IOException {
+        SecurityUser actor = currentUserOrThrow();
+        if (files == null || files.isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_PAYLOAD);
+        }
+
+        List<BulkUploadFilesUseCase.UploadItem> items = new ArrayList<>();
+        for (MultipartFile file : files) {
+            if (file == null || file.isEmpty()) {
+                throw new AppException(ErrorCode.INVALID_PAYLOAD);
+            }
+            String effectiveOriginalName = resolveOriginalName(file.getOriginalFilename());
+            items.add(new BulkUploadFilesUseCase.UploadItem(
+                    effectiveOriginalName,
+                    file.getContentType(),
+                    file.getBytes()
+            ));
+        }
+
+        List<FileView> views = bulkUploadFilesUseCase.execute(new BulkUploadFilesUseCase.BulkUploadCommand(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                folderId,
+                items
+        ));
+
+        List<FileResponse> responses = views.stream().map(fileRestMapper::toFileResponse).toList();
+        return ResponseEntity.status(201).body(ApiResponse.buildSuccess(responses));
+    }
+
     @GetMapping("/files/{fileId}/download")
     public ResponseEntity<ApiResponse<PresignedDownloadResponse>> download(
             @PathVariable UUID fileId,

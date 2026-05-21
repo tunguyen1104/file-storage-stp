@@ -258,21 +258,27 @@ public class ElasticsearchSearchAdapter implements SearchIndexPort {
         SearchHits<FileDocument> fileHits = filesFuture.join();
         SearchHits<FolderDocument> folderHits = foldersFuture.join();
 
-        List<SuggestHitView> merged = new ArrayList<>();
+        // Sort across both indexes by ES _score DESC before trimming. Concat-then-trim
+        // alone would always exhaust file hits first and starve folders out of the
+        // dropdown when there were enough file matches to fill `size`.
+        List<ScoredSuggest> scored = new ArrayList<>(
+                fileHits.getSearchHits().size() + folderHits.getSearchHits().size());
         for (SearchHit<FileDocument> h : fileHits.getSearchHits()) {
-            merged.add(toSuggestHit(h, SearchType.FILE));
+            scored.add(new ScoredSuggest(h.getScore(), toSuggestHit(h, SearchType.FILE)));
         }
         for (SearchHit<FolderDocument> h : folderHits.getSearchHits()) {
-            merged.add(toSuggestHit(h, SearchType.FOLDER));
+            scored.add(new ScoredSuggest(h.getScore(), toSuggestHit(h, SearchType.FOLDER)));
         }
-        // No per-hit score on SuggestHitView — preserve the original document order from each
-        // index, but interleave by capping at the requested size. Each query already sorts by
-        // score; the merge here is simply concat-then-trim.
-        if (merged.size() > size) {
-            merged = merged.subList(0, size);
+        scored.sort(Comparator.comparingDouble(ScoredSuggest::score).reversed());
+
+        List<SuggestHitView> merged = new ArrayList<>(Math.min(size, scored.size()));
+        for (int i = 0; i < scored.size() && i < size; i++) {
+            merged.add(scored.get(i).hit());
         }
         return new SuggestView(merged, fileHits.getTotalHits() + folderHits.getTotalHits());
     }
+
+    private record ScoredSuggest(double score, SuggestHitView hit) {}
 
     // ── Query builders ───────────────────────────────────────────────────────
 

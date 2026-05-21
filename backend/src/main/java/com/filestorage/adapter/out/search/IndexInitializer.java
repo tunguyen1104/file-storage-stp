@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 /**
  * Creates the {@code files} and {@code folders} indices on application startup
@@ -57,10 +58,16 @@ public class IndexInitializer implements ApplicationRunner {
         }
 
         String mappingJson = readClasspathResource(mappingResourcePath);
-        Document mapping = Document.parse(mappingJson);
+        Document body = Document.parse(mappingJson);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> settingsMap = (Map<String, Object>) body.getOrDefault("settings", Map.of());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> mappingMap  = (Map<String, Object>) body.getOrDefault("mappings", Map.of());
+        Document mapping = Document.from(mappingMap);
 
         try {
-            boolean created = ops.create(mapping);
+            boolean created = ops.create(settingsMap, mapping);
             if (!created) {
                 throw new IllegalStateException("ES index creation returned false for '" + indexName + "'");
             }
