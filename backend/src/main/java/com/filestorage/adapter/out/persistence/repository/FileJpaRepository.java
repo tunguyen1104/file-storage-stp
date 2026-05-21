@@ -56,15 +56,7 @@ public interface FileJpaRepository extends JpaRepository<File, UUID>, JpaSpecifi
 	@Query("SELECT f FROM File f JOIN FETCH f.uploadedBy JOIN FETCH f.tenant WHERE f.id = :id")
     Optional<File> findByIdWithUploaderAndTenant(@Param("id") UUID id);
 
-	/**
-	 * Re-fetches a file by ID with a PESSIMISTIC_WRITE lock, but only if its current
-	 * status matches the expected value. Used by {@code SoftDeletedFileCleanupJob} to
-	 * guard against a concurrent RestoreFileService call changing the status between
-	 * the initial bulk query and the actual purge.
-	 */
-	@Lock(LockModeType.PESSIMISTIC_WRITE)
-	@Query("SELECT f FROM File f WHERE f.id = :id AND f.status = :status")
-	Optional<File> findByIdAndStatusForUpdate(@Param("id") UUID id, @Param("status") FileStatus status);
+	List<File> findByStatusAndScheduledDeleteAtBefore(FileStatus status, Instant cutoff);
 
 	@Query("SELECT f FROM File f JOIN FETCH f.uploadedBy JOIN FETCH f.tenant " +
 	       "WHERE f.isIndexed = false AND f.indexRetryCount < :maxRetries AND f.createdAt < :cutoff")
