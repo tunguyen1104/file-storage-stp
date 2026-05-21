@@ -80,7 +80,7 @@ public class SuggestService implements SuggestUseCase {
             Instant now = Instant.now();
             sharedFileIds = fileShareRepository.findAccessibleFileIdsForUser(
                     normalized.userId(), normalized.tenantId(), now);
-            sharedFolderIds = fileShareRepository.findAccessibleFolderIdsForUser(
+            sharedFolderIds = fileShareRepository.findAccessibleFolderIdClosureForUser(
                     normalized.userId(), normalized.tenantId(), now);
         }
 

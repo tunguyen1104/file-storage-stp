@@ -41,7 +41,8 @@ public class FolderDocument {
     @MultiField(
             mainField = @Field(type = FieldType.Text, analyzer = "icu_analyzer"),
             otherFields = {
-                    @InnerField(suffix = "sayt", type = FieldType.Search_As_You_Type)
+                    @InnerField(suffix = "sayt", type = FieldType.Search_As_You_Type),
+                    @InnerField(suffix = "keyword", type = FieldType.Keyword, ignoreAbove = 256)
             }
     )
     private String name;

@@ -155,14 +155,14 @@ public class ElasticsearchSearchAdapter implements SearchIndexPort {
         SearchType type = query.type() == null ? SearchType.ALL : query.type();
 
         return switch (type) {
-            case FILE   -> runFileSearch(query, sharedFileIds);
+            case FILE   -> runFileSearch(query, sharedFileIds, sharedFolderIds);
             case FOLDER -> runFolderSearch(query, sharedFolderIds);
             case ALL    -> runMergedSearch(query, sharedFileIds, sharedFolderIds);
         };
     }
 
-    private SearchView runFileSearch(SearchQuery query, List<UUID> sharedFileIds) {
-        NativeQuery nq = buildFileQuery(query, sharedFileIds, query.page(), query.size(), true);
+    private SearchView runFileSearch(SearchQuery query, List<UUID> sharedFileIds, List<UUID> sharedFolderIds) {
+        NativeQuery nq = buildFileQuery(query, sharedFileIds, sharedFolderIds, query.page(), query.size(), true);
         SearchHits<FileDocument> hits = elasticsearchOperations.search(nq, FileDocument.class, filesIndex());
         List<SearchHitView> items = mapFileHits(hits);
         Map<String, Map<String, Long>> aggs = extractMimeAggregation(hits);
@@ -185,7 +185,7 @@ public class ElasticsearchSearchAdapter implements SearchIndexPort {
     private SearchView runMergedSearch(SearchQuery query, List<UUID> sharedFileIds, List<UUID> sharedFolderIds) {
         int fetch = Math.max(1, query.page()) * Math.max(1, query.size());
 
-        NativeQuery fileNq = buildFileQuery(query, sharedFileIds, 1, fetch, true);
+        NativeQuery fileNq = buildFileQuery(query, sharedFileIds, sharedFolderIds, 1, fetch, true);
         NativeQuery folderNq = buildFolderQuery(query, sharedFolderIds, 1, fetch);
 
         // Parallel execution — each query is bounded so this is safe.
@@ -221,14 +221,14 @@ public class ElasticsearchSearchAdapter implements SearchIndexPort {
         int size = Math.max(1, query.size());
 
         return switch (type) {
-            case FILE -> runFileSuggest(query, sharedFileIds, size);
+            case FILE -> runFileSuggest(query, sharedFileIds, sharedFolderIds, size);
             case FOLDER -> runFolderSuggest(query, sharedFolderIds, size);
             case ALL -> runMergedSuggest(query, sharedFileIds, sharedFolderIds, size);
         };
     }
 
-    private SuggestView runFileSuggest(SuggestQuery query, Collection<UUID> sharedFileIds, int size) {
-        NativeQuery nq = buildFileSuggestQuery(query, sharedFileIds, size);
+    private SuggestView runFileSuggest(SuggestQuery query, Collection<UUID> sharedFileIds, Collection<UUID> sharedFolderIds, int size) {
+        NativeQuery nq = buildFileSuggestQuery(query, sharedFileIds, sharedFolderIds, size);
         SearchHits<FileDocument> hits = elasticsearchOperations.search(nq, FileDocument.class, filesIndex());
         List<SuggestHitView> items = mapFileSuggestHits(hits);
         return new SuggestView(items, hits.getTotalHits());
@@ -245,7 +245,7 @@ public class ElasticsearchSearchAdapter implements SearchIndexPort {
                                          Collection<UUID> sharedFileIds,
                                          Collection<UUID> sharedFolderIds,
                                          int size) {
-        NativeQuery fileNq = buildFileSuggestQuery(query, sharedFileIds, size);
+        NativeQuery fileNq = buildFileSuggestQuery(query, sharedFileIds, sharedFolderIds, size);
         NativeQuery folderNq = buildFolderSuggestQuery(query, sharedFolderIds, size);
 
         CompletableFuture<SearchHits<FileDocument>> filesFuture =
@@ -282,7 +282,7 @@ public class ElasticsearchSearchAdapter implements SearchIndexPort {
 
     // ── Query builders ───────────────────────────────────────────────────────
 
-    private NativeQuery buildFileQuery(SearchQuery query, List<UUID> sharedFileIds, int page, int size, boolean withAggregations) {
+    private NativeQuery buildFileQuery(SearchQuery query, List<UUID> sharedFileIds, List<UUID> sharedFolderIds, int page, int size, boolean withAggregations) {
         // Inner bool: name (precision) ∪ content (recall), minimum_should_match = 1
         Query nameClause = Query.of(q -> q.multiMatch(MultiMatchQuery.of(m -> m
                 .query(query.q())
@@ -304,7 +304,7 @@ public class ElasticsearchSearchAdapter implements SearchIndexPort {
         )));
 
         BoolQuery.Builder root = new BoolQuery.Builder().must(relevance);
-        applyVisibilityFilter(root, query.userId(), query.tenantId(), query.role(), "uploadedBy", sharedFileIds);
+        applyVisibilityFilter(root, query.userId(), query.tenantId(), query.role(), "uploadedBy", sharedFileIds, sharedFolderIds);
         applyMimeFilter(root, query.mimeTypes());
         applyDateRange(root, query.dateFrom(), query.dateTo());
 
@@ -332,7 +332,7 @@ public class ElasticsearchSearchAdapter implements SearchIndexPort {
         )));
 
         BoolQuery.Builder root = new BoolQuery.Builder().must(nameMatch);
-        applyVisibilityFilter(root, query.userId(), query.tenantId(), query.role(), "createdBy", sharedFolderIds);
+        applyVisibilityFilter(root, query.userId(), query.tenantId(), query.role(), "createdBy", sharedFolderIds, null);
         // Folder docs have no mimeType — mimeType filter is a no-op here.
         applyDateRange(root, query.dateFrom(), query.dateTo());
 
@@ -344,14 +344,14 @@ public class ElasticsearchSearchAdapter implements SearchIndexPort {
         return nqb.build();
     }
 
-    private NativeQuery buildFileSuggestQuery(SuggestQuery query, Collection<UUID> sharedFileIds, int size) {
+    private NativeQuery buildFileSuggestQuery(SuggestQuery query, Collection<UUID> sharedFileIds, Collection<UUID> sharedFolderIds, int size) {
         Query bp = Query.of(q -> q.multiMatch(MultiMatchQuery.of(m -> m
                 .query(query.q())
                 .type(TextQueryType.BoolPrefix)
                 .fields("originalName.sayt", "originalName.sayt._2gram", "originalName.sayt._3gram")
         )));
         BoolQuery.Builder root = new BoolQuery.Builder().must(bp);
-        applyVisibilityFilter(root, query.userId(), query.tenantId(), query.role(), "uploadedBy", sharedFileIds);
+        applyVisibilityFilter(root, query.userId(), query.tenantId(), query.role(), "uploadedBy", sharedFileIds, sharedFolderIds);
 
         return NativeQuery.builder()
                 .withQuery(q -> q.bool(root.build()))
@@ -368,7 +368,7 @@ public class ElasticsearchSearchAdapter implements SearchIndexPort {
                 .fields("name.sayt", "name.sayt._2gram", "name.sayt._3gram")
         )));
         BoolQuery.Builder root = new BoolQuery.Builder().must(bp);
-        applyVisibilityFilter(root, query.userId(), query.tenantId(), query.role(), "createdBy", sharedFolderIds);
+        applyVisibilityFilter(root, query.userId(), query.tenantId(), query.role(), "createdBy", sharedFolderIds, null);
 
         return NativeQuery.builder()
                 .withQuery(q -> q.bool(root.build()))
@@ -406,19 +406,27 @@ public class ElasticsearchSearchAdapter implements SearchIndexPort {
      *   <li>{@code SUPER_ADMIN}: no filter at all.</li>
      *   <li>{@code TENANT_ADMIN}: {@code tenantId == X}.</li>
      *   <li>{@code MEMBER}: {@code tenantId == X} AND
-     *       ({@code ownerField == userId} OR {@code id IN sharedIds}).</li>
+     *       ({@code ownerField == userId} OR {@code _id IN sharedIds} OR
+     *       {@code folderId IN sharedContainerFolderIds}). The last clause
+     *       lets a file inherit visibility from any ancestor folder share —
+     *       callers pass the recursive folder closure for file queries and
+     *       {@code null} for folder queries (folders use {@code _id} match
+     *       via {@code sharedIds}).</li>
      * </ul>
      *
-     * @param ownerField {@code uploadedBy} for files, {@code createdBy} for folders.
-     * @param sharedIds  pre-fetched share ids for the current user; ignored for
-     *                   non-MEMBER roles.
+     * @param ownerField                 {@code uploadedBy} for files, {@code createdBy} for folders.
+     * @param sharedIds                  pre-fetched ids matched against doc {@code _id}; for files this is
+     *                                   the directly-shared file ids, for folders the folder closure.
+     * @param sharedContainerFolderIds   for file queries, the folder closure matched against the
+     *                                   doc {@code folderId}; must be {@code null} for folder queries.
      */
     private static void applyVisibilityFilter(BoolQuery.Builder bool,
                                               UUID userId,
                                               UUID tenantId,
                                               RoleCode role,
                                               String ownerField,
-                                              Collection<UUID> sharedIds) {
+                                              Collection<UUID> sharedIds,
+                                              Collection<UUID> sharedContainerFolderIds) {
         if (role == RoleCode.SUPER_ADMIN) {
             return;
         }
@@ -434,6 +442,15 @@ public class ElasticsearchSearchAdapter implements SearchIndexPort {
                 List<String> idStrings = sharedIds.stream().map(UUID::toString).toList();
                 Query idsClause = Query.of(q -> q.ids(IdsQuery.of(i -> i.values(idStrings))));
                 access.should(idsClause);
+            }
+            if (sharedContainerFolderIds != null && !sharedContainerFolderIds.isEmpty()) {
+                List<FieldValue> folderValues = sharedContainerFolderIds.stream()
+                        .map(id -> FieldValue.of(id.toString()))
+                        .toList();
+                Query containerClause = Query.of(q -> q.terms(TermsQuery.of(t -> t
+                        .field("folderId")
+                        .terms(TermsQueryField.of(tf -> tf.value(folderValues))))));
+                access.should(containerClause);
             }
             bool.filter(Query.of(q -> q.bool(access.build())));
         }
@@ -472,8 +489,7 @@ public class ElasticsearchSearchAdapter implements SearchIndexPort {
             default -> null;
         };
         if (field == null) return;
-        String finalField = field;
-        nqb.withSort(SortOptions.of(s -> s.field(f -> f.field(finalField).order(order))));
+        nqb.withSort(SortOptions.of(s -> s.field(f -> f.field(field).order(order))));
     }
 
     // ── Hit → view mapping ───────────────────────────────────────────────────

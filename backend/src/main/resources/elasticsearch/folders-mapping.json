@@ -22,6 +22,10 @@
           "sayt": {
             "type": "search_as_you_type",
             "max_shingle_size": 3
+          },
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
           }
         }
       }

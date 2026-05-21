@@ -65,7 +65,7 @@ public class SearchService implements SearchUseCase {
             Instant now = Instant.now();
             sharedFileIds = fileShareRepository.findAccessibleFileIdsForUser(
                     query.userId(), query.tenantId(), now);
-            sharedFolderIds = fileShareRepository.findAccessibleFolderIdsForUser(
+            sharedFolderIds = fileShareRepository.findAccessibleFolderIdClosureForUser(
                     query.userId(), query.tenantId(), now);
         }
 

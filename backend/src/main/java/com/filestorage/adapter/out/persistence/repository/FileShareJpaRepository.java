@@ -293,16 +293,35 @@ public interface FileShareJpaRepository extends JpaRepository<FileShare, UUID>, 
             @Param("now") Instant now
     );
 
-    @Query("""
-            SELECT fs.folderId FROM FileShare fs
-            WHERE fs.folderId IS NOT NULL
-              AND fs.status = com.filestorage.domain.model.enums.ShareStatus.ACTIVE
-              AND fs.expiresAt > :now
-              AND (fs.sharedWithUserId = :userId
-                   OR fs.sharedWithTenantId = :tenantId
-                   OR fs.allTenants = true)
-            """)
-    List<UUID> findAccessibleFolderIdsForUser(
+    /**
+     * Returns the closure of folder IDs the user can reach via folder shares:
+     * directly shared folders plus every descendant within the same tenant.
+     *
+     * <p>Used by search/suggest to grant MEMBER visibility into files and
+     * subfolders nested under a shared folder. Without the closure, a folder
+     * share only exposes the folder doc itself — never its contents.
+     */
+    @Query(value = """
+            WITH RECURSIVE shared_folders AS (
+                SELECT fs.folder_id AS id
+                FROM file_shares fs
+                INNER JOIN folders f ON f.id = fs.folder_id
+                WHERE fs.folder_id IS NOT NULL
+                  AND fs.status = 'ACTIVE'
+                  AND fs.expires_at > :now
+                  AND f.tenant_id = :tenantId
+                  AND (fs.shared_with_user_id = :userId
+                       OR fs.shared_with_tenant_id = :tenantId
+                       OR fs.all_tenants = TRUE)
+                UNION
+                SELECT f.id
+                FROM folders f
+                INNER JOIN shared_folders sf ON f.parent_id = sf.id
+                WHERE f.tenant_id = :tenantId
+            )
+            SELECT id FROM shared_folders
+            """, nativeQuery = true)
+    List<UUID> findAccessibleFolderIdClosureForUser(
             @Param("userId") UUID userId,
             @Param("tenantId") UUID tenantId,
             @Param("now") Instant now
