@@ -3,6 +3,8 @@ package com.filestorage.application.usecase.folder;
 import com.filestorage.adapter.out.persistence.entity.Folder;
 import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
+import com.filestorage.application.usecase.indexing.AfterCommitIndexingPublisher;
+import com.filestorage.domain.event.FolderIndexEvent;
 import com.filestorage.domain.model.folder.FolderView;
 import com.filestorage.domain.port.in.folder.RenameFolderUseCase;
 import com.filestorage.shared.exception.AppException;
@@ -22,6 +24,7 @@ public class RenameFolderService implements RenameFolderUseCase {
     private final FolderJpaRepository folderRepository;
     private final FolderSupport folderSupport;
     private final FolderAccessPolicy folderAccessPolicy;
+    private final AfterCommitIndexingPublisher indexingPublisher;
 
     @Override
     @Transactional
@@ -36,9 +39,17 @@ public class RenameFolderService implements RenameFolderUseCase {
             throw new AppException(ErrorCode.FOLDER_NAME_CONFLICT);
         }
 
+        // Targeted UPDATE — same rationale as RenameFileService.
+        folderRepository.updateName(folder.getId(), name);
         folder.setName(name);
-        Folder saved = folderRepository.save(folder);
-        return FolderViewFactory.toFolderView(saved, 0L, null);
+
+        indexingPublisher.publishFolderUpserted(new FolderIndexEvent(
+                folder.getId(),
+                folder.getTenant().getId(),
+                folder.getCreatedBy().getId(),
+                FolderIndexEvent.Action.UPSERT
+        ));
+        return FolderViewFactory.toFolderView(folder, 0L, null);
     }
 
     private String normalizeName(String name) {

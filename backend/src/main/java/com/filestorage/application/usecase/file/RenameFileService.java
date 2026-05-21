@@ -3,6 +3,8 @@ package com.filestorage.application.usecase.file;
 import com.filestorage.adapter.out.persistence.entity.File;
 import com.filestorage.adapter.out.persistence.mapper.FileViewMapper;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
+import com.filestorage.application.usecase.indexing.AfterCommitIndexingPublisher;
+import com.filestorage.domain.event.FileIndexEvent;
 import com.filestorage.domain.model.file.FileView;
 import com.filestorage.domain.port.in.file.RenameFileUseCase;
 import com.filestorage.shared.exception.AppException;
@@ -19,6 +21,7 @@ public class RenameFileService implements RenameFileUseCase {
     private final FileSupport fileSupport;
     private final FileViewMapper fileViewMapper;
     private final FileAccessPolicy fileAccessPolicy;
+    private final AfterCommitIndexingPublisher indexingPublisher;
 
     @Override
     @Transactional
@@ -31,8 +34,18 @@ public class RenameFileService implements RenameFileUseCase {
         if (command.originalName() == null || command.originalName().isBlank()) {
             throw new AppException(ErrorCode.INVALID_PAYLOAD);
         }
-        file.setOriginalName(command.originalName().trim());
-        return fileViewMapper.toFileView(fileRepository.save(file));
+        String newName = command.originalName().trim();
+
+        fileRepository.updateOriginalName(file.getId(), newName);
+        file.setOriginalName(newName);
+
+        indexingPublisher.publishFileUpdated(new FileIndexEvent(
+                file.getId(),
+                file.getTenant().getId(),
+                file.getUploadedBy().getId(),
+                FileIndexEvent.Action.UPSERT_METADATA
+        ));
+        return fileViewMapper.toFileView(file);
     }
 
 

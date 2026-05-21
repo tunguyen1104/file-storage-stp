@@ -1,0 +1,39 @@
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "icu_analyzer": {
+          "tokenizer": "icu_tokenizer",
+          "filter": ["icu_folding", "lowercase"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "tenantId":   { "type": "keyword" },
+      "folderId":   { "type": "keyword" },
+      "uploadedBy": { "type": "keyword" },
+      "mimeType":   { "type": "keyword" },
+      "createdAt":  { "type": "date" },
+      "originalName": {
+        "type": "text",
+        "analyzer": "icu_analyzer",
+        "fields": {
+          "sayt": {
+            "type": "search_as_you_type",
+            "max_shingle_size": 3
+          },
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "content": {
+        "type": "text",
+        "analyzer": "icu_analyzer"
+      }
+    }
+  }
+}

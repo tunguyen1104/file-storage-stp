@@ -4,7 +4,9 @@ import com.filestorage.adapter.out.persistence.entity.Folder;
 import com.filestorage.adapter.out.persistence.entity.Tenant;
 import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
+import com.filestorage.adapter.out.persistence.repository.FileShareJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
+import com.filestorage.application.usecase.indexing.AfterCommitIndexingPublisher;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.port.in.folder.DeleteFolderUseCase;
@@ -40,15 +42,19 @@ class DeleteFolderServiceTest {
     @Mock
     private FileJpaRepository fileRepository;
     @Mock
+    private FileShareJpaRepository fileShareRepository;
+    @Mock
     private FolderSupport folderSupport;
     @Mock
     private FolderAccessPolicy folderAccessPolicy;
+    @Mock
+    private AfterCommitIndexingPublisher indexingPublisher;
 
     private DeleteFolderService service;
 
     @BeforeEach
     void setUp() {
-        service = new DeleteFolderService(folderRepository, fileRepository, folderSupport, folderAccessPolicy);
+        service = new DeleteFolderService(folderRepository, fileRepository, fileShareRepository, folderSupport, folderAccessPolicy, indexingPublisher);
     }
 
     @Test

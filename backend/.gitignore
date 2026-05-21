@@ -36,6 +36,7 @@ redis_data/
 postgres_data/
 minio_data/
 clamav_data/
+elasticsearch_data/
 
 .env
 .agents/

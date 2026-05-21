@@ -64,6 +64,9 @@ public class File extends BaseEntity {
     @Column(name = "checksum_md5", length = 32)
     private String checksumMd5;
 
+    @Column(name = "content_key", length = 1000)
+    private String contentKey;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
     @Builder.Default
@@ -81,5 +84,9 @@ public class File extends BaseEntity {
     @Column(name = "is_indexed", nullable = false)
     @Builder.Default
     private boolean isIndexed = false;
+
+    @Column(name = "index_retry_count", nullable = false)
+    @Builder.Default
+    private int indexRetryCount = 0;
 }
 

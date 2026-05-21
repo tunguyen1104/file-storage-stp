@@ -46,8 +46,8 @@ dependencies {
 	annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 
 	// ── Database & Migrations ───────────────────────────────────────────────
-	implementation("org.flywaydb:flyway-core")
-	runtimeOnly("org.flywaydb:flyway-database-postgresql:12.1.0")
+	implementation("org.springframework.boot:spring-boot-starter-flyway")
+	runtimeOnly("org.flywaydb:flyway-database-postgresql")
 	runtimeOnly("org.postgresql:postgresql")
 
 	// ── Security / Auth ─────────────────────────────────────────────────────
@@ -65,6 +65,10 @@ dependencies {
 
 	// ── MIME Detection (Apache Tika) ────────────────────────────────────────
 	implementation("org.apache.tika:tika-core:$tikaVersion")
+	implementation("org.apache.tika:tika-parsers-standard-package:$tikaVersion")
+
+	// ── Elasticsearch (search + indexing pipeline) ──────────────────────────
+	implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch")
 
 	// ── Code Generation: Lombok + MapStruct ─────────────────────────────────
 	compileOnly("org.projectlombok:lombok")

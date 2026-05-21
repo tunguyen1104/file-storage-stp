@@ -3,6 +3,8 @@ package com.filestorage.application.usecase.folder;
 import com.filestorage.adapter.out.persistence.entity.Folder;
 import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
+import com.filestorage.application.usecase.indexing.AfterCommitIndexingPublisher;
+import com.filestorage.domain.event.FolderIndexEvent;
 import com.filestorage.domain.model.folder.FolderView;
 import com.filestorage.domain.port.in.folder.MoveFolderUseCase;
 import com.filestorage.shared.exception.AppException;
@@ -20,6 +22,7 @@ public class MoveFolderService implements MoveFolderUseCase {
     private final FolderJpaRepository folderRepository;
     private final FolderSupport folderSupport;
     private final FolderAccessPolicy folderAccessPolicy;
+    private final AfterCommitIndexingPublisher indexingPublisher;
 
     @Override
     @Transactional
@@ -45,6 +48,13 @@ public class MoveFolderService implements MoveFolderUseCase {
 
         folder.setParent(newParent);
         Folder saved = folderRepository.save(folder);
+
+        indexingPublisher.publishFolderUpserted(new FolderIndexEvent(
+                saved.getId(),
+                actor.getTenant().getId(),
+                folder.getCreatedBy().getId(),
+                FolderIndexEvent.Action.UPSERT
+        ));
         return FolderViewFactory.toFolderView(saved, 0L, null);
     }
 }

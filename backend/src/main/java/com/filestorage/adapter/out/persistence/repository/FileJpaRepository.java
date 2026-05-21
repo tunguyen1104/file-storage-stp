@@ -53,23 +53,26 @@ public interface FileJpaRepository extends JpaRepository<File, UUID>, JpaSpecifi
 	 * Loads a file by id with uploadedBy eagerly fetched via JOIN FETCH,
 	 * avoiding a secondary lazy-load query when the uploader is accessed.
 	 */
-	@Query("SELECT f FROM File f JOIN FETCH f.uploadedBy WHERE f.id = :id")
-    Optional<File> findByIdWithUploader(@Param("id") UUID id);
+	@Query("SELECT f FROM File f JOIN FETCH f.uploadedBy JOIN FETCH f.tenant WHERE f.id = :id")
+    Optional<File> findByIdWithUploaderAndTenant(@Param("id") UUID id);
 
-	/**
-	 * Finds files in the given status whose scheduled deletion time has passed
-	 * ({@code scheduledDeleteAt <= cutoff}). Used by {@code SoftDeletedFileCleanupJob}
-	 * to locate PENDING_DELETE files that are due for physical purge.
-	 */
 	List<File> findByStatusAndScheduledDeleteAtBefore(FileStatus status, Instant cutoff);
 
-	/**
-	 * Re-fetches a file by ID with a PESSIMISTIC_WRITE lock, but only if its current
-	 * status matches the expected value. Used by {@code SoftDeletedFileCleanupJob} to
-	 * guard against a concurrent RestoreFileService call changing the status between
-	 * the initial bulk query and the actual purge.
-	 */
-	@Lock(LockModeType.PESSIMISTIC_WRITE)
-	@Query("SELECT f FROM File f WHERE f.id = :id AND f.status = :status")
-	Optional<File> findByIdAndStatusForUpdate(@Param("id") UUID id, @Param("status") FileStatus status);
+	@Query("SELECT f FROM File f JOIN FETCH f.uploadedBy JOIN FETCH f.tenant " +
+	       "WHERE f.isIndexed = false AND f.indexRetryCount < :maxRetries AND f.createdAt < :cutoff")
+	List<File> findUnindexedWithUploaderAndTenant(
+	        @Param("maxRetries") int maxRetries,
+	        @Param("cutoff") Instant cutoff);
+
+	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Query("UPDATE File f SET f.originalName = :name WHERE f.id = :id")
+	void updateOriginalName(@Param("id") UUID id, @Param("name") String name);
+
+	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Query("UPDATE File f SET f.indexRetryCount = f.indexRetryCount + 1 WHERE f.id = :id")
+	void incrementIndexRetryCount(@Param("id") UUID id);
+
+	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Query("UPDATE File f SET f.isIndexed = true, f.contentKey = :contentKey WHERE f.id = :id")
+	void markIndexed(@Param("id") UUID id, @Param("contentKey") String contentKey);
 }

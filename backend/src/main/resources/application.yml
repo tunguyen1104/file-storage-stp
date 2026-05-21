@@ -20,8 +20,6 @@ spring:
       enabled: true
 
 app:
-  scheduling:
-    soft-delete-cleanup-cron: ${SOFT_DELETE_CLEANUP_CRON:0 0 2 * * *}
   upload:
     max-file-size-bytes: ${MAX_UPLOAD_FILE_SIZE_BYTES:4294967296}
 

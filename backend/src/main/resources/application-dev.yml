@@ -141,6 +141,50 @@ app:
       port: ${CLAMAV_PORT:3001}
       timeout-ms: ${CLAMAV_TIMEOUT_MS:60000}
       max-scan-file-size-bytes: ${CLAMAV_MAX_SCAN_FILE_SIZE_BYTES:209715200}
+  elasticsearch:
+    enabled: ${ELASTICSEARCH_ENABLED:true}
+    uris: ${ELASTICSEARCH_URIS:http://localhost:9200}
+    indices:
+      files: ${ELASTICSEARCH_INDEX_FILES:files}
+      folders: ${ELASTICSEARCH_INDEX_FOLDERS:folders}
+  search:
+    cache:
+      ttl-minutes: ${SEARCH_CACHE_TTL_MINUTES:5}              # full-text (Enter path)
+      sayt-ttl-seconds: ${SEARCH_SAYT_CACHE_TTL_SECONDS:60}   # SAYT (dropdown path)
+      max-keys-per-tenant: ${SEARCH_CACHE_MAX_KEYS_PER_TENANT:200}
+    boosts:
+      file-name: 5
+      folder-name: 5
+      content: 1
+    pagination:
+      default-size: ${SEARCH_PAGE_DEFAULT_SIZE:20}
+      max-size: ${SEARCH_PAGE_MAX_SIZE:100}
+    suggest:
+      default-size: ${SEARCH_SUGGEST_DEFAULT_SIZE:8}
+      max-size: ${SEARCH_SUGGEST_MAX_SIZE:10}
+      max-query-length: ${SEARCH_SUGGEST_MAX_Q_LEN:50}
+  indexing:
+    content-key-prefix: ${INDEXING_CONTENT_KEY_PREFIX:contents/}
+    max-content-chars: ${INDEXING_MAX_CONTENT_CHARS:500000}
+    retry:
+      interval-minutes: ${INDEXING_RETRY_INTERVAL_MINUTES:10}
+      max-attempts: ${INDEXING_MAX_ATTEMPTS:3}
+      eligible-after-minutes: ${INDEXING_RETRY_ELIGIBLE_AFTER:5}
+    extractable-mime-types:
+      - text/plain
+      - text/csv
+      - text/html
+      - text/xml
+      - application/xml
+      - application/pdf
+      - application/msword
+      - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+      - application/vnd.ms-excel
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/vnd.ms-powerpoint
+      - application/vnd.openxmlformats-officedocument.presentationml.presentation
+      - application/rtf
+      - text/rtf
 server:
   port: 8081
   forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}
