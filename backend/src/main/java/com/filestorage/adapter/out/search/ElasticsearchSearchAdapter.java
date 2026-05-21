@@ -283,12 +283,21 @@ public class ElasticsearchSearchAdapter implements SearchIndexPort {
     // ── Query builders ───────────────────────────────────────────────────────
 
     private NativeQuery buildFileQuery(SearchQuery query, List<UUID> sharedFileIds, List<UUID> sharedFolderIds, int page, int size, boolean withAggregations) {
-        // Inner bool: name (precision) ∪ content (recall), minimum_should_match = 1
+        // Inner bool: name (precision) ∪ name-prefix (partial typing) ∪ content (recall),
+        // minimum_should_match = 1. The prefix clause reuses the `originalName.sayt`
+        // search_as_you_type subfield so queries like "pract" hit "practice4.pdf" —
+        // the plain `match` clause never would, because it requires whole-token equality
+        // (or ≤2-edit fuzziness, not prefix completion).
         Query nameClause = Query.of(q -> q.multiMatch(MultiMatchQuery.of(m -> m
                 .query(query.q())
                 .fields("originalName^5")
                 .fuzziness("AUTO")
                 .operator(Operator.And)
+        )));
+        Query namePrefixClause = Query.of(q -> q.multiMatch(MultiMatchQuery.of(m -> m
+                .query(query.q())
+                .type(TextQueryType.BoolPrefix)
+                .fields("originalName.sayt^3", "originalName.sayt._2gram", "originalName.sayt._3gram")
         )));
         Query contentClause = Query.of(q -> q.multiMatch(MultiMatchQuery.of(m -> m
                 .query(query.q())
@@ -299,6 +308,7 @@ public class ElasticsearchSearchAdapter implements SearchIndexPort {
         )));
         Query relevance = Query.of(q -> q.bool(BoolQuery.of(b -> b
                 .should(nameClause)
+                .should(namePrefixClause)
                 .should(contentClause)
                 .minimumShouldMatch("1")
         )));
@@ -330,8 +340,18 @@ public class ElasticsearchSearchAdapter implements SearchIndexPort {
                 .fuzziness("AUTO")
                 .operator(Operator.And)
         )));
+        Query namePrefix = Query.of(q -> q.multiMatch(MultiMatchQuery.of(m -> m
+                .query(query.q())
+                .type(TextQueryType.BoolPrefix)
+                .fields("name.sayt^3", "name.sayt._2gram", "name.sayt._3gram")
+        )));
+        Query relevance = Query.of(q -> q.bool(BoolQuery.of(b -> b
+                .should(nameMatch)
+                .should(namePrefix)
+                .minimumShouldMatch("1")
+        )));
 
-        BoolQuery.Builder root = new BoolQuery.Builder().must(nameMatch);
+        BoolQuery.Builder root = new BoolQuery.Builder().must(relevance);
         applyVisibilityFilter(root, query.userId(), query.tenantId(), query.role(), "createdBy", sharedFolderIds, null);
         // Folder docs have no mimeType — mimeType filter is a no-op here.
         applyDateRange(root, query.dateFrom(), query.dateTo());
