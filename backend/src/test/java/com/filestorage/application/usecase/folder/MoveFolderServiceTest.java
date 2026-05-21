@@ -4,6 +4,7 @@ import com.filestorage.adapter.out.persistence.entity.Folder;
 import com.filestorage.adapter.out.persistence.entity.Tenant;
 import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
+import com.filestorage.application.usecase.indexing.AfterCommitIndexingPublisher;
 import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.port.in.folder.MoveFolderUseCase;
 import com.filestorage.shared.exception.AppException;
@@ -30,12 +31,14 @@ class MoveFolderServiceTest {
     private FolderSupport folderSupport;
     @Mock
     private FolderAccessPolicy folderAccessPolicy;
+    @Mock
+    private AfterCommitIndexingPublisher indexingPublisher;
 
     private MoveFolderService service;
 
     @BeforeEach
     void setUp() {
-        service = new MoveFolderService(folderRepository, folderSupport, folderAccessPolicy);
+        service = new MoveFolderService(folderRepository, folderSupport, folderAccessPolicy, indexingPublisher);
     }
 
     @Test

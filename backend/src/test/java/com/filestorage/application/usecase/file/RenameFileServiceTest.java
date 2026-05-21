@@ -5,6 +5,7 @@ import com.filestorage.adapter.out.persistence.entity.Tenant;
 import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.mapper.FileViewMapper;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
+import com.filestorage.application.usecase.indexing.AfterCommitIndexingPublisher;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.model.file.FileView;
@@ -37,12 +38,14 @@ class RenameFileServiceTest {
     private FileViewMapper fileViewMapper;
     @Mock
     private FileAccessPolicy fileAccessPolicy;
+    @Mock
+    private AfterCommitIndexingPublisher indexingPublisher;
 
     private RenameFileService service;
 
     @BeforeEach
     void setUp() {
-        service = new RenameFileService(fileRepository, fileSupport, fileViewMapper, fileAccessPolicy);
+        service = new RenameFileService(fileRepository, fileSupport, fileViewMapper, fileAccessPolicy, indexingPublisher);
     }
 
     @Test

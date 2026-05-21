@@ -8,6 +8,7 @@ import com.filestorage.adapter.out.persistence.mapper.FileViewMapper;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
 import com.filestorage.application.usecase.folder.FolderAccessPolicy;
+import com.filestorage.application.usecase.indexing.AfterCommitIndexingPublisher;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.model.file.FileView;
@@ -41,6 +42,8 @@ class MoveFileServiceTest {
     private FileAccessPolicy fileAccessPolicy;
     @Mock
     private FolderAccessPolicy folderAccessPolicy;
+    @Mock
+    private AfterCommitIndexingPublisher indexingPublisher;
 
     private MoveFileService service;
 
@@ -52,7 +55,8 @@ class MoveFileServiceTest {
                 fileSupport,
                 fileViewMapper,
                 fileAccessPolicy,
-                folderAccessPolicy
+                folderAccessPolicy,
+                indexingPublisher
         );
     }
 

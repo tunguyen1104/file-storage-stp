@@ -43,6 +43,8 @@ class InitPresignedUploadServiceTest {
     private UserJpaRepository userRepository;
     @Mock
     private ObjectStoragePort objectStoragePort;
+    @Mock
+    private FolderAccessPolicy folderAccessPolicy;
 
     private InitPresignedUploadService service;
 
@@ -50,7 +52,7 @@ class InitPresignedUploadServiceTest {
     void setUp() {
         service = new InitPresignedUploadService(
                 fileRepository, folderRepository, userRepository,
-                objectStoragePort, new UploadProperties()
+                objectStoragePort, new UploadProperties(), folderAccessPolicy
         );
     }
 
