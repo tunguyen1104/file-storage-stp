@@ -15,6 +15,7 @@ export type TenantResponse = {
 export type TenantOptionResponse = {
   id: string;
   name: string;
+  slug: string;
 };
 
 export type CreateTenantRequest = {

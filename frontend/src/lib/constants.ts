@@ -146,7 +146,12 @@ export const API_ROUTES = {
     ADMIN_LIST: `${API_PREFIX}/shares/admin`,
     ADMIN_REVOKE: (id: string) => `${API_PREFIX}/shares/admin/${id}`,
   },
-  AUDIT_LOGS: `${API_PREFIX}/audit-logs`,
+  AUDIT_LOGS: {
+    LIST: `${API_PREFIX}/audit-logs`,
+    STATS: `${API_PREFIX}/audit-logs/stats`,
+    EXPORT: `${API_PREFIX}/audit-logs/export`,
+  },
+  USERS_SEARCH: `${API_PREFIX}/users/search`,
   SEARCH: `${API_PREFIX}/search`,
 } as const;
 

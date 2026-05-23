@@ -284,6 +284,25 @@ function buildUpstreamHeaders(
   const accept = req.headers.get("accept");
   if (accept) headers.set("Accept", accept);
 
+  // Forward the browser's User-Agent so audit-log rows record the real client,
+  // not "node" (the default UA of the undici fetch used by this route handler).
+  const userAgent = req.headers.get("user-agent");
+  if (userAgent) headers.set("User-Agent", userAgent);
+
+  // Forward the real client IP so backend (RequestContext.getClientIp) doesn't
+  // log 127.0.0.1 for every request that came through this Next.js BFF.
+  // Preserve any existing X-Forwarded-For chain set by an upstream proxy.
+  const incomingXff = req.headers.get("x-forwarded-for");
+  const clientIp =
+    incomingXff?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    null;
+  if (incomingXff) {
+    headers.set("X-Forwarded-For", incomingXff);
+  } else if (clientIp) {
+    headers.set("X-Forwarded-For", clientIp);
+  }
+
   // Forward cookies to the backend using hyphenated names (backend's contract).
   const cookieParts: string[] = [];
   if (tokens.accessToken) cookieParts.push(`access-token=${tokens.accessToken}`);

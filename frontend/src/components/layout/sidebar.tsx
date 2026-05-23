@@ -57,6 +57,7 @@ const NAV_SECTIONS_BY_ROLE: Record<Role, NavSection[]> = {
         { href: "/users", label: "Quản lý người dùng", icon: Users },
         { href: "/admin-files", label: "Quản lý tệp tin", icon: FolderOpen },
         { href: "/admin-shares", label: "Quản lý chia sẻ", icon: Share2 },
+        { href: "/audit-logs", label: "Nhật ký hoạt động", icon: ClipboardList },
       ],
     },
     {
