@@ -5,8 +5,10 @@ import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
 import com.filestorage.application.usecase.indexing.AfterCommitIndexingPublisher;
 import com.filestorage.domain.event.FolderIndexEvent;
+import com.filestorage.domain.model.audit.AuditAction;
 import com.filestorage.domain.model.folder.FolderView;
 import com.filestorage.domain.port.in.folder.CreateFolderUseCase;
+import com.filestorage.infrastructure.audit.Auditable;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,10 @@ public class CreateFolderService implements CreateFolderUseCase {
 
     @Override
     @Transactional
+    @Auditable(
+            action = AuditAction.FOLDER_CREATE,
+            extraSpel = "{'parent_folder_id': #command.parentId() != null ? #command.parentId().toString() : null, 'name': #command.name()}"
+    )
     public FolderView execute(CreateFolderCommand command) {
         User actor = folderSupport.resolveActor(command.actorUserId(), command.actorTenantId());
         String name = normalizeName(command.name());

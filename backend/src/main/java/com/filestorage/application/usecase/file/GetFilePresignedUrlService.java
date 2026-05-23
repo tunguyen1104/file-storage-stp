@@ -1,9 +1,11 @@
 package com.filestorage.application.usecase.file;
 
 import com.filestorage.adapter.out.persistence.entity.File;
+import com.filestorage.domain.model.audit.AuditAction;
 import com.filestorage.domain.model.file.FilePresignedGetView;
 import com.filestorage.domain.port.in.file.GetFilePresignedUrlUseCase;
 import com.filestorage.domain.port.out.ObjectStoragePort;
+import com.filestorage.infrastructure.audit.Auditable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +22,11 @@ public class GetFilePresignedUrlService implements GetFilePresignedUrlUseCase {
 
     @Override
     @Transactional(readOnly = true)
+    @Auditable(
+            action = AuditAction.FILE_DOWNLOAD,
+            fileIdSpel = "#query.fileId()",
+            extraSpel = "{'ttl_minutes': #query.ttlMinutes()}"
+    )
     public FilePresignedGetView execute(GetFilePresignedUrlQuery query) {
         FileSupport.DownloadContext context = fileSupport.resolveDownloadContext(
                 query.actorUserId(),

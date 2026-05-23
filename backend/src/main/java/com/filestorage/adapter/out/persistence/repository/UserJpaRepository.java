@@ -25,6 +25,25 @@ public interface UserJpaRepository extends JpaRepository<User, UUID>, JpaSpecifi
         long getUserCount();
     }
 
+    interface UserSearchProjection {
+        UUID getId();
+
+        String getEmail();
+    }
+
+    @Query("""
+            SELECT u.id AS id, u.email AS email
+            FROM User u
+            WHERE (:tenantId IS NULL OR u.tenant.id = :tenantId)
+              AND u.email LIKE :emailPrefix
+            ORDER BY u.email ASC
+            """)
+    List<UserSearchProjection> searchByEmailPrefix(
+            @Param("tenantId") UUID tenantId,
+            @Param("emailPrefix") String emailPrefixLowercase,
+            org.springframework.data.domain.Pageable pageable
+    );
+
     @Query("SELECT u FROM User u LEFT JOIN FETCH u.role LEFT JOIN FETCH u.tenant WHERE u.email = :email")
     Optional<User> findByEmailWithRoleAndTenant(@Param("email") String email);
 

@@ -4,9 +4,11 @@ import com.filestorage.adapter.out.persistence.entity.File;
 import com.filestorage.adapter.out.persistence.mapper.FileViewMapper;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.FileShareJpaRepository;
+import com.filestorage.domain.model.audit.AuditAction;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.file.FileView;
 import com.filestorage.domain.port.in.file.DeleteFileUseCase;
+import com.filestorage.infrastructure.audit.Auditable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,11 @@ public class DeleteFileService implements DeleteFileUseCase {
 
     @Override
     @Transactional
+    @Auditable(
+            action = AuditAction.FILE_DELETE,
+            fileIdSpel = "#command.fileId()",
+            tenantIdSpel = "#result.tenantId()"
+    )
     public FileView execute(DeleteFileCommand command) {
         var actor = fileSupport.resolveActor(command.actorUserId(), command.actorTenantId());
         File file = fileSupport.findReadableFile(command.fileId(), command.actorTenantId(), command.actorRole());

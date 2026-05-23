@@ -7,13 +7,21 @@ import com.filestorage.adapter.out.persistence.mapper.UserViewMapper;
 import com.filestorage.adapter.out.persistence.repository.RoleJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.TenantJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
+import com.filestorage.domain.model.audit.AuditAction;
 import com.filestorage.domain.model.user.UserView;
+import com.filestorage.domain.port.in.audit.LogAuditEventUseCase;
+import com.filestorage.domain.port.in.audit.LogAuditEventUseCase.AuditEvent;
 import com.filestorage.domain.port.in.user.UpdateUserUseCase;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
+import com.filestorage.shared.util.RequestContext;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +31,7 @@ public class UpdateUserService implements UpdateUserUseCase {
     private final RoleJpaRepository roleRepository;
     private final TenantJpaRepository tenantRepository;
     private final UserViewMapper userViewMapper;
+    private final LogAuditEventUseCase auditLogger;
 
     @Override
     @Transactional
@@ -34,10 +43,12 @@ public class UpdateUserService implements UpdateUserUseCase {
 
         target.setFullName(command.fullName().trim());
 
+        String oldRoleCode = target.getRole().getCode().name();
         Role newRole = roleRepository.findByCode(command.roleCode())
                     .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
         UserWritePolicy.requireRoleAssignmentAllowed(newRole, command.actorRole());
         target.setRole(newRole);
+        boolean roleChanged = !oldRoleCode.equals(newRole.getCode().name());
 
         if (command.storageQuotaBytes() != null) {
             if (command.storageQuotaBytes() < target.getStorageUsedBytes()) {
@@ -61,6 +72,36 @@ public class UpdateUserService implements UpdateUserUseCase {
             target.setStorageQuotaBytes(command.storageQuotaBytes());
         }
 
-        return userViewMapper.toUserView(userRepository.save(target));
+        UserView view = userViewMapper.toUserView(userRepository.save(target));
+
+        if (roleChanged) {
+            logRoleChange(command, target, oldRoleCode, newRole.getCode().name());
+        }
+        return view;
+    }
+
+    private void logRoleChange(UpdateUserCommand command, User target, String oldRoleCode, String newRoleCode) {
+        HttpServletRequest request = RequestContext.getCurrentRequest().orElse(null);
+        Map<String, Object> extra = new HashMap<>();
+        extra.put("actor_role", command.actorRole().name());
+        extra.put("actor_tenant_id", command.actorTenantId().toString());
+        extra.put("target_user_id", target.getId().toString());
+        extra.put("old_role", oldRoleCode);
+        extra.put("new_role", newRoleCode);
+        String requestId = RequestContext.getRequestId(request);
+        if (requestId != null) {
+            extra.put("request_id", requestId);
+        }
+        auditLogger.logAsync(new AuditEvent(
+                AuditAction.USER_ROLE_CHANGED,
+                target.getTenant().getId(),
+                command.actorUserId(),
+                null,
+                command.actorRole().name(),
+                RequestContext.getClientIp(request),
+                RequestContext.getUserAgent(request),
+                requestId,
+                extra
+        ));
     }
 }

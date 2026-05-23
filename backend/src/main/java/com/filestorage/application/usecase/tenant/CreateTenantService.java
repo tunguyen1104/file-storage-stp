@@ -3,8 +3,10 @@ package com.filestorage.application.usecase.tenant;
 import com.filestorage.adapter.out.persistence.entity.Tenant;
 import com.filestorage.adapter.out.persistence.mapper.TenantViewMapper;
 import com.filestorage.adapter.out.persistence.repository.TenantJpaRepository;
+import com.filestorage.domain.model.audit.AuditAction;
 import com.filestorage.domain.model.tenant.TenantView;
 import com.filestorage.domain.port.in.tenant.CreateTenantUseCase;
+import com.filestorage.infrastructure.audit.Auditable;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,11 @@ public class CreateTenantService implements CreateTenantUseCase {
 
     @Override
     @Transactional
+    @Auditable(
+            action = AuditAction.TENANT_CREATED,
+            tenantIdSpel = "#result.id()",
+            extraSpel = "{'tenant_name': #result.name(), 'slug': #result.slug()}"
+    )
     public TenantView execute(CreateTenantCommand command) {
         TenantAccessPolicy.requireSuperAdmin(command.actorRole());
 

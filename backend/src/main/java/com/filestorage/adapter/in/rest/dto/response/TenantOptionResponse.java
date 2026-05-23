@@ -4,7 +4,7 @@ import java.util.UUID;
 
 public record TenantOptionResponse(
         UUID id,
-        String name
+        String name,
+        String slug
 ) {
 }
-

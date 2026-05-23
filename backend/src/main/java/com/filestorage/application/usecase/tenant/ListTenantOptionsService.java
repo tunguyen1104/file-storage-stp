@@ -23,7 +23,7 @@ public class ListTenantOptionsService implements ListTenantOptionsUseCase {
         return tenantRepository.findAll(Sort.by(Sort.Direction.ASC, "name"))
                 .stream()
                 .filter(Tenant::isActive)
-                .map(t -> new TenantOptionView(t.getId(), t.getName()))
+                .map(t -> new TenantOptionView(t.getId(), t.getName(), t.getSlug()))
                 .toList();
     }
 }

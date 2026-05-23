@@ -12,21 +12,29 @@ import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
 import com.filestorage.application.usecase.folder.FolderAccessPolicy;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.enums.MultipartUploadStatus;
+import com.filestorage.domain.model.audit.AuditAction;
 import com.filestorage.domain.model.file.MultipartUploadInitView;
+import com.filestorage.domain.port.in.audit.LogAuditEventUseCase;
+import com.filestorage.domain.port.in.audit.LogAuditEventUseCase.AuditEvent;
 import com.filestorage.domain.port.in.file.InitMultipartUploadUseCase;
+import com.filestorage.infrastructure.audit.Auditable;
 import com.filestorage.domain.port.out.CachePort;
 import com.filestorage.domain.port.out.MultipartSessionCacheDto;
 import com.filestorage.domain.port.out.ObjectStoragePort;
 import com.filestorage.infrastructure.config.UploadProperties;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
+import com.filestorage.shared.util.RequestContext;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -43,9 +51,17 @@ public class InitMultipartUploadService implements InitMultipartUploadUseCase {
     private final CachePort cachePort;
     private final UploadProperties uploadProperties;
     private final FolderAccessPolicy folderAccessPolicy;
+    private final LogAuditEventUseCase auditLogger;
 
     @Override
     @Transactional
+    @Auditable(
+            action = AuditAction.FILE_UPLOAD,
+            fileIdSpel = "#result.fileId()",
+            tenantIdSpel = "#command.tenantId()",
+            extraSpel = "{'size_bytes': #command.totalSizeBytes(), 'mime_type': #command.mimeType(), 'upload_type': 'multipart', 'parts_count': #command.totalParts()}",
+            logOnFailure = false
+    )
     public MultipartUploadInitView execute(InitMultipartUploadCommand command) {
 
         if (command.totalParts() < 1 || command.totalSizeBytes() <= 0
@@ -73,6 +89,7 @@ public class InitMultipartUploadService implements InitMultipartUploadUseCase {
         long newUsage = safeAdd(effectiveUsage, command.totalSizeBytes());
 
         if (newUsage > actor.getStorageQuotaBytes()) {
+            auditQuotaExceeded(actor, command.totalSizeBytes(), actor.getStorageQuotaBytes() - effectiveUsage);
             throw new AppException(ErrorCode.QUOTA_EXCEEDED);
         }
 
@@ -159,5 +176,30 @@ public class InitMultipartUploadService implements InitMultipartUploadUseCase {
 
     private static long safeAdd(long value, long delta) {
         return Math.addExact(value, delta);
+    }
+
+    private void auditQuotaExceeded(User actor, long requestedBytes, long availableBytes) {
+        HttpServletRequest request = RequestContext.getCurrentRequest().orElse(null);
+        String role = actor.getRole() == null ? null : actor.getRole().getCode().name();
+        Map<String, Object> extra = new HashMap<>();
+        extra.put("actor_role", role);
+        extra.put("actor_tenant_id", actor.getTenant().getId().toString());
+        extra.put("requested_bytes", requestedBytes);
+        extra.put("available_bytes", availableBytes);
+        String requestId = RequestContext.getRequestId(request);
+        if (requestId != null) {
+            extra.put("request_id", requestId);
+        }
+        auditLogger.logAsync(new AuditEvent(
+                AuditAction.QUOTA_EXCEEDED,
+                actor.getTenant().getId(),
+                actor.getId(),
+                null,
+                role,
+                RequestContext.getClientIp(request),
+                RequestContext.getUserAgent(request),
+                requestId,
+                extra
+        ));
     }
 }

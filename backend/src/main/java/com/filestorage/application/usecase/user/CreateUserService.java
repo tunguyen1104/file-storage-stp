@@ -9,8 +9,10 @@ import com.filestorage.adapter.out.persistence.mapper.UserViewMapper;
 import com.filestorage.adapter.out.persistence.repository.RoleJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.TenantJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
+import com.filestorage.domain.model.audit.AuditAction;
 import com.filestorage.domain.model.user.UserView;
 import com.filestorage.domain.port.in.user.CreateUserUseCase;
+import com.filestorage.infrastructure.audit.Auditable;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +44,11 @@ public class CreateUserService implements CreateUserUseCase {
 
     @Override
     @Transactional
+    @Auditable(
+            action = AuditAction.USER_CREATED,
+            tenantIdSpel = "#result.tenantId()",
+            extraSpel = "{'target_user_id': #result.id().toString(), 'role': #command.roleCode().name(), 'email': #result.email()}"
+    )
     public UserView execute(CreateUserCommand command) {
 
         String normalizedEmail = normalizeEmail(command.email());
