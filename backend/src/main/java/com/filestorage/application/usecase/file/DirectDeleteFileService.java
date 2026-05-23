@@ -3,8 +3,10 @@ package com.filestorage.application.usecase.file;
 import com.filestorage.adapter.out.persistence.entity.File;
 import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.mapper.FileViewMapper;
+import com.filestorage.domain.model.audit.AuditAction;
 import com.filestorage.domain.model.file.FileView;
 import com.filestorage.domain.port.in.file.DirectDeleteFileUseCase;
+import com.filestorage.infrastructure.audit.Auditable;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,12 @@ public class DirectDeleteFileService implements DirectDeleteFileUseCase {
 
     @Override
     @Transactional
+    @Auditable(
+            action = AuditAction.FILE_PURGED,
+            fileIdSpel = "#command.fileId()",
+            tenantIdSpel = "#result.tenantId()",
+            extraSpel = "{'reason': 'hard_delete'}"
+    )
     public FileView execute(DirectDeleteFileCommand command) {
         if (command == null || command.fileId() == null) {
             throw new AppException(ErrorCode.INVALID_PAYLOAD);

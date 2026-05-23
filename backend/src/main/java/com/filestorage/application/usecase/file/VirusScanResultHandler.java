@@ -7,7 +7,10 @@ import com.filestorage.application.usecase.indexing.AfterCommitIndexingPublisher
 import com.filestorage.domain.event.FileIndexEvent;
 import com.filestorage.domain.event.FileStatusChangedEvent;
 import com.filestorage.domain.event.VirusScanCompletedEvent;
+import com.filestorage.domain.model.audit.AuditAction;
 import com.filestorage.domain.model.enums.FileStatus;
+import com.filestorage.domain.port.in.audit.LogAuditEventUseCase;
+import com.filestorage.domain.port.in.audit.LogAuditEventUseCase.AuditEvent;
 import com.filestorage.domain.port.out.FileStatusEventPublisherPort;
 import com.filestorage.domain.port.out.ObjectStoragePort;
 import com.filestorage.shared.exception.AppException;
@@ -16,6 +19,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.HashMap;
+import java.util.Map;
 
 
 /**
@@ -34,6 +40,7 @@ public class VirusScanResultHandler {
     private final ObjectStoragePort objectStoragePort;
     private final FileStatusEventPublisherPort fileStatusEventPublisher;
     private final AfterCommitIndexingPublisher indexingPublisher;
+    private final LogAuditEventUseCase auditLogger;
 
     @Transactional
     public void handle(VirusScanCompletedEvent event) {
@@ -62,6 +69,7 @@ public class VirusScanResultHandler {
         objectStoragePort.deleteObjectIfExists(file.getStorageKey());
 
         publishStatusChanged(file, FileStatus.INFECTED);
+        auditSystemFileEvent(file, AuditAction.VIRUS_DETECTED, Map.of("scanner", "clamav"));
     }
 
     void handleClean(File file) {
@@ -78,6 +86,10 @@ public class VirusScanResultHandler {
             fileRepository.save(file);
             objectStoragePort.deleteObjectIfExists(file.getStorageKey());
             publishStatusChanged(file, FileStatus.UPLOAD_FAILED);
+            auditSystemFileEvent(file, AuditAction.UPLOAD_FAILED, Map.of(
+                    "stage", "virus_scan",
+                    "error_code", "QUOTA_EXCEEDED_POST_SCAN"
+            ));
             return;
         }
 
@@ -107,6 +119,23 @@ public class VirusScanResultHandler {
                 file.getTenant().getId(),
                 file.getUploadedBy().getId(),
                 status
+        ));
+    }
+
+    private void auditSystemFileEvent(File file, AuditAction action, Map<String, Object> details) {
+        Map<String, Object> extra = new HashMap<>(details);
+        extra.put("actor_role", "SYSTEM");
+        extra.put("actor_tenant_id", file.getTenant().getId().toString());
+        auditLogger.logAsync(new AuditEvent(
+                action,
+                file.getTenant().getId(),
+                null,
+                file.getId(),
+                "SYSTEM",
+                null,
+                null,
+                null,
+                extra
         ));
     }
 }

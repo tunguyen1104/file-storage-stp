@@ -6,8 +6,10 @@ import com.filestorage.adapter.out.persistence.mapper.UserViewMapper;
 import com.filestorage.adapter.out.persistence.repository.RefreshTokenJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.TenantJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
+import com.filestorage.domain.model.audit.AuditAction;
 import com.filestorage.domain.model.user.UserView;
 import com.filestorage.domain.port.in.user.DeactivateUserUseCase;
+import com.filestorage.infrastructure.audit.Auditable;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,11 @@ public class DeactivateUserService implements DeactivateUserUseCase {
 
     @Override
     @Transactional
+    @Auditable(
+            action = AuditAction.USER_DEACTIVATED,
+            tenantIdSpel = "#result.tenantId()",
+            extraSpel = "{'target_user_id': #command.targetUserId().toString()}"
+    )
     public UserView execute(DeactivateUserCommand command) {
 
         User target = userRepository.findByIdForUpdate(command.targetUserId())

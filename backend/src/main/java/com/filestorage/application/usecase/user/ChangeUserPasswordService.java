@@ -3,8 +3,10 @@ package com.filestorage.application.usecase.user;
 import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.repository.RefreshTokenJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
+import com.filestorage.domain.model.audit.AuditAction;
 import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.port.in.user.ChangeUserPasswordUseCase;
+import com.filestorage.infrastructure.audit.Auditable;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,10 @@ public class ChangeUserPasswordService implements ChangeUserPasswordUseCase {
 
     @Override
     @Transactional
+    @Auditable(
+            action = AuditAction.PASSWORD_CHANGED,
+            extraSpel = "{'target_user_id': #command.targetUserId().toString()}"
+    )
     public void execute(ChangeUserPasswordCommand command) {
         if (!command.newPassword().equals(command.confirmPassword())) {
             throw new AppException(ErrorCode.PASSWORD_MISMATCH);

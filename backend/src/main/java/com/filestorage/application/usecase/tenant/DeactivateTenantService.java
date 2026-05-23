@@ -3,8 +3,10 @@ package com.filestorage.application.usecase.tenant;
 import com.filestorage.adapter.out.persistence.entity.Tenant;
 import com.filestorage.adapter.out.persistence.mapper.TenantViewMapper;
 import com.filestorage.adapter.out.persistence.repository.TenantJpaRepository;
+import com.filestorage.domain.model.audit.AuditAction;
 import com.filestorage.domain.model.tenant.TenantView;
 import com.filestorage.domain.port.in.tenant.DeactivateTenantUseCase;
+import com.filestorage.infrastructure.audit.Auditable;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,10 @@ public class DeactivateTenantService implements DeactivateTenantUseCase {
 
     @Override
     @Transactional
+    @Auditable(
+            action = AuditAction.TENANT_DEACTIVATED,
+            tenantIdSpel = "#command.tenantId()"
+    )
     public TenantView execute(DeactivateTenantCommand command) {
 
         Tenant tenant = tenantRepository.findById(command.tenantId())

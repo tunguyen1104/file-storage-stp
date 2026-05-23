@@ -7,8 +7,10 @@ import com.filestorage.adapter.out.persistence.repository.FileShareJpaRepository
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
 import com.filestorage.application.usecase.indexing.AfterCommitIndexingPublisher;
 import com.filestorage.domain.event.FolderIndexEvent;
+import com.filestorage.domain.model.audit.AuditAction;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.port.in.folder.DeleteFolderUseCase;
+import com.filestorage.infrastructure.audit.Auditable;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
 import java.util.List;
@@ -35,6 +37,10 @@ public class DeleteFolderService implements DeleteFolderUseCase {
 
     @Override
     @Transactional
+    @Auditable(
+            action = AuditAction.FOLDER_DELETE,
+            extraSpel = "{'folder_id': #command.folderId() != null ? #command.folderId().toString() : null}"
+    )
     public void execute(DeleteFolderCommand command) {
         User actor = folderSupport.resolveActor(command.actorUserId(), command.actorTenantId());
         Folder folder = folderSupport.findReadableFolder(command.folderId(), actor.getTenant().getId(), command.actorRole());

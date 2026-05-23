@@ -3,8 +3,10 @@ package com.filestorage.adapter.in.rest.mapper;
 import com.filestorage.adapter.in.rest.dto.response.PageResponse;
 import com.filestorage.adapter.in.rest.dto.response.UserCreatedResponse;
 import com.filestorage.adapter.in.rest.dto.response.UserDetailResponse;
+import com.filestorage.adapter.in.rest.dto.response.UserSearchResponse;
 import com.filestorage.adapter.in.rest.dto.response.UserStorageResponse;
 import com.filestorage.domain.model.user.UserPageView;
+import com.filestorage.domain.model.user.UserSearchResult;
 import com.filestorage.domain.model.user.UserStorageView;
 import com.filestorage.domain.model.user.UserView;
 import com.filestorage.infrastructure.config.GlobalMapperConfig;
@@ -37,6 +39,8 @@ public interface UserRestMapper {
     UserDetailResponse toUserDetailResponse(UserView view);
 
     UserStorageResponse toUserStorageResponse(UserStorageView view);
+
+    UserSearchResponse toUserSearchResponse(UserSearchResult result);
 
 
     default PageResponse<UserDetailResponse> toPageResponse(UserPageView pageView) {

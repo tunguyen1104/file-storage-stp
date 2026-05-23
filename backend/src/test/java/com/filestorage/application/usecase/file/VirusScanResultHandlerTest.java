@@ -7,6 +7,7 @@ import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
 import com.filestorage.application.usecase.indexing.AfterCommitIndexingPublisher;
 import com.filestorage.domain.model.enums.FileStatus;
+import com.filestorage.domain.port.in.audit.LogAuditEventUseCase;
 import com.filestorage.domain.port.out.FileStatusEventPublisherPort;
 import com.filestorage.domain.port.out.ObjectStoragePort;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,12 +36,14 @@ class VirusScanResultHandlerTest {
     private FileStatusEventPublisherPort fileStatusEventPublisher;
     @Mock
     private AfterCommitIndexingPublisher indexingPublisher;
+    @Mock
+    private LogAuditEventUseCase auditLogger;
 
     private VirusScanResultHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new VirusScanResultHandler(fileRepository, userRepository, objectStoragePort, fileStatusEventPublisher, indexingPublisher);
+        handler = new VirusScanResultHandler(fileRepository, userRepository, objectStoragePort, fileStatusEventPublisher, indexingPublisher, auditLogger);
     }
 
     @Test

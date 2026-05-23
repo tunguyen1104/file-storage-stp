@@ -7,6 +7,7 @@ import com.filestorage.adapter.in.rest.dto.response.ApiResponse;
 import com.filestorage.adapter.in.rest.dto.response.PageResponse;
 import com.filestorage.adapter.in.rest.dto.response.UserCreatedResponse;
 import com.filestorage.adapter.in.rest.dto.response.UserDetailResponse;
+import com.filestorage.adapter.in.rest.dto.response.UserSearchResponse;
 import com.filestorage.adapter.in.rest.dto.response.UserStorageResponse;
 import com.filestorage.adapter.in.rest.mapper.UserRestMapper;
 import com.filestorage.adapter.in.rest.security.SecurityUser;
@@ -19,6 +20,7 @@ import com.filestorage.domain.port.in.user.GetUserStorageUseCase;
 import com.filestorage.domain.port.in.user.GetUserUseCase;
 import com.filestorage.domain.port.in.user.ListTenantUsersUseCase;
 import com.filestorage.domain.port.in.user.ListUsersUseCase;
+import com.filestorage.domain.port.in.user.SearchUsersUseCase;
 import com.filestorage.domain.port.in.user.UpdateUserUseCase;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
@@ -29,6 +31,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -45,6 +48,7 @@ public class UserController {
     private final ActivateUserUseCase activateUserUseCase;
     private final ChangeUserPasswordUseCase changeUserPasswordUseCase;
     private final ListTenantUsersUseCase listTenantUsersUseCase;
+    private final SearchUsersUseCase searchUsersUseCase;
     private final UserRestMapper userRestMapper;
 
 
@@ -114,6 +118,26 @@ public class UserController {
         ));
 
         return ResponseEntity.ok(ApiResponse.buildSuccess(userRestMapper.toPageResponse(result)));
+    }
+
+    @GetMapping("/search")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN')")
+    public ResponseEntity<ApiResponse<List<UserSearchResponse>>> searchUsers(
+            @RequestParam String email,
+            @RequestParam(required = false) UUID tenantId
+    ) {
+        SecurityUser actor = currentUserOrThrow();
+        var result = searchUsersUseCase.execute(new SearchUsersUseCase.SearchUsersQuery(
+                UUID.fromString(actor.getUserId()),
+                UUID.fromString(actor.getTenantId()),
+                parseRole(actor.getRole()),
+                email,
+                tenantId
+        ));
+
+        return ResponseEntity.ok(ApiResponse.buildSuccess(
+                result.stream().map(userRestMapper::toUserSearchResponse).toList()
+        ));
     }
 
     @GetMapping("/{userId}")
