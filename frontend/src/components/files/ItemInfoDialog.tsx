@@ -79,7 +79,7 @@ function renderFileIconForMime(mimeType: string, size = "h-10 w-10") {
   if (mimeType.includes("zip") || mimeType.includes("tar") || mimeType.includes("rar"))
     return <FileArchive className={cn(cls, "text-amber-500")} />;
   if (mimeType.includes("pdf") || mimeType.includes("document") || mimeType.startsWith("text/"))
-    return <FileText className={cn(cls, "text-red-500")} />;
+    return <FileText className={cn(cls, "text-blue-500")} />;
   return <FileIcon className={cn(cls, "text-gray-400")} />;
 }
 

@@ -286,7 +286,9 @@ function AdminSharesPageInner() {
                     <SelectItem value="all">Tất cả tổ chức</SelectItem>
                     {tenantsList.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
-                        {t.name}
+                        <div className="truncate max-w-[140px]" title={t.name}>
+                          {t.name}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -311,7 +313,9 @@ function AdminSharesPageInner() {
                     <SelectItem value="all">Tất cả người tạo</SelectItem>
                     {usersList.map((u) => (
                       <SelectItem key={u.id} value={u.id}>
-                        {u.fullName || u.email}
+                        <div className="truncate max-w-[140px]" title={u.fullName || u.email}>
+                          {u.fullName || u.email}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -457,7 +461,7 @@ function AdminSharesPageInner() {
 
                       {isSuperAdmin && (
                         <TableCell className="py-4">
-                          <div className="max-w-[150px] truncate" title={item?.tenantName || ""}>
+                          <div className="max-w-[250px] truncate" title={item?.tenantName || ""}>
                             <span className="text-sm font-semibold text-gray-700">
                               {item?.tenantName || "—"}
                             </span>
@@ -466,7 +470,7 @@ function AdminSharesPageInner() {
                       )}
 
                       <TableCell className="py-4">
-                        <div className="flex items-center gap-2 max-w-[150px]" title={item.sharedBy?.fullName || ""}>
+                        <div className="flex items-center gap-2 max-w-[200px]" title={item.sharedBy?.fullName || ""}>
                           <User className="w-4 h-4 text-gray-400 shrink-0" />
                           <span className="text-sm font-semibold text-gray-700 truncate">
                             {item.sharedBy?.fullName || "—"}
@@ -475,7 +479,7 @@ function AdminSharesPageInner() {
                       </TableCell>
 
                       <TableCell className="py-4">
-                        <div className="flex flex-col max-w-[180px]">
+                        <div className="flex flex-col max-w-[250px]">
                           <span className="text-sm font-semibold text-gray-800 truncate" title={recipientLabel}>
                             {recipientLabel}
                           </span>

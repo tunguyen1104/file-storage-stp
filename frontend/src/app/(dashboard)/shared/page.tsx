@@ -72,7 +72,7 @@ function renderFileIcon(mimeType: string | null, size = "h-5 w-5") {
   if (mimeType.includes("zip") || mimeType.includes("tar") || mimeType.includes("rar"))
     return <FileArchive className={cn(size, "text-amber-500")} />;
   if (mimeType.includes("pdf") || mimeType.includes("document") || mimeType.startsWith("text/"))
-    return <FileText className={cn(size, "text-red-500")} />;
+    return <FileText className={cn(size, "text-blue-500")} />;
   return <FileIcon className={cn(size, "text-gray-400")} />;
 }
 

@@ -43,7 +43,7 @@ export function renderHitIcon(
     mimeType.includes("document") ||
     mimeType.startsWith("text/")
   )
-    return <FileText className={cn(className, "text-red-500")} />;
+    return <FileText className={cn(className, "text-blue-500")} />;
   return <FileIcon className={cn(className, "text-gray-400")} />;
 }
 

@@ -141,10 +141,36 @@ function TenantAdminDashboard() {
 
   return (
     <div className="bg-gray-50 min-h-[calc(100vh-2rem)] p-4 md:p-8">
-      {/* Header section matching screenshot exactly */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 leading-tight">Bảng điều khiển Tổ chức</h1>
-        <p className="text-base text-gray-500 mt-1">Quản lý thành viên, tài nguyên và cấu hình bảo mật của tổ chức.</p>
+      {/* Header section and Storage Quota */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 leading-tight">Bảng điều khiển Tổ chức</h1>
+          <p className="text-base text-gray-500 mt-1">Quản lý thành viên, tài nguyên và cấu hình bảo mật của tổ chức.</p>
+        </div>
+
+        {/* Shrinked Storage Quota Card */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 w-full lg:w-[320px]">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center text-blue-500">
+                <HardDrive className="w-3.5 h-3.5" />
+              </div>
+              <h3 className="font-semibold text-gray-900 text-sm">Hạn mức dung lượng</h3>
+            </div>
+            <span className="text-[#5B5CEF] font-semibold text-sm">{storagePercent}%</span>
+          </div>
+
+          <div className="mt-2 flex items-center justify-between">
+            <div className="flex items-baseline gap-1">
+              <span className="text-lg font-bold text-gray-900 leading-none">{formatBytes(storageUsedBytes)}</span>
+              <span className="text-xs text-gray-500">/ {formatBytes(storageQuotaBytes)}</span>
+            </div>
+          </div>
+
+          <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden mt-3 relative">
+            <div className="h-full bg-[#5B5CEF] rounded-full transition-all duration-500" style={{ width: `${storagePercent}%` }}></div>
+          </div>
+        </div>
       </div>
 
       {/* Search and Invite Member */}
@@ -166,7 +192,7 @@ function TenantAdminDashboard() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
+      <div className="w-full">
         {/* Left Column: Team Members Table */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
           <div className="px-6 py-5 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -319,32 +345,6 @@ function TenantAdminDashboard() {
           </div>
         </div>
 
-        {/* Right Column: Storage & Security */}
-        <div className="flex flex-col gap-6">
-          {/* Storage Quota Card */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-500">
-                  <HardDrive className="w-4 h-4" />
-                </div>
-                <h3 className="font-bold text-gray-900">Hạn mức dung lượng</h3>
-              </div>
-            </div>
-
-            <div className="mt-8 flex items-end justify-between">
-              <div>
-                <span className="text-3xl font-bold text-gray-900 leading-none">{formatBytes(storageUsedBytes)}</span>
-                <span className="text-sm text-gray-500 ml-1">đã dùng trên {formatBytes(storageQuotaBytes)}</span>
-              </div>
-              <span className="text-[#5B5CEF] font-medium text-sm mb-1">{storagePercent}%</span>
-            </div>
-
-            <div className="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden mt-3 relative">
-              <div className="h-full bg-[#5B5CEF] rounded-full transition-all duration-500" style={{ width: `${storagePercent}%` }}></div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <CreateUserDialog
