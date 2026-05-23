@@ -22,6 +22,7 @@ import com.filestorage.domain.port.in.user.GetUserStorageUseCase;
 import com.filestorage.domain.port.in.user.GetUserUseCase;
 import com.filestorage.domain.port.in.user.ListTenantUsersUseCase;
 import com.filestorage.domain.port.in.user.ListUsersUseCase;
+import com.filestorage.domain.port.in.user.SearchUsersUseCase;
 import com.filestorage.domain.port.in.user.UpdateUserUseCase;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
@@ -80,6 +81,8 @@ class UserControllerTest {
     @Mock
     private ListTenantUsersUseCase listTenantUsersUseCase;
     @Mock
+    private SearchUsersUseCase searchUsersUseCase;
+    @Mock
     private UserRestMapper userRestMapper;
 
     private UUID actorUserId;
@@ -112,6 +115,7 @@ class UserControllerTest {
                 activateUserUseCase,
                 changeUserPasswordUseCase,
                 listTenantUsersUseCase,
+                searchUsersUseCase,
                 userRestMapper
         );
 

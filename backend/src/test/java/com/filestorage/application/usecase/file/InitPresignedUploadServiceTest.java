@@ -9,6 +9,7 @@ import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
 import com.filestorage.application.usecase.folder.FolderAccessPolicy;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.enums.RoleCode;
+import com.filestorage.domain.port.in.audit.LogAuditEventUseCase;
 import com.filestorage.domain.model.file.PresignedUploadView;
 import com.filestorage.domain.port.in.file.InitPresignedUploadUseCase;
 import com.filestorage.domain.port.out.ObjectStoragePort;
@@ -45,6 +46,8 @@ class InitPresignedUploadServiceTest {
     private ObjectStoragePort objectStoragePort;
     @Mock
     private FolderAccessPolicy folderAccessPolicy;
+    @Mock
+    private LogAuditEventUseCase auditLogger;
 
     private InitPresignedUploadService service;
 
@@ -52,7 +55,7 @@ class InitPresignedUploadServiceTest {
     void setUp() {
         service = new InitPresignedUploadService(
                 fileRepository, folderRepository, userRepository,
-                objectStoragePort, new UploadProperties(), folderAccessPolicy
+                objectStoragePort, new UploadProperties(), folderAccessPolicy, auditLogger
         );
     }
 

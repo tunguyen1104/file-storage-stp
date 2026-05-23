@@ -8,6 +8,7 @@ import com.filestorage.adapter.out.persistence.repository.RoleJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.TenantJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
 import com.filestorage.domain.model.enums.RoleCode;
+import com.filestorage.domain.port.in.audit.LogAuditEventUseCase;
 import com.filestorage.domain.port.in.user.UpdateUserUseCase;
 import com.filestorage.shared.exception.AppException;
 import com.filestorage.shared.exception.ErrorCode;
@@ -35,13 +36,15 @@ class UpdateUserServiceTest {
     private RoleJpaRepository roleRepository;
     @Mock
     private TenantJpaRepository tenantRepository;
+    @Mock
+    private LogAuditEventUseCase auditLogger;
 
     private UpdateUserService updateUserService;
 
     @BeforeEach
     void setUp() {
         UserViewMapper mapper = Mappers.getMapper(UserViewMapper.class);
-        updateUserService = new UpdateUserService(userRepository, roleRepository, tenantRepository, mapper);
+        updateUserService = new UpdateUserService(userRepository, roleRepository, tenantRepository, mapper, auditLogger);
     }
 
     @Test
