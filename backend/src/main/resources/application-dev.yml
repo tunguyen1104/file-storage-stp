@@ -18,7 +18,7 @@ spring:
       idle-timeout: 300000
       connection-timeout: 20000
       validation-timeout: 5000
-      leak-detection-threshold: 60000
+      leak-detection-threshold: 100000
 
   jpa:
     hibernate:
@@ -147,6 +147,7 @@ app:
     indices:
       files: ${ELASTICSEARCH_INDEX_FILES:files}
       folders: ${ELASTICSEARCH_INDEX_FOLDERS:folders}
+      rag-chunks: ${ELASTICSEARCH_INDEX_RAG_CHUNKS:rag_chunks}
   search:
     cache:
       ttl-minutes: ${SEARCH_CACHE_TTL_MINUTES:5}              # full-text (Enter path)
@@ -185,6 +186,30 @@ app:
       - application/vnd.openxmlformats-officedocument.presentationml.presentation
       - application/rtf
       - text/rtf
+  rag:
+    enabled: ${RAG_ENABLED:true}
+    chunks:
+      size-chars: ${RAG_CHUNK_SIZE_CHARS:3000}
+      overlap-chars: ${RAG_CHUNK_OVERLAP_CHARS:400}
+      version: ${RAG_CHUNKER_VERSION:v1}
+    embedding:
+      model: ${RAG_EMBEDDING_MODEL:bge-m3}
+      dimensions: ${RAG_EMBEDDING_DIMENSIONS:1024}
+      batch-size: ${RAG_EMBEDDING_BATCH_SIZE:32}
+    retrieval:
+      top-k: ${RAG_RETRIEVAL_TOP_K:5}
+      max-top-k: ${RAG_RETRIEVAL_MAX_TOP_K:20}
+      vector-candidates: ${RAG_VECTOR_CANDIDATES:40}
+      bm25-candidates: ${RAG_BM25_CANDIDATES:40}
+    chat:
+      model: ${RAG_CHAT_MODEL:alibaba-qwen3-32b}
+      temperature: ${RAG_CHAT_TEMPERATURE:0.2}
+      max-history-messages: ${RAG_CHAT_MAX_HISTORY_MESSAGES:4}
+      max-message-chars: ${RAG_CHAT_MAX_MESSAGE_CHARS:8000}
+  digitalocean:
+    ai:
+      base-url: ${DO_AI_BASE_URL:https://inference.do-ai.run}
+      api-key: ${DO_AI_API_KEY:}
 server:
   port: 8081
   forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}

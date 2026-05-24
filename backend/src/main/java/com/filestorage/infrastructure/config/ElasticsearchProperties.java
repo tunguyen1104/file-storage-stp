@@ -45,5 +45,8 @@ public class ElasticsearchProperties {
 
         @NotBlank
         private String folders = "folders";
+
+        @NotBlank
+        private String ragChunks = "rag_chunks";
     }
 }

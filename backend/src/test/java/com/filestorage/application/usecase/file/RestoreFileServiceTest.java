@@ -7,6 +7,7 @@ import com.filestorage.adapter.out.persistence.entity.User;
 import com.filestorage.adapter.out.persistence.mapper.FileViewMapper;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
 import com.filestorage.adapter.out.persistence.repository.FolderJpaRepository;
+import com.filestorage.application.usecase.rag.RagLifecycleSyncService;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.model.file.FileView;
@@ -38,12 +39,21 @@ class RestoreFileServiceTest {
     private FileViewMapper fileViewMapper;
     @Mock
     private FileAccessPolicy fileAccessPolicy;
+    @Mock
+    private RagLifecycleSyncService ragLifecycleSyncService;
 
     private RestoreFileService service;
 
     @BeforeEach
     void setUp() {
-        service = new RestoreFileService(fileRepository, folderRepository, fileSupport, fileViewMapper, fileAccessPolicy);
+        service = new RestoreFileService(
+                fileRepository,
+                folderRepository,
+                fileSupport,
+                fileViewMapper,
+                fileAccessPolicy,
+                ragLifecycleSyncService
+        );
     }
 
     @Test

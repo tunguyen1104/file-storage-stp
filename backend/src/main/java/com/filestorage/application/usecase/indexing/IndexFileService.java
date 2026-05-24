@@ -1,5 +1,6 @@
 package com.filestorage.application.usecase.indexing;
 
+import com.filestorage.application.usecase.rag.RagIndexRequestService;
 import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.port.out.ContentExtractionPort;
 import com.filestorage.domain.port.out.FileIndexData;
@@ -37,6 +38,7 @@ public class IndexFileService {
     private final SearchCachePort searchCachePort;
     private final IndexingPolicy indexingPolicy;
     private final IndexingProperties indexingProperties;
+    private final RagIndexRequestService ragIndexRequestService;
 
     /**
      * @param fileId target file. The file may have been deleted or transitioned
@@ -87,6 +89,7 @@ public class IndexFileService {
             ));
 
             tx.markIndexed(fileId, contentKey);
+            requestRagIndex(fileId, snap, contentKey);
             searchCachePort.evictForUser(snap.tenantId(), snap.uploadedBy());
 
             log.info("IndexFileService: indexed fileId={} contentExtracted={}", fileId, extractedContent != null);
@@ -103,5 +106,13 @@ public class IndexFileService {
 
     private String buildContentKey(UUID tenantId, UUID userId, UUID fileId) {
         return indexingProperties.getContentKeyPrefix() + tenantId + "/" + userId + "/" + fileId + ".txt";
+    }
+
+    private void requestRagIndex(UUID fileId, IndexFileTxHelper.Snapshot snap, String contentKey) {
+        try {
+            ragIndexRequestService.requestIndex(fileId, snap.tenantId(), snap.uploadedBy(), contentKey);
+        } catch (Exception e) {
+            log.warn("IndexFileService: failed to queue RAG indexing for fileId={}: {}", fileId, e.getMessage());
+        }
     }
 }

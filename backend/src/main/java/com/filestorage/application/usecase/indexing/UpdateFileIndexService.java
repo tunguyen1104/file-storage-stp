@@ -2,6 +2,7 @@ package com.filestorage.application.usecase.indexing;
 
 import com.filestorage.adapter.out.persistence.entity.File;
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
+import com.filestorage.application.usecase.rag.RagLifecycleSyncService;
 import com.filestorage.domain.port.out.SearchCachePort;
 import com.filestorage.domain.port.out.SearchIndexPort;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class UpdateFileIndexService {
     private final Loader loader;
     private final SearchIndexPort searchIndexPort;
     private final SearchCachePort searchCachePort;
+    private final RagLifecycleSyncService ragLifecycleSyncService;
 
     public void execute(UUID fileId, UUID userId) {
         Loader.Snapshot snapshot = loader.loadSnapshot(fileId);
@@ -36,6 +38,11 @@ public class UpdateFileIndexService {
             return;
         }
         searchIndexPort.updateFileMetadata(snapshot.id(), snapshot.originalName(), snapshot.folderId());
+        try {
+            ragLifecycleSyncService.onFileMetadataUpdated(snapshot.id(), snapshot.originalName(), snapshot.folderId());
+        } catch (Exception e) {
+            log.warn("UpdateFileIndexService: failed to sync RAG metadata fileId={}: {}", fileId, e.getMessage());
+        }
         searchCachePort.evictForUser(snapshot.tenantId(), userId);
         log.info("UpdateFileIndexService: updated metadata for fileId={}", fileId);
     }
