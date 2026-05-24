@@ -13,7 +13,5 @@ public interface RagChatMessageSourceJpaRepository extends JpaRepository<RagChat
 
     List<RagChatMessageSource> findByMessageIdInOrderByCreatedAtAsc(Collection<UUID> messageIds);
 
-    List<RagChatMessageSource> findByMessageIdOrderByCreatedAtAsc(UUID messageId);
-
     long deleteByMessageIdIn(Collection<UUID> messageIds);
 }

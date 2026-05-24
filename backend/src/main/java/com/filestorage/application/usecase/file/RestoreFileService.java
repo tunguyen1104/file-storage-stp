@@ -25,6 +25,7 @@ public class RestoreFileService implements RestoreFileUseCase {
     private final FileSupport fileSupport;
     private final FileViewMapper fileViewMapper;
     private final FileAccessPolicy fileAccessPolicy;
+    private final RagLifecycleSyncService ragLifecycleSyncService;
 
     @Override
     @Transactional

@@ -2,7 +2,7 @@ name: backend-dev
 
 services:
   backend:
-    image: ${BACKEND_IMAGE:-vnq88/filestorage-backend:dev}
+    image: ${BACKEND_IMAGE:-vnq88/filestorage-backend:latest}
     build:
       context: .
       dockerfile: Dockerfile

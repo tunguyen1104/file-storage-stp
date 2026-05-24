@@ -38,6 +38,7 @@ public class ListFolderChildrenService implements ListFolderChildrenUseCase {
     @Transactional(readOnly = true)
     public FolderItemPageView execute(ListFolderChildrenQuery query) {
         var actor = folderSupport.resolveActor(query.actorUserId(), query.actorTenantId());
+        folderSupport.validateCreatedByFilter(actor.getId(), actor.getTenant().getId(), query.actorRole(), query.createdBy());
         Folder parent = folderSupport.findReadableFolder(query.folderId(), actor.getTenant().getId(), query.actorRole());
         folderAccessPolicy.requireCanRead(parent, actor.getId(), actor.getTenant().getId(), query.actorRole());
 
@@ -52,6 +53,7 @@ public class ListFolderChildrenService implements ListFolderChildrenUseCase {
                 query.sortDirection(),
                 query.type(),
                 query.search(),
+                query.createdBy(),
                 false
         );
     }
@@ -67,6 +69,7 @@ public class ListFolderChildrenService implements ListFolderChildrenUseCase {
             SortDirection sortDirection,
             FolderItemType type,
             String search,
+            UUID createdBy,
             boolean restrictMemberToOwnedItems
     ) {
         int effectivePage = Math.max(1, page);
@@ -74,7 +77,9 @@ public class ListFolderChildrenService implements ListFolderChildrenUseCase {
         FolderSortBy effectiveSortBy = sortBy == null ? FolderSortBy.CREATED_AT : sortBy;
         SortDirection effectiveDirection = sortDirection == null ? defaultSortDirection(effectiveSortBy) : sortDirection;
 
-        UUID createdByFilter = restrictMemberToOwnedItems && actorRole == RoleCode.MEMBER ? actorUserId : null;
+        UUID createdByFilter = restrictMemberToOwnedItems && actorRole == RoleCode.MEMBER && createdBy == null
+                ? actorUserId
+                : createdBy;
 
         if (type == FolderItemType.FOLDER) {
             return listFoldersOnly(actorUserId, tenantId, actorRole, parentId, createdByFilter, search, effectivePage, effectiveSize, effectiveSortBy, effectiveDirection);
