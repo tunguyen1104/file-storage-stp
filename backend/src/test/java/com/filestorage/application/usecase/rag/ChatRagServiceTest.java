@@ -99,7 +99,7 @@ class ChatRagServiceTest {
 
         assertEquals(RagChatMessageRole.USER, view.userMessage().role());
         assertEquals(RagChatMessageRole.ASSISTANT, view.assistantMessage().role());
-        assertTrue(view.assistantMessage().content().startsWith("Toi khong tim thay"));
+        assertTrue(view.assistantMessage().content().startsWith("Tôi không tìm thấy"));
         verify(chatModelPort, never()).complete(any());
         verify(sourceRepository, never()).saveAll(any());
     }

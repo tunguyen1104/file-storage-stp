@@ -36,7 +36,7 @@ import java.util.Optional;
 public class ChatRagService implements ChatRagUseCase {
 
     private static final String NO_CONTEXT_ANSWER =
-            "Toi khong tim thay thong tin phu hop trong cac tai lieu ban co quyen truy cap.";
+            "Tôi không tìm thấy thông tin phù hợp trong các tài liệu bạn có quyền truy cập.";
     private static final int FOLLOW_UP_MAX_CHARS = 80;
     private static final List<String> FOLLOW_UP_TRIGGERS = List.of(
             "chi tiet",
