@@ -8,13 +8,13 @@ export type TenantOption = {
   value: string;
 };
 
-export function useTenantOptions(): {
+export function useTenantOptions(enabled: boolean = true): {
   options: TenantOption[];
   isLoading: boolean;
   error: Error | undefined;
 } {
   const { data, isLoading, error } = useSWR<TenantOption[]>(
-    API_ROUTES.TENANTS.OPTIONS,
+    enabled ? API_ROUTES.TENANTS.OPTIONS : null,
     () =>
       listTenantOptions().then((items) =>
         items.map((t) => ({ label: t.name, value: t.id }))

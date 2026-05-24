@@ -53,6 +53,7 @@ import {
 } from "@/lib/schemas/user-management.schema";
 import { ROLES, type Role } from "@/lib/constants";
 import { TenantSelect } from "@/components/tenants/TenantSelect";
+import { useTenantOptions } from "@/hooks/useTenantOptions";
 import type { UserResponse } from "@/types/user/user";
 import { parseBytes, convertToBytes } from "@/lib/utils/storage";
 
@@ -71,6 +72,8 @@ export function CreateUserDialog({
   isSuperAdmin = false,
   onSuccess,
 }: CreateUserDialogProps) {
+  const { options: tenantOptions } = useTenantOptions(isSuperAdmin);
+
   const form = useForm<CreateUserInput>({
     resolver: zodResolver(createUserSchema),
     defaultValues: {
@@ -84,6 +87,13 @@ export function CreateUserDialog({
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const selectedTenantId = form.watch("tenantId");
+  const isSystemTenant =
+    selectedTenantId &&
+    (tenantOptions.find((t) => t.value === selectedTenantId)?.label.toLowerCase() === "system" ||
+      selectedTenantId === "system" ||
+      selectedTenantId === "SYSTEM");
 
   function handleClose(open: boolean) {
     if (!open) form.reset();
@@ -158,6 +168,36 @@ export function CreateUserDialog({
               )}
             />
 
+            {isSuperAdmin && (
+              <FormField
+                control={form.control}
+                name="tenantId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tổ chức *</FormLabel>
+                    <FormControl>
+                      <TenantSelect
+                        value={field.value || ""}
+                        onChange={(val) => {
+                          field.onChange(val);
+                          const isSys =
+                            tenantOptions.find((t) => t.value === val)?.label.toLowerCase() === "system" ||
+                            val === "system" ||
+                            val === "SYSTEM";
+                          if (isSys) {
+                            form.setValue("roleCode", ROLES.SUPER_ADMIN as Role, { shouldValidate: true });
+                          } else if (form.getValues("roleCode") === ROLES.SUPER_ADMIN) {
+                            form.setValue("roleCode", undefined as any);
+                          }
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
             <FormField
               control={form.control}
               name="roleCode"
@@ -171,36 +211,33 @@ export function CreateUserDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {isSuperAdmin && (
-                        <SelectItem value={ROLES.SUPER_ADMIN}>Quản trị hệ thống</SelectItem>
+                      {isSuperAdmin ? (
+                        !selectedTenantId ? (
+                          <>
+                            <SelectItem value={ROLES.SUPER_ADMIN}>Quản trị hệ thống</SelectItem>
+                            <SelectItem value={ROLES.TENANT_ADMIN}>Quản trị tổ chức</SelectItem>
+                            <SelectItem value={ROLES.MEMBER}>Thành viên</SelectItem>
+                          </>
+                        ) : isSystemTenant ? (
+                          <SelectItem value={ROLES.SUPER_ADMIN}>Quản trị hệ thống</SelectItem>
+                        ) : (
+                          <>
+                            <SelectItem value={ROLES.TENANT_ADMIN}>Quản trị tổ chức</SelectItem>
+                            <SelectItem value={ROLES.MEMBER}>Thành viên</SelectItem>
+                          </>
+                        )
+                      ) : (
+                        <>
+                          <SelectItem value={ROLES.TENANT_ADMIN}>Quản trị tổ chức</SelectItem>
+                          <SelectItem value={ROLES.MEMBER}>Thành viên</SelectItem>
+                        </>
                       )}
-                      <SelectItem value={ROLES.TENANT_ADMIN}>Quản trị tổ chức</SelectItem>
-                      <SelectItem value={ROLES.MEMBER}>Thành viên</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
-            {isSuperAdmin && (
-              <FormField
-                control={form.control}
-                name="tenantId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tổ chức *</FormLabel>
-                    <FormControl>
-                      <TenantSelect
-                        value={field.value || ""}
-                        onChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
 
             <FormField
               control={form.control}
