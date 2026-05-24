@@ -153,6 +153,11 @@ export const API_ROUTES = {
   },
   USERS_SEARCH: `${API_PREFIX}/users/search`,
   SEARCH: `${API_PREFIX}/search`,
+  RAG: {
+    SESSIONS: `${API_PREFIX}/rag/chat/sessions`,
+    SESSION_MESSAGES: (sessionId: string) => `${API_PREFIX}/rag/chat/sessions/${sessionId}/messages`,
+    SESSION_BY_ID: (sessionId: string) => `${API_PREFIX}/rag/chat/sessions/${sessionId}`,
+  },
 } as const;
 
 export const DEFAULT_PAGE_SIZE = 20;

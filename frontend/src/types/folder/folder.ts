@@ -44,6 +44,7 @@ export type ListFolderParams = {
   sortOrder?: "ASC" | "DESC";
   type?: "FOLDER" | "FILE";
   search?: string;
+  createdBy?: string;
 };
 
 export type AdminListFolderParams = {

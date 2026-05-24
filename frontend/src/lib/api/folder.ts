@@ -24,6 +24,7 @@ export async function listFolderItems(
     if (params?.sortOrder) cleanParams.sortOrder = params.sortOrder;
     if (params?.search) cleanParams.search = params.search;
     if (params?.type) cleanParams.type = params.type;
+    if (params?.createdBy) cleanParams.createdBy = params.createdBy;
 
     const response = await apiClient.get<ApiResponse<PageResponse<FolderItem>>>(route, { params: cleanParams });
     if (!response.data.success || !response.data.data) {
