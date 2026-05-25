@@ -513,7 +513,13 @@ export default function AdminFilesPage() {
           </div>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-          <Select value={filterType} onValueChange={(v) => { setFilterType(v); setCurrentPage(1); }}>
+          <Select value={filterType} onValueChange={(v) => { 
+            setFilterType(v); 
+            setCurrentPage(1); 
+            if (v === "FOLDER") {
+              setFilterStatus("ALL");
+            }
+          }}>
             <SelectTrigger className="w-full sm:w-[130px] h-9 text-sm">
               <SelectValue placeholder="Loại" />
             </SelectTrigger>
@@ -524,7 +530,7 @@ export default function AdminFilesPage() {
             </SelectContent>
           </Select>
 
-          <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setCurrentPage(1); }}>
+          <Select disabled={filterType === "FOLDER"} value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setCurrentPage(1); }}>
             <SelectTrigger className="w-full sm:w-[150px] h-9 text-sm">
               <SelectValue placeholder="Trạng thái" />
             </SelectTrigger>
