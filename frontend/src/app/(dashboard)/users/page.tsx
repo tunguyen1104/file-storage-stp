@@ -289,8 +289,9 @@ function TenantAdminDashboard() {
                             <Button
                               variant="default"
                               size="sm"
-                              className="h-8 bg-[#EF4444] hover:bg-[#DC2626] text-white px-3 text-xs font-semibold uppercase tracking-wider"
+                              className="h-8 bg-[#EF4444] hover:bg-[#DC2626] text-white px-3 text-xs font-semibold uppercase tracking-wider disabled:opacity-50"
                               onClick={() => setDeactivateUser(member)}
+                              disabled={member.role === ROLES.TENANT_ADMIN}
                             >
                               Vô hiệu hóa
                             </Button>
@@ -298,8 +299,9 @@ function TenantAdminDashboard() {
                             <Button
                               variant="default"
                               size="sm"
-                              className="h-8 bg-green-500 hover:bg-green-600 text-white px-3 text-xs font-semibold uppercase tracking-wider"
+                              className="h-8 bg-green-500 hover:bg-green-600 text-white px-3 text-xs font-semibold uppercase tracking-wider disabled:opacity-50"
                               onClick={() => setActivateUser(member)}
+                              disabled={member.role === ROLES.TENANT_ADMIN}
                             >
                               Kích hoạt
                             </Button>
