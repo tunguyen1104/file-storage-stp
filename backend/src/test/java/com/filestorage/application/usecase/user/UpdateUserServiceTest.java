@@ -77,6 +77,58 @@ class UpdateUserServiceTest {
     }
 
     @Test
+    void tenantAdminCannotDemoteAnotherTenantAdminInSameTenant() {
+        UUID tenantId = UUID.randomUUID();
+        User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN, true, 100L, 20L);
+        Role memberRole = roleEntity(RoleCode.MEMBER);
+        when(userRepository.findByIdForUpdate(target.getId())).thenReturn(Optional.of(target));
+        when(roleRepository.findByCode(RoleCode.MEMBER)).thenReturn(Optional.of(memberRole));
+
+        var command = new UpdateUserUseCase.UpdateUserCommand(
+                UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN,
+                target.getId(), "User", RoleCode.MEMBER, null
+        );
+
+        AppException ex = assertThrows(AppException.class, () -> updateUserService.execute(command));
+        assertEquals(ErrorCode.TENANT_ADMIN_ROLE_DEMOTION_FORBIDDEN, ex.getError());
+    }
+
+    @Test
+    void tenantAdminCannotDemoteSelf() {
+        UUID tenantId = UUID.randomUUID();
+        User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN, true, 100L, 20L);
+        Role memberRole = roleEntity(RoleCode.MEMBER);
+        when(userRepository.findByIdForUpdate(target.getId())).thenReturn(Optional.of(target));
+        when(roleRepository.findByCode(RoleCode.MEMBER)).thenReturn(Optional.of(memberRole));
+
+        var command = new UpdateUserUseCase.UpdateUserCommand(
+                target.getId(), tenantId, RoleCode.TENANT_ADMIN,
+                target.getId(), "User", RoleCode.MEMBER, null
+        );
+
+        AppException ex = assertThrows(AppException.class, () -> updateUserService.execute(command));
+        assertEquals(ErrorCode.TENANT_ADMIN_ROLE_DEMOTION_FORBIDDEN, ex.getError());
+    }
+
+    @Test
+    void tenantAdminCanUpdateAnotherTenantAdminWithoutRoleDemotion() {
+        UUID tenantId = UUID.randomUUID();
+        User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN, true, 100L, 20L);
+        when(userRepository.findByIdForUpdate(target.getId())).thenReturn(Optional.of(target));
+        when(roleRepository.findByCode(RoleCode.TENANT_ADMIN)).thenReturn(Optional.of(target.getRole()));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var command = new UpdateUserUseCase.UpdateUserCommand(
+                UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN,
+                target.getId(), "Updated Admin", RoleCode.TENANT_ADMIN, null
+        );
+
+        var result = updateUserService.execute(command);
+        assertEquals("Updated Admin", result.fullName());
+        assertEquals(RoleCode.TENANT_ADMIN, result.role().code());
+    }
+
+    @Test
     void activeUserQuotaIncreaseUpdatesTenantUsageByDelta() {
         UUID tenantId = UUID.randomUUID();
         User target = userEntity(UUID.randomUUID(), tenantId, RoleCode.MEMBER, true, 100L, 20L);
@@ -158,8 +210,7 @@ class UpdateUserServiceTest {
         Tenant tenant = Tenant.builder().name("T").slug("t").isActive(true).build();
         tenant.setId(tenantId);
 
-        Role role = Role.builder().code(roleCode).name(roleCode.name()).build();
-        role.setId(UUID.randomUUID());
+        Role role = roleEntity(roleCode);
 
         User user = User.builder()
                 .tenant(tenant)
@@ -173,5 +224,11 @@ class UpdateUserServiceTest {
                 .build();
         user.setId(userId);
         return user;
+    }
+
+    private Role roleEntity(RoleCode roleCode) {
+        Role role = Role.builder().code(roleCode).name(roleCode.name()).build();
+        role.setId(UUID.randomUUID());
+        return role;
     }
 }

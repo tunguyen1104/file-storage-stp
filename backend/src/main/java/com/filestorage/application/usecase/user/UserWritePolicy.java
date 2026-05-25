@@ -32,6 +32,18 @@ final class UserWritePolicy {
         }
     }
 
+    static void requireTenantAdminRoleDemotionAllowed(UUID actorUserId, User target, Role newRole, RoleCode actorRole) {
+        if (actorRole != RoleCode.TENANT_ADMIN) {
+            return;
+        }
+        if (target.getRole().getCode() == RoleCode.TENANT_ADMIN && newRole.getCode() != RoleCode.TENANT_ADMIN) {
+            throw new AppException(ErrorCode.TENANT_ADMIN_ROLE_DEMOTION_FORBIDDEN);
+        }
+        if (actorUserId.equals(target.getId()) && target.getRole().getCode() != newRole.getCode()) {
+            throw new AppException(ErrorCode.TENANT_ADMIN_ROLE_DEMOTION_FORBIDDEN);
+        }
+    }
+
     static UUID resolveTenantForCreate(RoleCode actorRole, UUID actorTenantId, UUID requestedTenantId) {
         if (actorRole == RoleCode.SUPER_ADMIN) {
             return requestedTenantId == null ? actorTenantId : requestedTenantId;
