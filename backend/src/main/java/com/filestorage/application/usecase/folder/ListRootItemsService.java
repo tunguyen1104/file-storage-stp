@@ -17,6 +17,7 @@ public class ListRootItemsService implements ListRootItemsUseCase {
     @Transactional(readOnly = true)
     public FolderItemPageView execute(ListRootItemsQuery query) {
         var actor = folderSupport.resolveActor(query.actorUserId(), query.actorTenantId());
+        folderSupport.validateCreatedByFilter(actor.getId(), actor.getTenant().getId(), query.actorRole(), query.createdBy());
         return listFolderChildrenService.listItems(
                 actor.getId(),
                 actor.getTenant().getId(),
@@ -28,6 +29,7 @@ public class ListRootItemsService implements ListRootItemsUseCase {
                 query.sortDirection(),
                 query.type(),
                 query.search(),
+                query.createdBy(),
                 true
         );
     }

@@ -113,7 +113,8 @@ public class FolderController {
             @RequestParam(required = false) FolderSortBy sort,
             @RequestParam(required = false) SortDirection sortOrder,
             @RequestParam(required = false) FolderItemType type,
-            @RequestParam(required = false) String search
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) UUID createdBy
     ) {
         SecurityUser actor = currentUserOrThrow();
         FolderItemPageView view = listFolderChildrenUseCase.execute(new ListFolderChildrenUseCase.ListFolderChildrenQuery(
@@ -126,7 +127,8 @@ public class FolderController {
                 sort,
                 sortOrder,
                 type,
-                search
+                search,
+                createdBy
         ));
 
         return ResponseEntity.ok(ApiResponse.buildSuccess(folderRestMapper.toItemPageResponse(view)));
@@ -173,7 +175,8 @@ public class FolderController {
             @RequestParam(required = false) FolderSortBy sort,
             @RequestParam(required = false) SortDirection sortOrder,
             @RequestParam(required = false) FolderItemType type,
-            @RequestParam(required = false) String search
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) UUID createdBy
     ) {
         SecurityUser actor = currentUserOrThrow();
         FolderItemPageView view = listRootItemsUseCase.execute(new ListRootItemsUseCase.ListRootItemsQuery(
@@ -185,7 +188,8 @@ public class FolderController {
                 sort,
                 sortOrder,
                 type,
-                search
+                search,
+                createdBy
         ));
 
         return ResponseEntity.ok(ApiResponse.buildSuccess(folderRestMapper.toItemPageResponse(view)));

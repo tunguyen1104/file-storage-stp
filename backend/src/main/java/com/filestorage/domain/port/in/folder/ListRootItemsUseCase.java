@@ -21,8 +21,8 @@ public interface ListRootItemsUseCase {
             FolderSortBy sortBy,
             SortDirection sortDirection,
             FolderItemType type,
-            String search
+            String search,
+            UUID createdBy
     ) {
     }
 }
-

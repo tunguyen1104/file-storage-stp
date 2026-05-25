@@ -2,6 +2,7 @@ package com.filestorage.adapter.in.rest.controller;
 
 import com.filestorage.adapter.in.rest.advice.GlobalExceptionHandler;
 import com.filestorage.adapter.in.rest.dto.response.AdminFolderItemResponse;
+import com.filestorage.adapter.in.rest.dto.response.FolderItemResponse;
 import com.filestorage.adapter.in.rest.dto.response.PageResponse;
 import com.filestorage.adapter.in.rest.dto.response.UserSummaryResponse;
 import com.filestorage.adapter.in.rest.mapper.FolderRestMapper;
@@ -11,6 +12,7 @@ import com.filestorage.domain.model.enums.FileStatus;
 import com.filestorage.domain.model.enums.FolderItemType;
 import com.filestorage.domain.model.folder.AdminFolderItemPageView;
 import com.filestorage.domain.model.folder.AdminFolderItemView;
+import com.filestorage.domain.model.folder.FolderItemPageView;
 import com.filestorage.domain.port.in.folder.CreateFolderUseCase;
 import com.filestorage.domain.port.in.folder.DeleteFolderUseCase;
 import com.filestorage.domain.port.in.folder.GetFolderBreadcrumbsUseCase;
@@ -37,7 +39,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -189,5 +190,63 @@ class FolderControllerTest {
                 .andExpect(jsonPath("$.data.data[0].type").value("file"))
                 .andExpect(jsonPath("$.data.data[0].tenantName").value("Tenant A"))
                 .andExpect(jsonPath("$.data.data[0].actor.fullName").value("Creator"));
+    }
+
+    @Test
+    void listChildren_forwardsCreatedBy() throws Exception {
+        UUID folderId = UUID.randomUUID();
+        UUID creatorId = UUID.randomUUID();
+        FolderItemPageView pageView = new FolderItemPageView(List.of(), 1, 10, 0L, 0);
+        PageResponse<FolderItemResponse> pageResponse = PageResponse.<FolderItemResponse>builder()
+                .data(List.of())
+                .currentPage(1)
+                .pageSize(10)
+                .totalElements(0)
+                .totalPages(0)
+                .build();
+
+        when(listFolderChildrenUseCase.execute(argThat(query ->
+                query.actorUserId().equals(actorUserId)
+                        && query.actorTenantId().equals(actorTenantId)
+                        && query.folderId().equals(folderId)
+                        && query.createdBy().equals(creatorId)
+                        && query.search().equals("doc")
+        ))).thenReturn(pageView);
+        when(folderRestMapper.toItemPageResponse(pageView)).thenReturn(pageResponse);
+
+        mockMvc.perform(get("/api/v1/folders/{folderId}/children", folderId)
+                        .param("createdBy", creatorId.toString())
+                        .param("search", "doc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.totalElements").value(0));
+    }
+
+    @Test
+    void listRoot_forwardsCreatedBy() throws Exception {
+        UUID creatorId = UUID.randomUUID();
+        FolderItemPageView pageView = new FolderItemPageView(List.of(), 1, 10, 0L, 0);
+        PageResponse<FolderItemResponse> pageResponse = PageResponse.<FolderItemResponse>builder()
+                .data(List.of())
+                .currentPage(1)
+                .pageSize(10)
+                .totalElements(0)
+                .totalPages(0)
+                .build();
+
+        when(listRootItemsUseCase.execute(argThat(query ->
+                query.actorUserId().equals(actorUserId)
+                        && query.actorTenantId().equals(actorTenantId)
+                        && query.createdBy().equals(creatorId)
+                        && query.search().equals("doc")
+        ))).thenReturn(pageView);
+        when(folderRestMapper.toItemPageResponse(pageView)).thenReturn(pageResponse);
+
+        mockMvc.perform(get("/api/v1/folders/root")
+                        .param("createdBy", creatorId.toString())
+                        .param("search", "doc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.totalElements").value(0));
     }
 }

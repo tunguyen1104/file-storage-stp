@@ -38,6 +38,7 @@ public class IndexInitializer implements ApplicationRunner {
 
     private static final String FILES_MAPPING_PATH   = "elasticsearch/files-mapping.json";
     private static final String FOLDERS_MAPPING_PATH = "elasticsearch/folders-mapping.json";
+    private static final String RAG_CHUNKS_MAPPING_PATH = "elasticsearch/rag-chunks-mapping.json";
 
     private final ElasticsearchTemplate elasticsearchTemplate;
     private final ElasticsearchProperties properties;
@@ -46,6 +47,7 @@ public class IndexInitializer implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         createIfMissing(properties.getIndices().getFiles(), FILES_MAPPING_PATH);
         createIfMissing(properties.getIndices().getFolders(), FOLDERS_MAPPING_PATH);
+        createIfMissing(properties.getIndices().getRagChunks(), RAG_CHUNKS_MAPPING_PATH);
     }
 
     private void createIfMissing(String indexName, String mappingResourcePath) {

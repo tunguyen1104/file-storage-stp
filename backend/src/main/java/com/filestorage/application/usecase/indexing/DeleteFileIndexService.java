@@ -1,6 +1,7 @@
 package com.filestorage.application.usecase.indexing;
 
 import com.filestorage.adapter.out.persistence.repository.FileJpaRepository;
+import com.filestorage.application.usecase.rag.RagLifecycleSyncService;
 import com.filestorage.domain.port.out.ObjectStoragePort;
 import com.filestorage.domain.port.out.SearchCachePort;
 import com.filestorage.domain.port.out.SearchIndexPort;
@@ -26,6 +27,7 @@ public class DeleteFileIndexService {
     private final SearchIndexPort searchIndexPort;
     private final SearchCachePort searchCachePort;
     private final ObjectStoragePort objectStoragePort;
+    private final RagLifecycleSyncService ragLifecycleSyncService;
 
     public void execute(UUID fileId, UUID tenantId, UUID userId) {
         String contentKey = lookupContentKey(fileId);
@@ -36,6 +38,11 @@ public class DeleteFileIndexService {
             } catch (Exception e) {
                 log.warn("DeleteFileIndexService: failed to delete extracted text key={}: {}", contentKey, e.getMessage());
             }
+        }
+        try {
+            ragLifecycleSyncService.onFileHardDeleted(fileId);
+        } catch (Exception e) {
+            log.warn("DeleteFileIndexService: failed to sync RAG hard delete fileId={}: {}", fileId, e.getMessage());
         }
         searchCachePort.evictForUser(tenantId, userId);
         log.info("DeleteFileIndexService: deleted ES doc for fileId={}", fileId);

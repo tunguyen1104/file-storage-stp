@@ -47,9 +47,7 @@ dependencies {
 	// Generates metadata for @ConfigurationProperties classes
 	annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 
-	// ── Database & Migrations ───────────────────────────────────────────────
-	implementation("org.springframework.boot:spring-boot-starter-flyway")
-	runtimeOnly("org.flywaydb:flyway-database-postgresql")
+	// ── Database ────────────────────────────────────────────────────────────
 	runtimeOnly("org.postgresql:postgresql")
 
 	// ── Security / Auth ─────────────────────────────────────────────────────

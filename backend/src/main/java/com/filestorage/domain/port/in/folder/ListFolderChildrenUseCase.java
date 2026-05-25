@@ -22,8 +22,8 @@ public interface ListFolderChildrenUseCase {
             FolderSortBy sortBy,
             SortDirection sortDirection,
             FolderItemType type,
-            String search
+            String search,
+            UUID createdBy
     ) {
     }
 }
-

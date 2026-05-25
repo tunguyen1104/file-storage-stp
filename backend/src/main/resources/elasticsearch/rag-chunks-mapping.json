@@ -1,0 +1,49 @@
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "icu_analyzer": {
+          "tokenizer": "icu_tokenizer",
+          "filter": ["icu_folding", "lowercase"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "fileId":      { "type": "keyword" },
+      "tenantId":    { "type": "keyword" },
+      "folderId":    { "type": "keyword" },
+      "uploadedBy":  { "type": "keyword" },
+      "originalName": {
+        "type": "text",
+        "analyzer": "icu_analyzer",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "chunkIndex":  { "type": "integer" },
+      "ingestionId": { "type": "keyword" },
+      "content": {
+        "type": "text",
+        "analyzer": "icu_analyzer"
+      },
+      "contentVector": {
+        "type": "dense_vector",
+        "dims": 1024,
+        "index": true,
+        "similarity": "cosine"
+      },
+      "sourceKey":       { "type": "keyword" },
+      "embeddingModel":  { "type": "keyword" },
+      "chunkerVersion":  { "type": "keyword" },
+      "ready":           { "type": "boolean" },
+      "retrievable":     { "type": "boolean" },
+      "fileStatus":      { "type": "keyword" },
+      "createdAt":       { "type": "date" }
+    }
+  }
+}
