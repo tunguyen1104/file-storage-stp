@@ -62,9 +62,16 @@ function createItem(file: File, folderId?: string): UploadItem {
  */
 export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
   const [uploadQueue, setUploadQueue] = useState<UploadItem[]>([]);
+  const [interruptedUploads, setInterruptedUploads] = useState<PendingMultipartRecord[]>([]);
 
   const onUploadDoneRef = useRef(options?.onUploadDone);
   useEffect(() => { onUploadDoneRef.current = options?.onUploadDone; }, [options?.onUploadDone]);
+
+  // Load pending multipart records from localStorage on mount.
+  // Runs client-side only — restores state regardless of which page the user is on after a reload.
+  useEffect(() => {
+    setInterruptedUploads(getPendingMultiparts());
+  }, []);
 
   // ── Queue helpers ─────────────────────────────────────────────────────────
 
@@ -520,18 +527,11 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
     );
   }, []);
 
-  // ── Resume after page refresh (multipart only) ────────────────────────────
-
-  const checkInterruptedUploads = useCallback(
-    async (): Promise<PendingMultipartRecord[]> => {
-      return getPendingMultiparts();
-    },
-    []
-  );
-
   const resumeInterruptedUpload = useCallback(
     (record: PendingMultipartRecord, file: File) => {
-      // Fetch session from backend to get already-uploaded parts
+      // Remove from interrupted state immediately so the banner/widget dismisses
+      setInterruptedUploads((prev) => prev.filter((r) => r.uploadId !== record.uploadId));
+
       void (async () => {
         try {
           const session = await getMultipartSession(record.uploadId);
@@ -555,7 +555,6 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
           };
 
           setUploadQueue((prev) => {
-            // Avoid duplicates if item already in queue
             if (prev.some((i) => i.id === record.itemId)) return prev;
             return [...prev, item];
           });
@@ -563,6 +562,10 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
           void runMultipartUpload(item, session.uploadedParts);
         } catch {
           toast.error("Failed to resume upload. Please try again.");
+          // Restore record so user can retry
+          setInterruptedUploads((prev) =>
+            prev.some((r) => r.uploadId === record.uploadId) ? prev : [...prev, record]
+          );
         }
       })();
     },
@@ -570,6 +573,7 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
   );
 
   const discardInterruptedUpload = useCallback((uploadId: string) => {
+    setInterruptedUploads((prev) => prev.filter((r) => r.uploadId !== uploadId));
     removePendingMultipart(uploadId);
     void abortMultipart(uploadId).catch(() => {});
   }, []);
@@ -582,7 +586,7 @@ export function useFileUploadInternal(options?: { onUploadDone?: () => void }) {
     resumeUpload,
     clearDone,
     clearErrors,
-    checkInterruptedUploads,
+    interruptedUploads,
     resumeInterruptedUpload,
     discardInterruptedUpload,
   };

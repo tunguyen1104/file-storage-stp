@@ -46,7 +46,6 @@ const SEGMENT_TRANSLATIONS: Record<string, string> = {
   "audit-logs": "Nhật ký hoạt động",
   "profile": "Thông tin cá nhân",
   "security": "Bảo mật",
-  "upload": "Tải lên",
   "search": "Tìm kiếm",
 };
 

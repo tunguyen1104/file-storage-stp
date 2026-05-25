@@ -53,10 +53,9 @@ const ROLE_ROUTE_MAP: Record<string, string[]> = {
   MEMBER: [
     "/files",
     "/shared",
-    "/upload",
     "/search",
     "/profile",
-    "/unauthorized"
+    "/unauthorized",
   ],
 };
 
