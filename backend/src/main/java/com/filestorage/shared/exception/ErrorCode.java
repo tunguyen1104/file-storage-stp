@@ -64,6 +64,7 @@ public enum ErrorCode {
     SHARED_BY_OUT_OF_TENANT(1050, "error.share.shared-by-out-of-tenant", HttpStatus.FORBIDDEN),
     SSE_CONNECTION_LIMIT_EXCEEDED(1051, "error.sse-connection-limit-exceeded", HttpStatus.TOO_MANY_REQUESTS),
     TENANT_ADMIN_ROLE_DEMOTION_FORBIDDEN(1052, "error.tenant-admin-role-demotion-forbidden", HttpStatus.FORBIDDEN),
+    TENANT_ADMIN_DEACTIVATION_FORBIDDEN(1053, "error.tenant-admin-deactivation-forbidden", HttpStatus.FORBIDDEN),
     INTERNAL_SERVER_ERROR(1500, "error.internal-server-error", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final int code;

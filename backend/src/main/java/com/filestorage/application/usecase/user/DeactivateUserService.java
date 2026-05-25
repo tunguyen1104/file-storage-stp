@@ -39,6 +39,7 @@ public class DeactivateUserService implements DeactivateUserUseCase {
 
         UserWritePolicy.requireSameTenantForTenantAdmin(target, command.actorTenantId(), command.actorRole());
         UserWritePolicy.requireNotSelfDeactivation(command.actorUserId(), target.getId(), command.actorRole());
+        UserWritePolicy.requireTenantAdminDeactivationAllowed(target, command.actorRole());
 
         if (target.isActive()) {
             Tenant tenant = tenantRepository.findByIdForUpdate(target.getTenant().getId())
