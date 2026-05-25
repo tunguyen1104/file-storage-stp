@@ -47,6 +47,7 @@ public class UpdateUserService implements UpdateUserUseCase {
         Role newRole = roleRepository.findByCode(command.roleCode())
                     .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
         UserWritePolicy.requireRoleAssignmentAllowed(newRole, command.actorRole());
+        UserWritePolicy.requireTenantAdminRoleDemotionAllowed(command.actorUserId(), target, newRole, command.actorRole());
         target.setRole(newRole);
         boolean roleChanged = !oldRoleCode.equals(newRole.getCode().name());
 

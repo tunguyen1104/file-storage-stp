@@ -2,16 +2,14 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Send, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { useChat } from "@/contexts/chat-context";
-import { useRagMessages } from "@/hooks/use-rag-messages";
 import { Button } from "@/components/ui/button";
 
 export function ChatInput() {
-  const { activeSessionId } = useChat();
-  const { sendMessage } = useRagMessages(activeSessionId, 1, 50);
-  
+  const { activeSessionId, isSendingMessage, sendMessage } = useChat();
+
   const [content, setContent] = useState("");
-  const [isSending, setIsSending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea
@@ -24,24 +22,19 @@ export function ChatInput() {
 
   const handleSend = async () => {
     const trimmed = content.trim();
-    if (!trimmed || !activeSessionId || isSending) return;
+    if (!trimmed || !activeSessionId || isSendingMessage) return;
+
+    setContent("");
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
 
     try {
-      setIsSending(true);
-      setContent(""); // Clear input early for better perceived performance
-      
-      // Reset height
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "auto";
-      }
-
       await sendMessage(trimmed);
-    } catch (error) {
-      // Restore content on error
+    } catch {
+      // Fix #4: Show error feedback instead of silent failure
       setContent(trimmed);
-      console.error("Failed to send message:", error);
-    } finally {
-      setIsSending(false);
+      toast.error("Không thể gửi tin nhắn. Vui lòng thử lại.");
     }
   };
 
@@ -64,16 +57,16 @@ export function ChatInput() {
           onKeyDown={handleKeyDown}
           placeholder="Hỏi về tài liệu của bạn..."
           className="max-h-[200px] min-h-[44px] w-full resize-none border-0 bg-transparent py-3 pl-3 pr-2 text-[15px] outline-none placeholder:text-gray-400 disabled:opacity-50"
-          disabled={isSending}
+          disabled={isSendingMessage}
           rows={1}
         />
         <Button
           onClick={handleSend}
-          disabled={!content.trim() || isSending}
+          disabled={!content.trim() || isSendingMessage}
           size="icon"
           className="h-10 w-10 shrink-0 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
         >
-          {isSending ? (
+          {isSendingMessage ? (
             <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
             <Send className="h-5 w-5" />

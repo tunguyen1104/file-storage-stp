@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -133,7 +134,8 @@ class ChatRagServiceTest {
         when(messageRepository.save(any(RagChatMessage.class))).thenAnswer(invocation -> withId(invocation.getArgument(0)));
         when(retrievalService.retrieve(any(RagRetrievalRequest.class))).thenReturn(List.of(chunk));
         when(promptBuilder.build("What is the policy?", List.of(chunk), List.of())).thenReturn(prompt);
-        when(chatModelPort.complete(prompt)).thenReturn(new ChatCompletion("Answer", "alibaba-qwen3-32b", 12, 4));
+        String answer = "Answer\n\nWould you like to compare this with the next policy section?";
+        when(chatModelPort.complete(prompt)).thenReturn(new ChatCompletion(answer, "alibaba-qwen3-32b", 12, 4));
         when(sourceRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(sessionRepository.save(session)).thenReturn(session);
 
@@ -146,7 +148,7 @@ class ChatRagServiceTest {
                 5
         ));
 
-        assertEquals("Answer", view.assistantMessage().content());
+        assertEquals(answer, view.assistantMessage().content());
         assertEquals("What is the policy?", session.getTitle());
         assertEquals(1, view.assistantMessage().sources().size());
         assertEquals(fileId, view.assistantMessage().sources().get(0).fileId());
@@ -157,6 +159,69 @@ class ChatRagServiceTest {
         assertEquals(fileId, savedSource.getFileId());
         assertEquals("policy.txt", savedSource.getOriginalName());
         assertEquals(2, savedSource.getChunkIndex());
+    }
+
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void retrievedAnswerRemovesInternalCitationsAndSourceBlockBeforeSaving() {
+        UUID tenantId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        RagChatSession session = session(sessionId, tenantId, userId);
+        RagRetrievedChunk chunk = new RagRetrievedChunk(
+                "chunk-1",
+                UUID.randomUUID(),
+                tenantId,
+                null,
+                userId,
+                "triethoc.pdf",
+                158,
+                "Triet hoc Mac - Lenin content",
+                "contents/t/u/file.txt",
+                0.91,
+                0.8,
+                0.7
+        );
+        ChatPrompt prompt = new ChatPrompt(List.of(new ChatPromptMessage("user", "prompt")));
+
+        when(sessionService.loadActiveSession(sessionId, tenantId, userId)).thenReturn(session);
+        when(messageRepository.findRecentBySessionId(any(), any(Pageable.class))).thenReturn(List.of());
+        when(messageRepository.save(any(RagChatMessage.class))).thenAnswer(invocation -> withId(invocation.getArgument(0)));
+        when(retrievalService.retrieve(any(RagRetrievalRequest.class))).thenReturn(List.of(chunk));
+        when(promptBuilder.build("Triet hoc Mac - Lenin la gi?", List.of(chunk), List.of())).thenReturn(prompt);
+        when(chatModelPort.complete(prompt)).thenReturn(new ChatCompletion("""
+                Triết học Mác-Lênin là hệ thống triết học được hình thành từ tư tưởng của C.Mác, Ph.Ăngghen và sự phát triển của V.I.Lênin.
+                Cụm trong ngoặc hợp lệ vẫn được giữ lại (Đoạn 2 của điều khoản hướng dẫn).
+                (Đoạn 158: "được gọi là triết học Mác-Lênin"; Đoạn 160: "thế giới quan duy vật")
+
+                Bạn muốn tìm hiểu thêm vì sao triết học Mác-Lênin nhấn mạnh vai trò của thực tiễn không?
+
+                ---
+                **Nguồn tham khảo:**
+                - Giáo trình Triết học Mác - Lênin
+                """, "alibaba-qwen3-32b", 12, 4));
+        when(sourceRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(sessionRepository.save(session)).thenReturn(session);
+
+        RagChatView view = service.execute(new ChatRagUseCase.ChatRagCommand(
+                userId,
+                tenantId,
+                RoleCode.MEMBER,
+                sessionId,
+                "Triet hoc Mac - Lenin la gi?",
+                5
+        ));
+
+        String expected = """
+                Triết học Mác-Lênin là hệ thống triết học được hình thành từ tư tưởng của C.Mác, Ph.Ăngghen và sự phát triển của V.I.Lênin.
+                Cụm trong ngoặc hợp lệ vẫn được giữ lại (Đoạn 2 của điều khoản hướng dẫn).
+
+                Bạn muốn tìm hiểu thêm vì sao triết học Mác-Lênin nhấn mạnh vai trò của thực tiễn không?""";
+        assertEquals(expected, view.assistantMessage().content());
+
+        ArgumentCaptor<RagChatMessage> messageCaptor = ArgumentCaptor.forClass(RagChatMessage.class);
+        verify(messageRepository, times(2)).save(messageCaptor.capture());
+        assertEquals(expected, messageCaptor.getAllValues().get(1).getContent());
     }
 
     @Test
