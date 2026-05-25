@@ -237,7 +237,7 @@ export function SearchBar({ className, placeholder }: SearchBarProps) {
           {items.length === 0 && !isLoading ? (
             <div className="px-4 py-6 text-center">
               <p className="text-sm text-gray-500">Không tìm thấy kết quả khớp nhanh.</p>
-              <p className="mt-1 text-xs text-gray-400">Nhấn Enter để tìm kiếm toàn văn bản bằng Elasticsearch — có thể tìm được nội dung bên trong file.</p>
+              <p className="mt-1 text-xs text-gray-400">Nhấn Enter để tìm kiếm toàn văn bản — có thể tìm được nội dung bên trong file.</p>
             </div>
           ) : (
             <ul className="max-h-80 overflow-y-auto py-1">
