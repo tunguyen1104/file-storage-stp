@@ -70,6 +70,7 @@ dependencies {
 	// ── Elasticsearch (search + indexing pipeline) ──────────────────────────
 	implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch")
 
+	implementation("com.sendgrid:sendgrid-java:4.10.3")
 	// ── Code Generation: Lombok + MapStruct ─────────────────────────────────
 	compileOnly("org.projectlombok:lombok")
 	annotationProcessor("org.projectlombok:lombok")

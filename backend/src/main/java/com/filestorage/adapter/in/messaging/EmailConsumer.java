@@ -1,20 +1,21 @@
 package com.filestorage.adapter.in.messaging;
 
 import com.filestorage.adapter.out.messaging.event.EmailEvent;
+import com.filestorage.application.usecase.email.EmailDeliveryException;
 import com.filestorage.application.usecase.email.EmailDispatchService;
 import com.filestorage.infrastructure.config.RabbitMQConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.mail.MailException;
 import org.springframework.stereotype.Component;
 
 /**
  * Inbound RabbitMQ adapter — consumes {@link EmailEvent} messages from {@code email.queue}
- * and delegates to {@link EmailDispatchService} for SMTP delivery.
+ * and delegates to {@link EmailDispatchService} for SendGrid delivery.
  * <p>
- * On {@link MailException} the exception is re-thrown so Spring AMQP's retry interceptor
- * can attempt up to 3 deliveries before routing the message to the DLQ ({@code email.dlq}).
+ * On {@link EmailDeliveryException} the exception is re-thrown so Spring AMQP's retry
+ * interceptor can attempt up to 3 deliveries before routing the message to the DLQ
+ * ({@code email.dlq}).
  */
 @Component
 @Slf4j
@@ -28,10 +29,10 @@ public class EmailConsumer {
         log.debug("Received email event [{}] for {}", event.type(), event.to());
         try {
             emailDispatchService.send(event);
-        } catch (MailException e) {
-            log.error("SMTP failure for email event [{}] to={}: {} — will retry / route to DLQ",
+        } catch (EmailDeliveryException e) {
+            log.error("SendGrid failure for email event [{}] to={}: {} — will retry / route to DLQ",
                     event.type(), event.to(), e.getMessage());
-            throw e; // rethrow → triggers retry interceptor → DLQ after exhaustion
+            throw e;
         }
     }
 }

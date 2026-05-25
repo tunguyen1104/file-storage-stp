@@ -1,15 +1,16 @@
 package com.filestorage.application.usecase.email;
 
 import com.filestorage.adapter.out.messaging.event.EmailEvent;
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
-import lombok.RequiredArgsConstructor;
+import com.sendgrid.Method;
+import com.sendgrid.Request;
+import com.sendgrid.Response;
+import com.sendgrid.SendGrid;
+import com.sendgrid.helpers.mail.Mail;
+import com.sendgrid.helpers.mail.objects.Content;
+import com.sendgrid.helpers.mail.objects.Email;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.mail.MailException;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -17,43 +18,61 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
- * Application-layer service responsible for constructing and sending emails.
+ * Application-layer service responsible for constructing and sending emails via SendGrid.
  * <p>
  * Loads HTML templates from {@code classpath:templates/email/} and substitutes
  * {@code {{key}}} placeholders with values from the event's {@code payload}.
  * <p>
- * Delegates to {@link JavaMailSender} — any {@link MailException} is re-thrown
- * so that the RabbitMQ consumer can trigger retry / DLQ routing.
+ * Throws {@link EmailDeliveryException} on any non-2xx SendGrid response or I/O failure
+ * so the RabbitMQ consumer can trigger retry / DLQ routing.
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class EmailDispatchService {
 
-    private final JavaMailSender mailSender;
+    private final SendGrid sendGrid;
+    private final String fromAddress;
 
-    @Value("${app.mail.from}")
-    private String fromAddress;
+    public EmailDispatchService(
+            @Value("${sendgrid.apiKey}") String apiKey,
+            @Value("${app.mail.from}") String fromAddress) {
+        this.sendGrid = new SendGrid(apiKey);
+        this.fromAddress = fromAddress;
+    }
 
     public void send(EmailEvent event) {
         String templatePath = resolveTemplatePath(event.type());
         String html = loadAndInterpolate(templatePath, event.payload());
         String subject = resolveSubject(event.type());
 
+        Mail mail = new Mail(
+                new Email(fromAddress),
+                subject,
+                new Email(event.to()),
+                new Content("text/html", html));
+
+        Request request = new Request();
+        request.setMethod(Method.POST);
+        request.setEndpoint("mail/send");
+
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
-            helper.setFrom(fromAddress);
-            helper.setTo(event.to());
-            helper.setSubject(subject);
-            helper.setText(html, true); // isHtml = true
+            request.setBody(mail.build());
+            Response response = sendGrid.api(request);
 
-            mailSender.send(message);
-            log.info("Email [{}] sent successfully to {}", event.type(), event.to());
-
-        } catch (MessagingException e) {
-            // Wrap checked exception so callers only need to handle MailException hierarchy
-            throw new org.springframework.mail.MailSendException("Failed to build MIME message", e);
+            int status = response.getStatusCode();
+            if (status >= 200 && status < 300) {
+                log.info("Email [{}] sent to {} via SendGrid (status={})",
+                        event.type(), event.to(), status);
+            } else {
+                log.error("SendGrid rejected email [{}] to={}: status={} body={}",
+                        event.type(), event.to(), status, response.getBody());
+                throw new EmailDeliveryException(
+                        "SendGrid returned non-2xx status " + status + ": " + response.getBody());
+            }
+        } catch (IOException e) {
+            log.error("SendGrid I/O failure for email [{}] to={}: {}",
+                    event.type(), event.to(), e.getMessage());
+            throw new EmailDeliveryException("Failed to send email via SendGrid", e);
         }
     }
 
@@ -94,4 +113,3 @@ public class EmailDispatchService {
         }
     }
 }
-
