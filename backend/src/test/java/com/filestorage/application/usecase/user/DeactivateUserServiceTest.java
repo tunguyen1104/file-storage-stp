@@ -10,6 +10,7 @@ import com.filestorage.adapter.out.persistence.repository.UserJpaRepository;
 import com.filestorage.domain.model.enums.RoleCode;
 import com.filestorage.domain.port.in.user.DeactivateUserUseCase;
 import com.filestorage.shared.exception.AppException;
+import com.filestorage.shared.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,7 +52,41 @@ class DeactivateUserServiceTest {
         when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(target));
 
         var command = new DeactivateUserUseCase.DeactivateUserCommand(userId, tenantId, RoleCode.TENANT_ADMIN, userId);
-        assertThrows(AppException.class, () -> deactivateUserService.execute(command));
+        AppException ex = assertThrows(AppException.class, () -> deactivateUserService.execute(command));
+        assertEquals(ErrorCode.SELF_DEACTIVATION_FORBIDDEN, ex.getError());
+    }
+
+    @Test
+    void tenantAdminCannotDeactivateAnotherTenantAdminInSameTenant() {
+        UUID targetUserId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        User target = userEntity(targetUserId, tenantId, RoleCode.TENANT_ADMIN);
+        when(userRepository.findByIdForUpdate(targetUserId)).thenReturn(Optional.of(target));
+
+        var command = new DeactivateUserUseCase.DeactivateUserCommand(
+                UUID.randomUUID(), tenantId, RoleCode.TENANT_ADMIN, targetUserId
+        );
+
+        AppException ex = assertThrows(AppException.class, () -> deactivateUserService.execute(command));
+        assertEquals(ErrorCode.TENANT_ADMIN_DEACTIVATION_FORBIDDEN, ex.getError());
+    }
+
+    @Test
+    void superAdminCanDeactivateTenantAdmin() {
+        UUID targetUserId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        User target = userEntity(targetUserId, tenantId, RoleCode.TENANT_ADMIN);
+        when(userRepository.findByIdForUpdate(targetUserId)).thenReturn(Optional.of(target));
+        when(tenantRepository.findByIdForUpdate(tenantId)).thenReturn(Optional.of(target.getTenant()));
+
+        var command = new DeactivateUserUseCase.DeactivateUserCommand(
+                UUID.randomUUID(), UUID.randomUUID(), RoleCode.SUPER_ADMIN, targetUserId
+        );
+
+        var result = deactivateUserService.execute(command);
+
+        assertFalse(result.isActive());
+        assertFalse(target.isActive());
     }
 
     @Test

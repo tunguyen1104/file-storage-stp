@@ -26,6 +26,12 @@ final class UserWritePolicy {
         }
     }
 
+    static void requireTenantAdminDeactivationAllowed(User target, RoleCode actorRole) {
+        if (actorRole == RoleCode.TENANT_ADMIN && target.getRole().getCode() == RoleCode.TENANT_ADMIN) {
+            throw new AppException(ErrorCode.TENANT_ADMIN_DEACTIVATION_FORBIDDEN);
+        }
+    }
+
     static void requireRoleAssignmentAllowed(Role role, RoleCode actorRole) {
         if (actorRole == RoleCode.TENANT_ADMIN && role.getCode() == RoleCode.SUPER_ADMIN) {
             throw new AppException(ErrorCode.ROLE_ESCALATION_FORBIDDEN);
