@@ -9,6 +9,9 @@ import { SearchBar } from "@/components/search/SearchBar";
 import { SearchInputProvider } from "@/contexts/search-input-context";
 import { UploadProvider } from "@/contexts/upload-context";
 import { UploadFloatingWidget } from "@/components/upload/UploadFloatingWidget";
+import { ChatProvider } from "@/contexts/chat-context";
+import { ChatFloatingButton } from "@/components/chat/ChatFloatingButton";
+import { ChatSheet } from "@/components/chat/ChatSheet";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -96,6 +99,7 @@ export default function DashboardLayout({
   return (
     <UploadProvider>
     <SearchInputProvider>
+    <ChatProvider>
     <div className="flex h-screen overflow-hidden bg-gray-50 text-gray-900">
       <aside className={cn(
         "fixed inset-y-0 left-0 z-30 hidden border-r border-gray-200 bg-white md:flex md:flex-col transition-all duration-300",
@@ -171,6 +175,9 @@ export default function DashboardLayout({
       </div>
     </div>
     <UploadFloatingWidget />
+    <ChatFloatingButton />
+    <ChatSheet />
+    </ChatProvider>
     </SearchInputProvider>
     </UploadProvider>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, Suspense, useEffect } from "react";
+import React, { useState, useCallback, useRef, Suspense, useEffect, memo } from "react";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import {
@@ -290,7 +290,7 @@ function FilesPageInner() {
     setItemToMove(null);
   }
 
-  const handleDirectDownload = async (fileId: string, originalName: string) => {
+  const handleDirectDownload = useCallback(async (fileId: string, originalName: string) => {
     try {
       const { getUrl } = await getPresignedGetUrl(fileId);
       const link = document.createElement("a");
@@ -302,9 +302,36 @@ function FilesPageInner() {
     } catch (err) {
       console.error("Direct download failed", err);
     }
-  };
+  }, []);
 
-  function handleItemSelect(item: any) {
+  const handleDownload = useCallback(async (file: FileMetadataResponse) => {
+    try {
+      const { downloadUrl } = await downloadFile(file.id);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = file.originalName;
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Tải xuống tệp tin thất bại");
+    }
+  }, []);
+
+  const handlePreview = useCallback(async (file: FileMetadataResponse) => {
+    try {
+      const { getUrl } = await getPresignedGetUrl(file.id);
+
+      window.open(getUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không thể xem trước tệp tin");
+    }
+  }, []);
+
+
+
+  const handleItemSelect = useCallback((item: any) => {
     if (item.type === "folder") {
       setCurrentFolderId(item.id);
       setCurrentPage(1);
@@ -343,9 +370,9 @@ function FilesPageInner() {
         });
       }
     }
-  }
+  }, [handleDirectDownload, handlePreview]);
 
-  const handleSort = (newSortBy: FileSortBy) => {
+  const handleSort = useCallback((newSortBy: FileSortBy) => {
     setSort(prev => {
       if (prev.sortBy === newSortBy) {
         return { ...prev, sortDirection: prev.sortDirection === SORT_DIRECTION.ASC ? SORT_DIRECTION.DESC : SORT_DIRECTION.ASC };
@@ -353,9 +380,9 @@ function FilesPageInner() {
       return { sortBy: newSortBy, sortDirection: SORT_DIRECTION.DESC };
     });
     setCurrentPage(1);
-  };
+  }, []);
 
-  const handleAction = async (e: React.MouseEvent, action: string, item: any) => {
+  const handleAction = useCallback(async (e: React.MouseEvent, action: string, item: any) => {
     e.stopPropagation();
     const itemName = item.name || item.originalName;
     const isFolder = item.type === "folder" || !item.mimeType;
@@ -426,32 +453,7 @@ function FilesPageInner() {
         }
         break;
     }
-  };
-
-  const handleDownload = useCallback(async (file: FileMetadataResponse) => {
-    try {
-      const { downloadUrl } = await downloadFile(file.id);
-      const a = document.createElement("a");
-      a.href = downloadUrl;
-      a.download = file.originalName;
-      a.rel = "noopener noreferrer";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Tải xuống tệp tin thất bại");
-    }
-  }, []);
-
-  const handlePreview = useCallback(async (file: FileMetadataResponse) => {
-    try {
-      const { getUrl } = await getPresignedGetUrl(file.id);
-
-      window.open(getUrl, "_blank", "noopener,noreferrer");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể xem trước tệp tin");
-    }
-  }, []);
+  }, [handleDownload, mutate]);
 
   // ── Drag & drop ──
   const [isDragging, setIsDragging] = useState(false);
@@ -958,7 +960,7 @@ function SortHeader({
 
 // ─── List View ───────────────────────────────────────────────────
 
-function FileListView({
+const FileListView = memo(function FileListView({
   items,
   isLoading,
   sort,
@@ -1094,11 +1096,11 @@ function FileListView({
       </table>
     </div>
   );
-}
+});
 
 // ─── Grid View ───────────────────────────────────────────────────
 
-function FileGridView({
+const FileGridView = memo(function FileGridView({
   items,
   isLoading,
   onSelect,
@@ -1174,7 +1176,7 @@ function FileGridView({
       })}
     </div>
   );
-}
+});
 
 // ─── Default export wrapped in Suspense (required for useSearchParams) ───
 
