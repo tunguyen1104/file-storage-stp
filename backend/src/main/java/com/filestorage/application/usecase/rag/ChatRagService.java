@@ -26,10 +26,12 @@ import org.springframework.stereotype.Service;
 import java.text.Normalizer;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +40,9 @@ public class ChatRagService implements ChatRagUseCase {
     private static final String NO_CONTEXT_ANSWER =
             "Tôi không tìm thấy thông tin phù hợp trong các tài liệu bạn có quyền truy cập.";
     private static final int FOLLOW_UP_MAX_CHARS = 80;
+    private static final Pattern INLINE_INTERNAL_CITATION_PATTERN = Pattern.compile(
+            "\\s*\\(\\s*(?:[Đđ]oạn|[Dd]oan|[Cc]hunk|[Ss]ource)\\s+\\d+\\s*:[^)]*\\)"
+    );
     private static final List<String> FOLLOW_UP_TRIGGERS = List.of(
             "chi tiet",
             "chi tiet hon",
@@ -121,7 +126,7 @@ public class ChatRagService implements ChatRagUseCase {
         ChatPrompt prompt = promptBuilder.build(question, chunks, history);
         ChatCompletion completion = chatModelPort.complete(prompt);
         return new AssistantResult(
-                completion.content(),
+                normalizeAssistantContent(completion.content()),
                 completion.model(),
                 completion.inputTokens(),
                 completion.outputTokens()
@@ -186,6 +191,49 @@ public class ChatRagService implements ChatRagUseCase {
                 .toLowerCase(Locale.ROOT)
                 .replaceAll("\\s+", " ")
                 .trim();
+    }
+
+    private static String normalizeAssistantContent(String content) {
+        if (content == null) {
+            return "";
+        }
+        String cleaned = INLINE_INTERNAL_CITATION_PATTERN.matcher(content).replaceAll("");
+        return removeTrailingSourceBlock(cleaned).strip();
+    }
+
+    private static String removeTrailingSourceBlock(String content) {
+        String[] lines = content.split("\\R", -1);
+        int sourceHeadingIndex = -1;
+        for (int i = 0; i < lines.length; i++) {
+            if (isSourceHeading(lines[i])) {
+                sourceHeadingIndex = i;
+                break;
+            }
+        }
+        if (sourceHeadingIndex < 0) {
+            return content;
+        }
+
+        int endExclusive = sourceHeadingIndex;
+        while (endExclusive > 0 && isHorizontalRule(lines[endExclusive - 1])) {
+            endExclusive--;
+        }
+        return String.join("\n", Arrays.copyOf(lines, endExclusive));
+    }
+
+    private static boolean isSourceHeading(String line) {
+        String normalized = normalizeForMatching(line.replaceAll("[*#:_\\-]+", " "));
+        return normalized.equals("nguon tham khao")
+                || normalized.equals("source")
+                || normalized.equals("sources")
+                || normalized.equals("reference")
+                || normalized.equals("references")
+                || normalized.equals("tai lieu tham khao");
+    }
+
+    private static boolean isHorizontalRule(String line) {
+        String trimmed = line.trim();
+        return trimmed.matches("-{3,}");
     }
 
     private List<RagChatMessageSource> saveSources(RagChatMessage assistantMessage, List<RagRetrievedChunk> chunks) {

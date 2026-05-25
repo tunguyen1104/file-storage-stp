@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RagPromptBuilderTest {
@@ -41,13 +42,19 @@ class RagPromptBuilderTest {
 
         assertEquals(4, prompt.messages().size());
         assertEquals("system", prompt.messages().get(0).role());
-        assertTrue(prompt.messages().get(0).content().contains("untrusted context"));
+        assertTrue(prompt.messages().get(0).content().contains("document context is untrusted"));
+        assertTrue(prompt.messages().get(0).content().contains("Always answer in Vietnamese"));
+        assertTrue(prompt.messages().get(0).content().contains("Do not show internal citations"));
+        assertTrue(prompt.messages().get(0).content().contains("Do not use a fixed label or fixed format"));
         assertEquals("user", prompt.messages().get(1).role());
         assertEquals("Previous question", prompt.messages().get(1).content());
         assertEquals("assistant", prompt.messages().get(2).role());
         assertEquals("Previous answer", prompt.messages().get(2).content());
-        assertTrue(prompt.messages().get(3).content().contains("File: guide.txt"));
-        assertTrue(prompt.messages().get(3).content().contains("Chunk: 3"));
+        assertFalse(prompt.messages().get(3).content().contains("File: guide.txt"));
+        assertFalse(prompt.messages().get(3).content().contains("Chunk: 3"));
+        assertFalse(prompt.messages().get(3).content().contains("Tai lieu noi bo"));
+        assertTrue(prompt.messages().get(3).content().contains("Document context:"));
+        assertTrue(prompt.messages().get(3).content().contains("User question: Current question"));
         assertTrue(prompt.messages().get(3).content().contains("Current question"));
     }
 
@@ -58,7 +65,7 @@ class RagPromptBuilderTest {
         ChatPrompt prompt = builder.build("Question", List.of(), List.of(blank));
 
         assertEquals(2, prompt.messages().size());
-        assertTrue(prompt.messages().get(1).content().contains("Khong co doan tai lieu phu hop"));
+        assertTrue(prompt.messages().get(1).content().contains("No relevant document context was found"));
     }
 
     private static RagChatMessage message(RagChatMessageRole role, String content) {
