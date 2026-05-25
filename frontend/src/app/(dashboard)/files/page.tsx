@@ -460,7 +460,6 @@ function FilesPageInner() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-gray-50">
-
       {/* ── Main content area ── */}
       <div className="flex flex-1 overflow-hidden min-h-0">
         {/* ─────────── File list column ─────────── */}
@@ -659,6 +658,22 @@ function FilesPageInner() {
                 }}
               />
             )}
+
+            {/* ── Local filter bar ── */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                <Input
+                  className="h-8 border-gray-200 bg-white pl-8 text-sm placeholder:text-gray-400 focus-visible:ring-[#7C3AED]/30"
+                  placeholder="Tìm tên trong thư mục này..."
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                />
+              </div>
+            </div>
 
             {viewMode === "list" ? (
               <FileListView
